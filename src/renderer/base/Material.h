@@ -25,7 +25,7 @@ namespace EnGl
 				return m_Shader != nullptr;
 			};
 
-			virtual void SetUniforms() const = 0;
+			virtual void SetUniforms() const {};
 
 			void SetModel(const glm::mat4& model) const
 			{
@@ -63,8 +63,7 @@ namespace EnGl
 
 				if (ok)
 				{
-					m_Shader->SetUniform("uView", *context.Camera.View);
-					m_Shader->SetUniform("uProjection", *context.Camera.Projection);
+					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				}
 				
 				return ok;
@@ -94,8 +93,7 @@ namespace EnGl
 				bool ok = Base::SetCommonUniforms(context);
 				if (ok)
 				{
-					m_Shader->SetUniform("uView", *context.Camera.View);
-					m_Shader->SetUniform("uProjection", *context.Camera.Projection);
+					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				}
 				return ok;
 			}
@@ -155,8 +153,7 @@ namespace EnGl
 				bool ok = Base::SetCommonUniforms(context);
 				if (ok)
 				{
-					m_Shader->SetUniform("uView", *context.Camera.View);
-					m_Shader->SetUniform("uProjection", *context.Camera.Projection);
+					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				}
 
 				return ok;
@@ -172,6 +169,23 @@ namespace EnGl
 					m_Shader->SetUniform("uMaterial.uSpecular", *textureS, 1);
 					m_Shader->SetUniform("uMaterial.uShininness", Shininess);
 				}
+			}
+		};
+
+		struct CoordinatePlane : public Base
+		{
+			CoordinatePlane() : Base(AssetManager::GRAPHICS_SHADER_DIR / "CoordinatePlane") {}
+
+			bool SetCommonUniforms(const GameContext & context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (ok)
+				{
+					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				}
+
+				return ok;
 			}
 		};
 	}

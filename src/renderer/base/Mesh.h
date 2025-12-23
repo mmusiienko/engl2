@@ -20,12 +20,19 @@ namespace EnGl
 			glm::vec2 TexCoord;
 		};
 
+		struct AABB
+		{
+			glm::vec3 Min;
+			glm::vec3 Max;
+		};
+
 		struct CreationInfo
 		{
 			std::vector<Vertex> Vertices;
 			std::vector<Index> Indices;
 			bool HasNormals;
 			bool HasTextureCoords;
+			AABB Aabb;
 		};
 
 		Mesh(const CreationInfo& info);
@@ -38,11 +45,13 @@ namespace EnGl
 			m_SSBO = std::move(other.m_SSBO);
 			m_IndicesSize = other.m_IndicesSize;
 			m_InstanceSize = other.m_InstanceSize;
+			m_AABB = other.m_AABB;
 			other.m_Id = 0;
 			other.m_VBO = 0;
 			other.m_EBO = 0;
 			other.m_IndicesSize = 0;
 			other.m_InstanceSize = 0;
+			other.m_AABB = {};
 		};
 
 		Mesh& operator=(Mesh&& other) noexcept
@@ -53,9 +62,10 @@ namespace EnGl
 			m_SSBO = std::move(other.m_SSBO);
 			m_IndicesSize = other.m_IndicesSize;
 			m_InstanceSize = other.m_InstanceSize;
+			m_AABB = other.m_AABB;
 			other.m_IndicesSize = 0;
 			other.m_InstanceSize = 0;
-
+			other.m_AABB = {};
 			return *this;
 		};
 
@@ -63,12 +73,14 @@ namespace EnGl
 		void UpdateInstanceBuffer(const std::vector<glm::mat4>& transforms);
 		void DrawInstanced();
 		~Mesh() override;
-		static void Unbind();
+
+		inline AABB& GetAABB() { return m_AABB; }
+		inline const AABB& GetAABB() const { return m_AABB; }
 	private:
 		size_t m_IndicesSize = 0;
 		u32 m_VBO = 0;
 		u32 m_EBO = 0;
-
+		AABB m_AABB{};
 		SSBO m_SSBO{ nullptr, 0 };
 		size_t m_InstanceSize = 0;
 	};

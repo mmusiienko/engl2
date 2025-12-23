@@ -1,5 +1,6 @@
 #pragma once
 #include "components/Components.h"
+#include "../resources/DebugMesh.h"
 
 
 namespace EnGl
@@ -8,12 +9,27 @@ namespace EnGl
 	{
 		struct CameraInfo
 		{
-			std::vector<EcsImpl::Entity> Cameras;
-			size_t CameraIdx = 0;
-			glm::mat4* View;
-			glm::mat4* Projection;
+			struct Camera
+			{
+				EcsImpl::Entity Entity;
+				bool CanRotate = false;
+				glm::vec3* Position;
+				glm::vec3 Forward;
+				glm::vec3 Right;
+				glm::vec3 Up;
+				glm::mat4* View;
+				glm::mat4* Projection;
+				glm::mat4 InverseView;
+				glm::mat4 InverseProjection;
+				glm::mat4 ViewProjection;
+				glm::mat4 InverseViewProjection;
+			};
 
-			inline EcsImpl::Entity Get() const { return Cameras[CameraIdx]; }
+
+			std::vector<Camera> Cameras;
+			size_t CameraIdx = 0;
+			
+			inline Camera Get() const { return Cameras[CameraIdx]; }
 		};
 
 		struct InstancedMaterialMapKey
@@ -72,5 +88,22 @@ namespace EnGl
 
 		Texture2D* ColorTexture = nullptr;
 		Texture2D* DepthTexture = nullptr;
+
+		struct DebugInfo
+		{
+			DebugMesh DebugMeshes;
+			u32 DrawMode = GL_FILL;
+
+			struct Draw
+			{
+				bool Enabled = false;
+				bool AABB = false;
+				bool Camera = false;
+			};
+
+			Draw Draw;
+		};
+
+		DebugInfo Debug;
 	};
 }

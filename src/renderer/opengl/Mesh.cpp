@@ -5,7 +5,7 @@
 
 namespace EnGl
 {
-	Mesh::Mesh(const CreationInfo& info)
+	Mesh::Mesh(const CreationInfo& info) : m_AABB(info.Aabb)
 	{
 		GL_CHECK(glGenVertexArrays(1, &m_Id));
 		GL_CHECK(glBindVertexArray(m_Id));
@@ -64,17 +64,8 @@ namespace EnGl
 		glDrawElementsInstanced(GL_TRIANGLES, m_IndicesSize, GL_UNSIGNED_INT, 0, m_InstanceSize);
 	}
 
-	void Mesh::Unbind()
-	{
-		GL_CHECK(glBindVertexArray(0));
-		GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-	}
-
 	Mesh::~Mesh()
 	{
-		Unbind();
-
 		GL_CHECK(glDeleteVertexArrays(1, &m_Id));
 		GL_CHECK(glDeleteBuffers(1, &m_VBO));
 		GL_CHECK(glDeleteBuffers(1, &m_EBO));

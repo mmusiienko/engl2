@@ -14,6 +14,8 @@ namespace EnGl
 		{
 			u32 Wrap = GL_REPEAT;
 			u32 Filtering = GL_LINEAR;
+
+			auto operator<=>(const CommonInfo&) const = default;
 		};
 
 		struct CreationInfoFromData
@@ -86,5 +88,21 @@ namespace EnGl
 
 	protected:
 		void CreateTexture3DFromData(u32 w, u32 h, u32 d, const CreationInfoFromData& info);
+	};
+}
+
+namespace std
+{
+	template<>
+	struct hash<EnGl::Texture::CommonInfo>
+	{
+		size_t operator()(const EnGl::Texture::CommonInfo& info) const
+		{
+			size_t res = 0;
+			EnGl::hash_combine(res, info.Wrap);
+			EnGl::hash_combine(res, info.Filtering);
+
+			return res;
+		}
 	};
 }

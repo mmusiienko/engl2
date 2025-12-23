@@ -66,14 +66,9 @@ namespace EnGl
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
 
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 		glfwSwapInterval(0);
 
 		glfwSetWindowUserPointer(m_Window, this);
-
-		glm::vec4 clearColor{ 0.2f, 0.3f, 0.3f, 0.0f };
 
 		EcsImpl::Entity camera = World().eEntity().Create<
 			Component::Transform,
@@ -107,7 +102,8 @@ namespace EnGl
 
 		auto screenSpaceTexturedMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::ScreenSpaceTextured>(colorTexHandle));
 		auto unlitMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::Unlit>(glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f }));
-		auto worldPlaneMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::Unlit>(glm::vec4{ 0.0f, 0.8f, 0.0f, 1.0f }));
+		auto worldPlaneMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::Unlit>(glm::vec4{ 0.0f, 0.7f, 0.0f, 1.0f }));
+		auto coordinatePlaneMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::CoordinatePlane>());
 		auto unlitIMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::Unlit>(true));
 
 		auto quad = World().eEntity().Create<
@@ -116,7 +112,6 @@ namespace EnGl
 		{
 			model.Model = StaticModel::Quad(screenSpaceTexturedMat);
 			model.Layer = Component::RenderLayer::SCREEN_QUAD;
-			spdlog::info(model.Model.Id);
 		});
 
 		auto worldPlane = World().eEntity().Create<
@@ -126,7 +121,16 @@ namespace EnGl
 			transform.Scale = glm::vec3{ 1000.0f };
 			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
 			model.Model = StaticModel::Quad(worldPlaneMat);
-			spdlog::info(model.Model.Id);
+		});
+
+		auto coordinatePlane = World().eEntity().Create<
+			Component::Transform, Component::ModelMatrix, Component::RenderedModel
+		>([coordinatePlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
+		{
+			transform.Scale = glm::vec3{ 2000.0f };
+			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+			model.Model = StaticModel::Quad(coordinatePlaneMat);
+			model.Layer = Component::RenderLayer::OL;
 		});
 
 		auto cubeModelIHandle = StaticModel::CubeInstanced(unlitIMat);
@@ -136,54 +140,29 @@ namespace EnGl
 
 		Ui ui{ m_Window };
 
-		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
-			[&buildingHandle](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-			{
-				transform.Position = { 0.0f, 50.0f, -6.0f };
-				model.Model = buildingHandle;
-				model.MeshIdx = 6;
-			}
-		);
-
-		for (size_t i = 0; i < 10000; i++)
+		size_t num = 100;
+		f32 spacing = 150.0f;
+		for (size_t i = 0; i < num; i++)
 		{
-//			World().eEntity().Create<Component::Transform, Component::Movement, Component::ModelMatrix, Component::RenderedModel>(
-//				[i, &cubeModelIHandle](Component::Transform& transform, Component::Movement& mov, auto&, Component::RenderedModel& model, auto&...) -> void
-//				{
-//					mov.SetDirection({ -1.0f, 0.0f, -1.0f });
-//					mov.Velocity = 0.0f;
-//					transform.Position = { 0.0f, 1.0f, -6.0f };
-//					model.Model = cubeModelIHandle;
-//				}
-//			);
-
-//			World().eEntity().Create<Component::Transform, Component::Movement, Component::ModelMatrix, Component::RenderedModel>(
-//				[i, &cubeModelHandle](Component::Transform& transform, Component::Movement& mov, auto&, Component::RenderedModel& model, auto&...) -> void
-//				{
-//					mov.SetDirection({ -1.0f, 0.1f, -1.0f });
-//					mov.Velocity = 10.0f;
-//					transform.Position = { 3 * i, 0.0f, 0 };
-//					model.Model = cubeModelHandle;
-//				}
-//			);
+			for (size_t j = 0; j < num; j++)
+			{
+				World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+					[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+					{
+						transform.Position = { spacing * i, 0.0f, spacing * j };
+						model.Model = cubeModelIHandle;
+						model.MeshIdx = 0;
+					}
+				);
+			}
 		}
 
-		/*std::vector<Entity> entts;
-		std::vector<PositionComponent> comps;
-		entts.resize(1000000);
-		comps.resize(1000000);
-
-		for (u32 i = 0; i < 1000000; i++)
-		{
-			entts[i] = i;
-			comps[i] = {};
-		}*/
-
 		World().eSystem<GameContext>()
-			.Add<System::CameraInput>()
+			.Add<System::Input>()
 			.Add<System::Movement>()
 			.Add<System::ModelMatrix>()
 			.Add<System::ViewProjectionMatrix>()
+			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
 			.Add<System::RenderToFramebuffer>()
 			.Add<System::BindDefaultFramebuffer>()
@@ -191,9 +170,9 @@ namespace EnGl
 			.Add<System::Cleanup>();
 			
 		f64 timeLastFrame = 0.0f;
-		GameContext context{  };
-		context.Camera.Cameras.push_back(camera);
-		context.Camera.Cameras.push_back(camera2);
+		GameContext context{};
+		context.Camera.Cameras.push_back({ .Entity = camera });
+		context.Camera.Cameras.push_back({ .Entity = camera2, .CanRotate = true });
 
 		while (!glfwWindowShouldClose(m_Window))
 		{
@@ -218,7 +197,7 @@ namespace EnGl
 					World().eSystem<GameContext>().Run(context);
 				}
 
-				ui.Render(context);
+				ui.Render(context, World().eEntity());
 
 			ui.Present();
 

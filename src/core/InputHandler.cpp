@@ -51,12 +51,6 @@ namespace EnGl
 		else if (action == GLFW_RELEASE)
 			State.KeysReleased[key] = true;
 
-		if (key == GLFW_KEY_F2 && action == GLFW_PRESS)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		if (key == GLFW_KEY_F1 && action == GLFW_PRESS)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
 		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		{
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -96,6 +90,8 @@ namespace EnGl
 
 	void InputHandler::ResetState()
 	{
+		State.MouseDelta = {};
+
 		for (size_t i = 0; i < MAX_KEYS; i++)
 		{
 			State.KeysHeld[i] = false;

@@ -26,13 +26,13 @@ namespace EnGl
 		ImGui::DestroyContext();
 	}
 
-	void Ui::Render(GameContext& context)
+	void Ui::Render(GameContext& context, EcsImpl::EntityManager& manager)
 	{
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		Frame(context);
+		Frame(context, manager);
 
 		ImGui::Render();
 	}
@@ -42,7 +42,7 @@ namespace EnGl
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
 
-	void Ui::Frame(GameContext& context)
+	void Ui::Frame(GameContext& context, EcsImpl::EntityManager& manager)
 	{
 		ImGui::Begin("Configuration");
 
@@ -50,21 +50,36 @@ namespace EnGl
 
 		ImGui::Separator();
 
-		CameraView(context.Camera);
+		CameraView(context.Camera, manager);
+
+		DebugView(context.Debug, manager);
 
 		ImGui::End();
 	}
 
-	void Ui::CameraView(GameContext::CameraInfo& cameraInfo)
+	void Ui::CameraView(GameContext::CameraInfo& cameraInfo, EcsImpl::EntityManager& manager)
 	{
-		ImGui::Text("Selected Camera Id: %d", cameraInfo.Get());
-		for (const auto [idx, camId] : std::views::enumerate(cameraInfo.Cameras))
+		ImGui::Separator();
+		ImGui::Text("Selected Camera: %d", cameraInfo.CameraIdx);
+		auto& camTransform = manager.Get<Component::Transform>(cameraInfo.Get().Entity);
+		ImGui::InputFloat3("Selected Camera Pos: ", glm::value_ptr(*cameraInfo.Get().Position));
+		for (const auto& [idx, cam] : std::views::enumerate(cameraInfo.Cameras))
 		{
-			auto label = "Camera Id: " + std::to_string(camId) + "##SelectCamera" + std::to_string(idx);
+			auto idxstr = std::to_string(idx);
+			auto label = "Camera Id: " + idxstr + "##SelectCamera" + idxstr;
 			if (ImGui::Button(label.c_str()))
 			{
 				cameraInfo.CameraIdx = idx;
 			}
 		}
+	}
+
+	void Ui::DebugView(GameContext::DebugInfo& debug, EcsImpl::EntityManager& manager)
+	{
+		ImGui::Separator();
+		ImGui::Text("Debug flags");
+		ImGui::Checkbox("Enable", &debug.Draw.Enabled);
+		ImGui::Checkbox("Draw Cameras", &debug.Draw.Camera);
+		ImGui::Checkbox("Draw Bounding Boxes", &debug.Draw.AABB);
 	}
 }

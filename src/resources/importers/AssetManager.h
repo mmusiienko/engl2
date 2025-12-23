@@ -17,16 +17,21 @@ namespace EnGl
 	template<typename AssetT>
 	class AssetImporter;
 
+	template<typename AssetT>
+	struct AssetImporterParamsHash;
+
 	class AssetManager
 	{
 	private:
-		template<typename AssetT>
-		using KeyT = decltype(std::declval<typename AssetImporter<AssetT>::Params>().Key());
 
 		template<typename AssetT>
 		struct Storage
 		{
-			std::unordered_map<KeyT<AssetT>, AssetId> PathToAsset;
+			std::unordered_map<
+				typename AssetImporter<AssetT>::Params,
+				AssetId,
+				AssetImporterParamsHash<AssetT>
+			> PathToAsset;
 			std::vector<AssetT> Assets;
 			std::vector<u32> Generations;
 			std::vector<bool> Alive;
@@ -103,14 +108,13 @@ namespace EnGl
 		}
 
 		template<typename AssetT>
-		static AssetHandle<AssetT> Load(const AssetImporter<AssetT>::Params& params)
+		static AssetHandle<AssetT> Load(AssetImporter<AssetT>::Params params)
 		{
 			auto& storage = GetAssetStorage<AssetT>();
-			auto key = params.Key();
 
-			if (storage.PathToAsset.contains(key))
+			if (storage.PathToAsset.contains(params))
 			{
-				AssetId id = storage.PathToAsset.at(key);
+				AssetId id = storage.PathToAsset.at(params);
 				u32 gen = storage.Generations[id];
 				return AssetHandle<AssetT>
 				{
@@ -121,7 +125,7 @@ namespace EnGl
 
 			auto asset = AssetImporter<AssetT>::Import(params);
 			auto handle = Put<AssetT>(std::move(asset));
-			storage.PathToAsset.insert({ std::move(key) , handle.Id});
+			storage.PathToAsset.insert({ std::move(params), handle.Id});
 
 			return handle;
 		}
@@ -157,6 +161,17 @@ namespace EnGl
 				};
 			}
 		public:
+
+		template<typename AssetT>
+		static void ReloadAll()
+		{
+			auto& storage = GetAssetStorage<AssetT>();
+
+			for (const auto& [importParams, id] : storage.PathToAsset)
+			{
+				storage.Assets[id] = AssetImporter<AssetT>::Import(importParams);
+			}
+		}
 
 		template<typename AssetT, typename... Args>
 		static AssetHandle<AssetT> Put(Args&&... args)

@@ -30,6 +30,8 @@ namespace EnGl
 
 		void Use() const;
 
+
+
 		u32 GetLocation(const std::string& name) const;
 		void SetUniform(const std::string& name, i32 value) const;
 		void SetUniform(const std::string& name, u32 value) const;
@@ -42,6 +44,9 @@ namespace EnGl
 		void SetUniform(const std::string& name, const glm::vec3& value) const;
 		void SetUniform(const std::string& name, const glm::vec2& value) const;
 		void SetUniform(const std::string& name, const Texture& value, u32 unit) const;
+		void SetUniform(const std::string& name, void*) = delete;
+		void SetUniform(const std::string& name, const void*) = delete;
+		void SetUniform(const std::string& name, std::nullptr_t) = delete;
 
 		void BindTextureUnit(const Texture& tex, u32 unit) const;
 		void BindSSBO(const SSBO& ssbo, u32 unit) const;

@@ -15,11 +15,22 @@ namespace EnGl
 	static scope<Material::Base> GetMaterial(aiMaterial* mat, const std::string& modelDirName, bool isInstanced);
 	static std::optional<AssetHandle<Texture2D>> TryGetTexture(aiMaterial* mat, aiTextureType type, const std::string& modelDirName);
 
+	static glm::vec3 ToVec3(const aiVector3D& vec3)
+	{
+		return { vec3.x, vec3.y, vec3.z };
+	}
+
+	static Mesh::AABB ToAABB(const aiAABB& aabb)
+	{
+		return { .Min = ToVec3(aabb.mMin), .Max = ToVec3(aabb.mMax) };
+	}
+
 	Model AssetImporter<Model>::Import(const Params& params)
 	{
+		static u32 flags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes | aiProcess_GenBoundingBoxes;
 		Assimp::Importer importer;
 
-		const aiScene* scene = importer.ReadFile(params.Path.string(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes);
+		const aiScene* scene = importer.ReadFile(params.Path.string(), flags);
 
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
@@ -62,7 +73,7 @@ namespace EnGl
 		std::vector<Mesh::Vertex> vertices;
 
 		std::vector<Mesh::Index> indices;
-
+		
 		bool hasNormals = aMesh->HasNormals();
 		bool hasTextureCoords = aMesh->HasTextureCoords(0);
 		for (size_t i = 0; i < aMesh->mNumVertices; i++)
@@ -75,7 +86,7 @@ namespace EnGl
 			if (hasNormals)
 			{
 				auto norm = aMesh->mNormals[i];
-				vnorm = { norm.x, norm.y, norm.z };
+				vnorm = ToVec3(norm);
 			}
 
 			if (hasTextureCoords)
@@ -116,10 +127,10 @@ namespace EnGl
 				.Vertices = vertices,
 				.Indices = indices,
 				.HasNormals = hasNormals,
-				.HasTextureCoords = hasTextureCoords
+				.HasTextureCoords = hasTextureCoords,
+				.Aabb = ToAABB(aMesh->mAABB)
 			}
 		});
-
 		auto materialHandle = AssetManager::Put<scope<Material::Base>>(std::move(material));
 
 		return { .Mesh = meshHandle, .Material = materialHandle };

@@ -102,6 +102,9 @@
     <ClCompile Include="resources\importers\AssetHandle.h">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="resources\DebugMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="imgui.ini" />
@@ -216,6 +219,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ecs\GameContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="resources\DebugMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

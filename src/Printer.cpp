@@ -9,6 +9,11 @@ namespace EnGl
 		std::cout << val.x << " " << val.y << " " << val.z << '\n';
 	}
 
+	void Printer::Print(const glm::quat& val)
+	{
+		std::cout <<  val.w << " " << val.x << " " << val.y << " " << val.z << '\n';
+	}
+
 	void Printer::Print(const glm::mat4& val)
 	{
 		std::cout << val[0][0] << " " << val[0][1] << " " << val[0][2] << " " << val[0][3] << '\n';

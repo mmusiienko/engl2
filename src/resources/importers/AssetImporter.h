@@ -19,10 +19,7 @@ namespace EnGl
 		{
 			std::filesystem::path Path;
 			Params(std::filesystem::path path) : Path(std::move(path)) {}
-			auto Key() const
-			{
-				return Path;
-			}
+			auto operator<=>(const Params&) const = default;
 		};
 
 		static AssetT Import(const Params& params);
@@ -36,10 +33,7 @@ namespace EnGl
 
 		Params(std::filesystem::path path) : Path(std::move(path)) {}
 		Params(std::filesystem::path path, Texture::CommonInfo& params) : Path(std::move(path)), TextureParams(params) {}
-		auto Key() const
-		{
-			return Path;
-		}
+		auto operator<=>(const Params&) const = default;
 	};
 
 	template<>
@@ -50,10 +44,7 @@ namespace EnGl
 
 		Params(std::filesystem::path path) : Path(std::move(path)) {}
 		Params(std::filesystem::path path, bool isInstanced) : Path(std::move(path)), IsInstanced(isInstanced) {}
-		auto Key() const
-		{
-			return Path;
-		}
+		auto operator<=>(const Params&) const = default;
 	};
 
 	template<>
@@ -61,10 +52,7 @@ namespace EnGl
 	{
 		std::filesystem::path Directory;
 		Params(std::filesystem::path directory) : Directory(std::move(directory)) {}
-		auto Key() const
-		{
-			return Directory;
-		}
+		auto operator<=>(const Params&) const = default;
 	};
 
 	template<>
@@ -72,10 +60,7 @@ namespace EnGl
 	{
 		std::filesystem::path Directory;
 		Params(std::filesystem::path directory) : Directory(std::move(directory)) {}
-		auto Key() const
-		{
-			return Directory;
-		}
+		auto operator<=>(const Params&) const = default;
 	};
 
 //	template<>
@@ -105,4 +90,63 @@ namespace EnGl
 //		Cubemap Import(const FaceParams& params);
 //		Cubemap Import(const SingleFileParams& params);
 //	};
+
+	template<typename AssetT>
+	struct AssetImporterParamsHash
+	{
+		size_t operator()(const typename AssetImporter<AssetT>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Path);
+			return res;
+		}
+	};
+
+	template<>
+	struct AssetImporterParamsHash<Texture2D>
+	{
+		size_t operator()(const typename AssetImporter<Texture2D>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Path);
+			hash_combine(res, params.TextureParams);
+			return res;
+		}
+	};
+
+	template<>
+	struct AssetImporterParamsHash<Shader>
+	{
+		size_t operator()(const typename AssetImporter<Shader>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Directory);
+			return res;
+		}
+	};
+
+	template<>
+	struct AssetImporterParamsHash<ComputeShader>
+	{
+		size_t operator()(const typename AssetImporter<ComputeShader>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Directory);
+			return res;
+		}
+	};
+
+	template<>
+	struct AssetImporterParamsHash<Model>
+	{
+		size_t operator()(const typename AssetImporter<Model>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Path);
+			hash_combine(res, params.IsInstanced);
+			return res;
+		}
+	};
 }
+
+

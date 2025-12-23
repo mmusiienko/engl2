@@ -80,14 +80,28 @@ namespace EnGl
                 return { .ArchetypeId = arch.Id };
             }
 
-            template<ECSComponent Cs>
-            Cs& Get(Entity entity, u32 archetypeId)
+            template<ECSComponent C1, ECSComponent C2, ECSComponent... Cs>
+            std::tuple<C1&, C2&, Cs&...> Get(Entity entity, u32 archetypeId)
             {
                 ArchetypeInfo* arch = m_Archetypes[archetypeId];
                 
                 Entity localId = arch->GlobalToLocal.at(entity);
 
-                return std::get<std::vector<Cs>>(arch->Components)[localId];
+                return std::tie(
+                    std::get<std::vector<C1>>(arch->Components)[localId],
+                    std::get<std::vector<C2>>(arch->Components)[localId],
+                    std::get<std::vector<Cs>>(arch->Components)[localId]... 
+                );
+            }
+
+            template<ECSComponent C>
+            C& Get(Entity entity, u32 archetypeId)
+            {
+                ArchetypeInfo* arch = m_Archetypes[archetypeId];
+
+                Entity localId = arch->GlobalToLocal.at(entity);
+
+                return std::get<std::vector<C>>(arch->Components)[localId];
             }
 
             template<ECSComponent Cs>
@@ -215,7 +229,7 @@ namespace EnGl
 
                 auto operator*()
                 {
-                    return std::tuple<Entity&, Cs&...>(
+                    return std::tie(
                         arch->Entities[curr],
                         std::get<std::vector<Cs>>(arch->Components)[curr]...
                     );
@@ -393,10 +407,16 @@ namespace EnGl
                 return id;
             }
 
-            template<ECSComponent Cs>
-            Cs& Get(Entity id)
+            template<ECSComponent C1, ECSComponent C2, ECSComponent... Cs>
+            std::tuple<C1&, C2&, Cs&...> Get(Entity id)
             {
-                return m_ComponentStorage.Get<Cs>(id, m_ArchIds[id]);
+                return m_ComponentStorage.Get<C1, C2, Cs...>(id, m_ArchIds[id]);
+            }
+
+            template<ECSComponent C>
+            C& Get(Entity id)
+            {
+                return m_ComponentStorage.Get<C>(id, m_ArchIds[id]);
             }
 
             template<ECSComponent Cs>

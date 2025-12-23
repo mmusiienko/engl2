@@ -7,6 +7,8 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "../../ecs/entity.h"
+
 
 namespace EnGl
 {
@@ -24,13 +26,14 @@ namespace EnGl
 		Ui(GLFWwindow* window);
 		~Ui();
 
-		void Render(GameContext& context);
+		void Render(GameContext& context, EcsImpl::EntityManager& manager);
 		void Present();
 	private:
 		GLFWwindow* m_Window;
 
-		void Frame(GameContext& context);
+		void Frame(GameContext& context, EcsImpl::EntityManager& manager);
 
-		void CameraView(GameContext::CameraInfo& cameraInfo);
+		void CameraView(GameContext::CameraInfo& cameraInfo, EcsImpl::EntityManager& manager);
+		void DebugView(GameContext::DebugInfo &debug, EcsImpl::EntityManager& manager);
 	};
 }

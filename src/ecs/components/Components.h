@@ -32,14 +32,15 @@ namespace EnGl
 			ViewProjectionMatrix() { UpdateProjection(); }
 
 			glm::mat4 CachedView;
+
+			f32 Aspect = 16.0f / 9.0f;
+			f32 FovDegree = 45.0f;
+			f32 NearPlane = 0.1f;
+			f32 FarPlane = 10000.0f;
+
 			glm::mat4 CachedProjection;
 
-			void UpdateProjection(
-				f32 Aspect = 16.0f / 9.0f,
-				f32 FovDegree = 45.0f,
-				f32 NearPlane = 0.01f,
-				f32 FarPlane = 10000.0f
-			)
+			void UpdateProjection()
 			{
 				CachedProjection = glm::perspective(glm::radians(FovDegree), Aspect, NearPlane, FarPlane);
 			}
@@ -59,7 +60,9 @@ namespace EnGl
 
 		enum RenderLayer
 		{
-			NORMAL,
+			OQ,
+			TT,
+			OL,
 			SCREEN_QUAD,
 			SCREEN_SPACE,
 
@@ -70,9 +73,9 @@ namespace EnGl
 
 		struct RenderedModel
 		{
-			AssetHandle<Model> Model;
+			AssetHandle<Model> Model{};
 			u32 MeshIdx = 0;
-			RenderLayer Layer = RenderLayer::NORMAL;
+			RenderLayer Layer = RenderLayer::OQ;
 		};
 	}
 	
