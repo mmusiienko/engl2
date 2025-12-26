@@ -140,7 +140,7 @@ namespace EnGl
 
 		Ui ui{ m_Window };
 
-		size_t num = 100;
+		size_t num = 1000;
 		f32 spacing = 150.0f;
 		for (size_t i = 0; i < num; i++)
 		{

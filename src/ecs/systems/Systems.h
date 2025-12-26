@@ -233,24 +233,27 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context)
 			{
-				auto query = manager.Query<Component::RenderedModel, Component::ModelMatrix>();
-				
-				for (auto [e, modelComp, transform] : query)
+				static bool first = true;
+				if (first)
 				{
-					auto [model, gen] = AssetManager::GetAsset(modelComp.Model);
-					
-					if (modelComp.MeshIdx == model->TotalMeshes())
+					auto query = manager.Query<Component::RenderedModel, Component::ModelMatrix>();
+					for (auto [e, modelComp, transform] : query)
 					{
-						for (size_t i = 0; i < modelComp.MeshIdx; i++)
+						auto [model, gen] = AssetManager::GetAsset(modelComp.Model);
+
+						if (modelComp.MeshIdx == model->TotalMeshes())
 						{
-							AddToMaterialMap(context, model, i, transform, modelComp.Layer);
+							for (size_t i = 0; i < modelComp.MeshIdx; i++)
+							{
+								AddToMaterialMap(context, model, i, transform, modelComp.Layer);
+							}
+						}
+						else
+						{
+							AddToMaterialMap(context, model, modelComp.MeshIdx, transform, modelComp.Layer);
 						}
 					}
-					else
-					{
-						AddToMaterialMap(context, model, modelComp.MeshIdx, transform, modelComp.Layer);
-					}
-					
+					first = false;
 				}
 			}
 
@@ -314,7 +317,7 @@ namespace EnGl
 					}
 				}
 			}
-
+			static bool first = true;
 			for (auto& [key, value] : context.Renderer.PerInstancedMaterial[layer])
 			{
 				auto mesh = AssetManager::GetAssetNoCheck(key.MeshHandle);
@@ -326,7 +329,10 @@ namespace EnGl
 					spdlog::error("Error setting material.");
 				}
 				
-				mesh->UpdateInstanceBuffer(value.Transforms);
+				if (first)
+				{
+					mesh->UpdateInstanceBuffer(value.Transforms);
+				}
 
 				if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
 				{
@@ -342,6 +348,7 @@ namespace EnGl
 				material->SetUniforms();
 				mesh->DrawInstanced();
 			}
+			first = false;
 		}
 
 		class RenderToFramebuffer : public SystemImpl
@@ -429,12 +436,6 @@ namespace EnGl
 				for (auto [e, model] : queryModelMatrix)
 				{
 					model.Dirty = false;
-				}
-
-				for (u32 layer = 0; layer < Component::RenderLayer::Count; layer++)
-				{
-					context.Renderer.PerInstancedMaterial[layer].clear();
-					context.Renderer.PerMaterial[layer].clear();
 				}
 
 				context.Debug.DebugMeshes.Tick();
