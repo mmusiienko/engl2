@@ -1,37 +1,22 @@
 
-
 #include <stdexcept>
 #include <vector>
-#include <unordered_map>
 #include <iostream>
-#include <iomanip>
-#include <string>
-
-#include "spdlog/spdlog.h"
 
 #include "Application.h"
 #include "InputHandler.h"
 
 #include "Global.h"
-#include "Constants.h"
 #include "../math/Math.h"
 
 #include "../renderer/base/Shader.h"
-#include "../renderer/base/Texture.h"
 #include "../renderer/base/Material.h"
-#include "../renderer/base/Mesh.h"
 #include "../resources/importers/AssetManager.h"
-
-#include "../math/Random.h"
-
-#include "../Printer.h"
-
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 
 #include "../ecs/entity.h"
 #include "../ecs/components/Components.h"
 #include "../ecs/systems/Systems.h"
+#include "../ecs/systems/WaterSystem.h"
 
 #include "../ui/Ui.h"
 
@@ -65,6 +50,7 @@ namespace EnGl
 	{
 		glFrontFace(GL_CCW);
 		glCullFace(GL_BACK);
+		glPatchParameteri(GL_PATCH_VERTICES, 4);
 
 		glfwSwapInterval(0);
 
@@ -75,12 +61,18 @@ namespace EnGl
 			Component::Movement,
 			Component::ModelMatrix,
 			Component::ViewProjectionMatrix
-		>([](Component::Transform& transform, Component::Movement& mov, auto&, auto&)
+		>([](Component::Transform& transform, Component::Movement& mov, auto&, Component::ViewProjectionMatrix& cam)
 		{
 			mov.Velocity = 100.0f;
 			transform.Position = { 0.0f, 200.0f, 0.0f };
 			transform.Rotation =
 				glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+
+			cam.Aspect = 16.0f / 9.0f;
+			cam.FovDegree = 45.0f;
+			cam.NearPlane = 0.1f;
+			cam.FarPlane = 100000.0f;
+			cam.UpdateProjection();
 		});
 
 		EcsImpl::Entity camera2 = World().eEntity().Create<
@@ -88,12 +80,17 @@ namespace EnGl
 			Component::Movement,
 			Component::ModelMatrix,
 			Component::ViewProjectionMatrix
-		>([](Component::Transform& transform, Component::Movement& mov, auto&, auto&)
-			{
-				mov.Velocity = 100.0f;
-				transform.Position = { 0.0f, 200.0f, 0.0f };
-				transform.Rotation =
-					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+		>([](Component::Transform& transform, Component::Movement& mov, auto&, Component::ViewProjectionMatrix& cam)
+		{
+			mov.Velocity = 100.0f;
+			transform.Position = { 0.0f, 200.0f, 0.0f };
+			transform.Rotation =
+				glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+			cam.Aspect = 16.0f / 9.0f;
+			cam.FovDegree = 45.0f;
+			cam.NearPlane = 0.1f;
+			cam.FarPlane = 100000.0f;
+			cam.UpdateProjection();
 		});
 
 		auto shaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "ScreenSpaceTextured");
@@ -114,93 +111,137 @@ namespace EnGl
 			model.Layer = Component::RenderLayer::SCREEN_QUAD;
 		});
 
-		auto worldPlane = World().eEntity().Create<
-			Component::Transform, Component::ModelMatrix, Component::RenderedModel
-		>([worldPlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
-		{
-			transform.Scale = glm::vec3{ 1000.0f };
-			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-			model.Model = StaticModel::Quad(worldPlaneMat);
-		});
-
-		auto coordinatePlane = World().eEntity().Create<
-			Component::Transform, Component::ModelMatrix, Component::RenderedModel
-		>([coordinatePlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
-		{
-			transform.Scale = glm::vec3{ 2000.0f };
-			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-			model.Model = StaticModel::Quad(coordinatePlaneMat);
-			model.Layer = Component::RenderLayer::OL;
-		});
+//		auto worldPlane = World().eEntity().Create<
+//			Component::Transform, Component::ModelMatrix, Component::RenderedModel
+//		>([worldPlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
+//		{
+//			transform.Scale = glm::vec3{ 1000.0f };
+//			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+//			model.Model = StaticModel::Quad(worldPlaneMat);
+//		});
+//
+//		auto coordinatePlane = World().eEntity().Create<
+//			Component::Transform, Component::ModelMatrix, Component::RenderedModel
+//		>([coordinatePlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
+//		{
+//			transform.Scale = glm::vec3{ 2000.0f };
+//			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+//			model.Model = StaticModel::Quad(coordinatePlaneMat);
+//			model.Layer = Component::RenderLayer::OL;
+//		});
 
 		auto cubeModelIHandle = StaticModel::CubeInstanced(unlitIMat);
 		auto cubeModelHandle = StaticModel::Cube(unlitMat);
 		AssetImporter<Model>::Params params{ AssetManager::MODEL_DIR / "buildings" / "model" / "All.fbx", true };
 		auto buildingHandle = AssetManager::Load<Model>(params);
 
+		AssetImporter<Model>::Params shipparams{ AssetManager::MODEL_DIR / "ship" / "ss-norrtelje-lowpoly" / "source" / "norrtelje" / "norrtelje.fbx"};
+		auto shipHandle = AssetManager::Load<Model>(shipparams);
+
+		AssetImporter<Cubemap>::Params cparams{ AssetManager::TEXTURE_DIR / "skybox" / "2.png", false };
+		auto cubemapHadle = AssetManager::Load<Cubemap>(cparams);
+		auto cubemapMat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::CubemapObj>(cubemapHadle));
+		auto cubemapModelHandle = StaticModel::Cube(cubemapMat);
+
 		Ui ui{ m_Window };
 
-		size_t num = 1000;
-		f32 spacing = 150.0f;
-		for (size_t i = 0; i < num; i++)
-		{
-			for (size_t j = 0; j < num; j++)
+		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
-					[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-					{
-						transform.Position = { spacing * i, 0.0f, spacing * j };
-						model.Model = cubeModelIHandle;
-						model.MeshIdx = 0;
-					}
-				);
+				model.Model = cubemapModelHandle;
+				model.Layer = Component::RenderLayer::CUBEMAP;
+				model.MeshIdx = 0;
 			}
-		}
+		);
+
+		World().eEntity().Create<Component::Transform, Component::Movement, Component::ModelMatrix, Component::RenderedModel>(
+			[=](Component::Transform& transform, Component::Movement& mov, auto&, Component::RenderedModel& model, auto&...) -> void
+			{
+				mov.SetDirection({ 1.0f, 0.0, 1.0f });
+				mov.Velocity = 10.0f;
+				transform.Position = { 0.0f, 0.0f, 0.0f };
+				transform.Scale = glm::vec3{ 15.0f };
+				transform.Rotation = glm::angleAxis(glm::degrees(155.0f), glm::vec3{0.0f, 1.0f, 0.0f});
+				model.Model = shipHandle;
+				model.MeshIdx = 0;
+			}
+		);
+
+		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+			{
+				transform.Position = { 0.0f, 50.0f, 0.0f };
+				model.Model = StaticModel::Quad(coordinatePlaneMat);
+				model.MeshIdx = 0;
+			}
+		);
+
+		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+			{
+				transform.Position = { 300.0f, 0.0f, 0.0f };
+				model.Model = buildingHandle;
+				model.MeshIdx = 6;
+			}
+		);
 
 		World().eSystem<GameContext>()
 			.Add<System::Input>()
 			.Add<System::Movement>()
 			.Add<System::ModelMatrix>()
 			.Add<System::ViewProjectionMatrix>()
+			.Add<WaterSystem>()
 			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
 			.Add<System::RenderToFramebuffer>()
 			.Add<System::BindDefaultFramebuffer>()
 			.Add<System::RenderToDefaultFramebuffer>()
-			.Add<System::Cleanup>();
-			
-		f64 timeLastFrame = 0.0f;
+			.Add<System::Cleanup>()
+			.Init();
+
 		GameContext context{};
+		f64 timeLastFrame = 0.0f;
 		context.Camera.Cameras.push_back({ .Entity = camera });
-		context.Camera.Cameras.push_back({ .Entity = camera2, .CanRotate = true });
+		context.Camera.Cameras.push_back({ .Entity = camera2, .CanRotate = true  });
+		auto [cubemap, g0] = AssetManager::GetAsset(cubemapHadle);
+		context.Cubemap = cubemap;
+		auto [depth, g1] = m_Framebuffer->Depth();
+		context.Framebuffer.DepthTextureOpaque = AssetManager::Put(Texture2D{ depth });
 
 		while (!glfwWindowShouldClose(m_Window))
 		{
 			glfwPollEvents();
 
 			m_Framebuffer->Bind();
-
+			auto [d, g] = AssetManager::GetAsset(m_Framebuffer->Depth());
 			glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glEnable(GL_DEPTH_TEST);
 			
+			InputHandler::ProcessInputEvents(m_Window);
+				
 			f64 time = glfwGetTime();
 			f32 deltaTime = static_cast<f32>(time - timeLastFrame);
 			timeLastFrame = time;
 			context.Time = time;
 			context.DeltaTime = deltaTime;
 
-			InputHandler::ProcessInputEvents(m_Window);
-				
+			context.Framebuffer.ColorTexture = m_Framebuffer->Color();
+			context.Framebuffer.ColorTextureLastFrame = m_Framebuffer->ColorLastFrame();
+			context.Framebuffer.DepthTexture = m_Framebuffer->Depth();
+			context.Framebuffer.DepthTextureLastFrame = m_Framebuffer->DepthLastFrame();
+
+			context.Framebuffer.Resolution = m_Framebuffer->Resolution();
+
 				if (!Global::IsPaused)
 				{
 					World().eSystem<GameContext>().Run(context);
 				}
-
-				ui.Render(context, World().eEntity());
+				ui.Render(context, World().eEntity(), World().eSystem<GameContext>());
 
 			ui.Present();
 
+			m_Framebuffer->Swap();
 			glfwSwapBuffers(m_Window);
 			InputHandler::ResetState();
 		}

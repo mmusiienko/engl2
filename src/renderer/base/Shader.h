@@ -40,6 +40,7 @@ namespace EnGl
 		void SetUniform(const std::string& name, bool value) const;		
 		void SetUniform(const std::string& name, const glm::mat4& value) const;
 		void SetUniform(const std::string& name, const glm::mat4x3& value) const;
+		void SetUniform(const std::string& name, const glm::mat3x4& value) const;
 		void SetUniform(const std::string& name, const glm::vec4& value) const;
 		void SetUniform(const std::string& name, const glm::vec3& value) const;
 		void SetUniform(const std::string& name, const glm::vec2& value) const;

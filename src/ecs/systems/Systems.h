@@ -2,15 +2,23 @@
 
 #include "../entity.h"
 #include "../components/components.h"
-#include "../../core/Global.h"
 #include "../GameContext.h"
 #include <ranges>
+#include <utility>
+#include "../../core/Constants.h"
+#include "../../core/Core.h"
+#include "../../core/InputHandler.h"
+#include "../../renderer/base/Model.h"
+#include "../../renderer/base/Mesh.h"
+#include "../../renderer/base/Material.h"
+#include "../../renderer/base/Shader.h"
+#include "../../resources/DebugMesh.h"
+#include "../../resources/importers/AssetHandle.h"
+#include "../../resources/importers/AssetManager.h"
 
 
 namespace EnGl
 {
-	
-
 	using SystemImpl = EcsImpl::System<GameContext>;
 	using SystemRegistryImpl = EcsImpl::SystemRegistry<GameContext>;
 
@@ -44,9 +52,9 @@ namespace EnGl
 			static void UpdateModelMatrix(glm::mat4& original, const Component::Transform& transform)
 			{
 				glm::mat4 model = glm::mat4(1.0f);
-				model = glm::scale(model, transform.Scale);
-				model *= glm::mat4_cast(transform.Rotation);
 				model = glm::translate(model, transform.Position);
+				model *= glm::mat4_cast(transform.Rotation);
+				model = glm::scale(model, transform.Scale);
 
 				original = std::move(model);
 			}
@@ -107,6 +115,8 @@ namespace EnGl
 					direction.y -= 1;
 				if (InputHandler::State.KeysHeld[GLFW_KEY_R])
 					AssetManager::ReloadAll<Shader>();
+				if (InputHandler::State.KeysHeld[GLFW_KEY_K])
+					AssetManager::ReloadAll<ComputeShader>();
 
 				if (InputHandler::State.KeysPressed[GLFW_KEY_F1])
 					context.Debug.DrawMode = GL_FILL;
@@ -160,6 +170,10 @@ namespace EnGl
 					camera.InverseProjection = glm::inverse(viewProj.CachedProjection);
 					camera.ViewProjection = viewProj.CachedProjection * viewProj.CachedView;
 					camera.InverseViewProjection = glm::inverse(camera.ViewProjection);
+					camera.Near = viewProj.NearPlane;
+					camera.Far = viewProj.FarPlane;
+					camera.Aspect = viewProj.Aspect;
+					camera.FovDegree = viewProj.FovDegree;
 				}
 			}
 		};
@@ -233,27 +247,28 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context)
 			{
-				static bool first = true;
-				if (first)
+				auto query = manager.Query<Component::RenderedModel, Component::ModelMatrix>();
+				for (auto [e, modelComp, transform] : query)
 				{
-					auto query = manager.Query<Component::RenderedModel, Component::ModelMatrix>();
-					for (auto [e, modelComp, transform] : query)
-					{
-						auto [model, gen] = AssetManager::GetAsset(modelComp.Model);
+					auto [model, gen] = AssetManager::GetAsset(modelComp.Model);
 
-						if (modelComp.MeshIdx == model->TotalMeshes())
+					if (!model)
+					{
+						spdlog::error("Model to be rendered does not exist.");
+						continue;
+					}
+
+					if (modelComp.MeshIdx == model->TotalMeshes())
+					{
+						for (size_t i = 0; i < model->TotalMeshes(); i++)
 						{
-							for (size_t i = 0; i < modelComp.MeshIdx; i++)
-							{
-								AddToMaterialMap(context, model, i, transform, modelComp.Layer);
-							}
-						}
-						else
-						{
-							AddToMaterialMap(context, model, modelComp.MeshIdx, transform, modelComp.Layer);
+							AddToMaterialMap(context, model, i, transform, modelComp.Layer);
 						}
 					}
-					first = false;
+					else
+					{
+						AddToMaterialMap(context, model, modelComp.MeshIdx, transform, modelComp.Layer);
+					}
 				}
 			}
 
@@ -275,7 +290,10 @@ namespace EnGl
 							.MaterialHandle = submesh.Material
 						}
 					];
-					bucket.Transforms.push_back(modelMatrix.CachedModel);
+					bucket.Data.push_back({
+						.Model = modelMatrix.CachedModel,
+						.Normal = glm::transpose(glm::inverse(modelMatrix.CachedModel))
+					});
 				}
 				else
 				{
@@ -283,7 +301,16 @@ namespace EnGl
 
 					auto submesh = model->GetSubmesh(idx);
 					auto& bucket = map[submesh.Material];
-					bucket.Transforms.push_back({.Mesh = submesh.Mesh, .Model = modelMatrix.CachedModel});
+					bucket.InstanceDatas.push_back(
+						{
+							.Mesh = submesh.Mesh, 
+							.Data = 
+							{
+								.Model = modelMatrix.CachedModel,
+								.Normal = glm::transpose(glm::inverse(modelMatrix.CachedModel))
+							}
+						}
+					);
 				}
 			}
 		};
@@ -300,24 +327,24 @@ namespace EnGl
 					spdlog::error("Error setting material.");
 				}
 
-				for (auto& transform : value.Transforms)
+				for (auto& data : value.InstanceDatas)
 				{
-					auto mesh = AssetManager::GetAssetNoCheck(transform.Mesh);
+					auto mesh = AssetManager::GetAssetNoCheck(data.Mesh);
 
-					material->SetModel(transform.Model);
+					material->SetModel(data.Data.Model, data.Data.Normal);
 					material->SetUniforms();
 					mesh->Draw();
 
 					if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
 					{
 						auto aabb = mesh->GetAABB();
-						auto mn = glm::vec3{ transform.Model * glm::vec4{ aabb.Min, 1.0f } };
-						auto mx = glm::vec3{ transform.Model * glm::vec4{ aabb.Max, 1.0f } };
+						auto mn = glm::vec3{ data.Data.Model * glm::vec4{ aabb.Min, 1.0f } };
+						auto mx = glm::vec3{ data.Data.Model * glm::vec4{ aabb.Max, 1.0f } };
 						context.Debug.DebugMeshes.FrameCube(mn, mx);
 					}
 				}
 			}
-			static bool first = true;
+
 			for (auto& [key, value] : context.Renderer.PerInstancedMaterial[layer])
 			{
 				auto mesh = AssetManager::GetAssetNoCheck(key.MeshHandle);
@@ -329,18 +356,15 @@ namespace EnGl
 					spdlog::error("Error setting material.");
 				}
 				
-				if (first)
-				{
-					mesh->UpdateInstanceBuffer(value.Transforms);
-				}
+				mesh->UpdateInstanceBuffer(value.Data);
 
 				if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
 				{
 					auto aabb = mesh->GetAABB();
-					for (const auto& transform : value.Transforms)
+					for (const auto& [model, _] : value.Data)
 					{
-						auto mn = glm::vec3{ transform * glm::vec4{ aabb.Min, 1.0f } };
-						auto mx = glm::vec3{ transform * glm::vec4{ aabb.Max, 1.0f } };
+						auto mn = glm::vec3{ model * glm::vec4{ aabb.Min, 1.0f } };
+						auto mx = glm::vec3{ model * glm::vec4{ aabb.Max, 1.0f } };
 						context.Debug.DebugMeshes.FrameCube(mn, mx);
 					}
 				}
@@ -348,7 +372,6 @@ namespace EnGl
 				material->SetUniforms();
 				mesh->DrawInstanced();
 			}
-			first = false;
 		}
 
 		class RenderToFramebuffer : public SystemImpl
@@ -358,24 +381,30 @@ namespace EnGl
 				glPolygonMode(GL_FRONT_AND_BACK, context.Debug.DrawMode);
 
 				glDisable(GL_BLEND);
-				glDepthMask(GL_TRUE);
-
 				RenderLayer(context, Component::RenderLayer::OQ);
+
+				glEnable(GL_DEPTH_TEST);
+				glDepthFunc(GL_LEQUAL);
+				glDepthMask(GL_FALSE);
+				glCullFace(GL_FRONT);
+
+				RenderLayer(context, Component::RenderLayer::CUBEMAP);
+				glDepthMask(GL_TRUE);
+				glCullFace(GL_BACK);
+
+				//copy depth
+				auto [depth, g1] = AssetManager::GetAsset(context.Framebuffer.DepthTexture);
+				auto [depthOpaque, g2] = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque);
+				assert(depth && depthOpaque);
+				*depthOpaque = *depth;
 
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				glDepthMask(GL_FALSE);
-
 				RenderLayer(context, Component::RenderLayer::TT);
 
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
 				RenderLayer(context, Component::RenderLayer::OL);
-
-				glPolygonMode(GL_FRONT_AND_BACK, context.Debug.DrawMode);
 				glDisable(GL_BLEND);
-				glDepthMask(GL_TRUE);
 
 				if (context.Debug.Draw.Enabled)
 				{
@@ -436,6 +465,12 @@ namespace EnGl
 				for (auto [e, model] : queryModelMatrix)
 				{
 					model.Dirty = false;
+				}
+
+				for (u32 i = 0; i < Component::RenderLayer::Count; i++)
+				{
+					context.Renderer.PerInstancedMaterial[i].clear();
+					context.Renderer.PerMaterial[i].clear();
 				}
 
 				context.Debug.DebugMeshes.Tick();

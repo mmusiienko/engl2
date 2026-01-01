@@ -23,7 +23,9 @@ namespace EnGl
 		{
 			{".vert", GL_VERTEX_SHADER},
 			{".frag", GL_FRAGMENT_SHADER},
-			{".comp", GL_COMPUTE_SHADER}
+			{".comp", GL_COMPUTE_SHADER},
+			{".tesc", GL_TESS_CONTROL_SHADER},
+			{".tese", GL_TESS_EVALUATION_SHADER},
 		};
 
 		std::vector<Shader::ShaderUnit> out;

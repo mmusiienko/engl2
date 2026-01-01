@@ -6,6 +6,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stbimg/stb_image.h"
+#include "spdlog/spdlog.h"
 
 
 namespace EnGl
@@ -28,20 +29,31 @@ namespace EnGl
 		return res;
 	}
 
-	unsigned char* FileSystem::ReadImage(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels)
-	{
-		stbi_set_flip_vertically_on_load(true);
-		return stbi_load(path.string().c_str(), width, height, nrChannels, reqChannels);
-	}
-
-	unsigned char* FileSystem::ReadImageNoFlip(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels)
-	{
-		stbi_set_flip_vertically_on_load(false);
-		return stbi_load(path.string().c_str(), width, height, nrChannels, reqChannels);
-	}
-
 	void FileSystem::FreeImage(unsigned char* data)
 	{
 		stbi_image_free(data);
+	}
+
+
+	FileSystem::RaiiImageData FileSystem::ReadImage(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels, bool flip)
+	{
+		stbi_set_flip_vertically_on_load(flip);
+		unsigned char* data = stbi_load(path.string().c_str(), width, height, nrChannels, reqChannels);
+
+		if (*width <= 0 || *height <= 0 || !data)
+		{
+			const char* reason = stbi_failure_reason();
+			spdlog::error("Failed to load {}: {}", path.string(), reason ? reason : "unknown error");
+		}
+
+		return data;
+	}
+
+	FileSystem::RaiiImageData::~RaiiImageData()
+	{
+		if (Data)
+		{
+			FreeImage(Data);
+		}
 	}
 }

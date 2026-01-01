@@ -26,7 +26,7 @@ namespace EnGl
 		ImGui::DestroyContext();
 	}
 
-	void Ui::Render(GameContext& context, EcsImpl::EntityManager& manager)
+	void Ui::Render(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& system)
 	{
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -34,6 +34,9 @@ namespace EnGl
 
 		Frame(context, manager);
 
+		system.Editor(context);
+
+		ImGui::End();
 		ImGui::Render();
 	}
 
@@ -53,8 +56,6 @@ namespace EnGl
 		CameraView(context.Camera, manager);
 
 		DebugView(context.Debug, manager);
-
-		ImGui::End();
 	}
 
 	void Ui::CameraView(GameContext::CameraInfo& cameraInfo, EcsImpl::EntityManager& manager)

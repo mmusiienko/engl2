@@ -32,6 +32,12 @@ namespace EnGl
 				AssetId,
 				AssetImporterParamsHash<AssetT>
 			> PathToAsset;
+
+			std::unordered_map<
+				AssetId,
+				typename AssetImporter<AssetT>::Params
+			> AssetToPath;
+
 			std::vector<AssetT> Assets;
 			std::vector<u32> Generations;
 			std::vector<bool> Alive;
@@ -125,7 +131,8 @@ namespace EnGl
 
 			auto asset = AssetImporter<AssetT>::Import(params);
 			auto handle = Put<AssetT>(std::move(asset));
-			storage.PathToAsset.insert({ std::move(params), handle.Id});
+			storage.PathToAsset.insert({ params, handle.Id });
+			storage.AssetToPath.insert({ handle.Id, std::move(params) });
 
 			return handle;
 		}
@@ -147,7 +154,7 @@ namespace EnGl
 				}
 				else
 				{
-					id = storage.DeadIds.back();
+					id = storage.DeadIds.front();
 					storage.DeadIds.pop();
 					storage.Assets[id] = std::move(asset);
 					storage.Alive[id] = true;
@@ -157,10 +164,28 @@ namespace EnGl
 				return AssetHandle<AssetT>
 				{
 					.Id = id,
-						.Generation = gen
+					.Generation = gen
 				};
 			}
 		public:
+
+		template<typename AssetT>
+		static void Remove(AssetHandle<AssetT> asset)
+		{
+			auto& storage = GetAssetStorage<AssetT>();
+
+			if (!storage.Alive[asset.Id]) return;
+
+			if (storage.AssetToPath.contains(asset.Id))
+			{
+				auto& params = storage.AssetToPath.at(asset.Id);
+				storage.PathToAsset.erase(params);
+				storage.AssetToPath.erase(asset.Id);
+			}
+			
+			storage.Alive[asset.Id] = false;
+			storage.DeadIds.push(asset.Id);
+		}
 
 		template<typename AssetT>
 		static void ReloadAll()

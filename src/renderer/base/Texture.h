@@ -13,7 +13,8 @@ namespace EnGl
 		struct CommonInfo
 		{
 			u32 Wrap = GL_REPEAT;
-			u32 Filtering = GL_LINEAR;
+			u32 MinFilter = GL_LINEAR;
+			u32 MagFilter = GL_LINEAR;
 
 			auto operator<=>(const CommonInfo&) const = default;
 		};
@@ -36,7 +37,8 @@ namespace EnGl
 			u32 DataType = GL_FLOAT;
 			u32 Type = GL_TEXTURE_2D;
 			u32 Wrap = GL_REPEAT;
-			u32 Filtering = GL_LINEAR;
+			u32 MinFilter = GL_LINEAR;
+			u32 MagFilter = GL_LINEAR;
 			u32 w = 1;
 			u32 h = 1;
 			u32 d = 0;
@@ -57,6 +59,8 @@ namespace EnGl
 		};
 
 		void Bind() const;
+
+		void GenerateMips();
 	protected:
 		Texture() = default;
 		void Create();
@@ -67,12 +71,14 @@ namespace EnGl
 	class Texture2D : public Texture
 	{
 	public:
+		Texture2D(const Texture2D& other);
+		Texture2D& operator=(const Texture2D& other);
 		Texture2D(u32 d, const CreationInfoFromData& info = {});
 		Texture2D(u32 w, u32 h, const CreationInfoFromData& info = {});
 		Texture2D(Texture2D&& other) noexcept = default;
 		Texture2D& operator=(Texture2D&& other) noexcept = default;
-		void UpdateParameters(const void* data = nullptr);
-
+		void UpdateParameters();
+		void Update(const void* data = nullptr);
 	protected:
 		void CreateTexture2DFromData(u32 w, u32 h, const CreationInfoFromData& info);
 	};
@@ -84,8 +90,8 @@ namespace EnGl
 		Texture3D(u32 w, u32 h, u32 d, const CreationInfoFromData& info = {});
 		Texture3D(Texture3D&& other) noexcept = default;
 		Texture3D& operator=(Texture3D&& other) noexcept = default;
-		void UpdateParameters(const void* data = nullptr);
-
+		void UpdateParameters();
+		void PopulateData(const void* data = nullptr);
 	protected:
 		void CreateTexture3DFromData(u32 w, u32 h, u32 d, const CreationInfoFromData& info);
 	};
@@ -100,7 +106,8 @@ namespace std
 		{
 			size_t res = 0;
 			EnGl::hash_combine(res, info.Wrap);
-			EnGl::hash_combine(res, info.Filtering);
+			EnGl::hash_combine(res, info.MagFilter);
+			EnGl::hash_combine(res, info.MinFilter);
 
 			return res;
 		}

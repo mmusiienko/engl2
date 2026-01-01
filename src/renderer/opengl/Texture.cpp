@@ -13,12 +13,68 @@ namespace EnGl
 
 	void Texture::Bind() const
 	{
-		GL_CHECK(glBindTexture(Props().Type, m_Id));
+		GL_CHECK(glBindTexture(m_Props.Type, m_Id));
+	}
+
+	void Texture::GenerateMips()
+	{
+		Bind();
+		GL_CHECK(glGenerateMipmap(m_Props.Type));
 	}
 
 	void Texture::Create()
 	{
 		GL_CHECK(glGenTextures(1, &m_Id));
+	}
+
+	Texture2D::Texture2D(const Texture2D& other)
+	{
+		Create();
+
+		m_Props = other.m_Props;
+
+		UpdateParameters();
+		glCopyImageSubData(
+			other.m_Id,
+			GL_TEXTURE_2D,
+			0,
+			0, 0, 0,
+			m_Id,
+			GL_TEXTURE_2D,
+			0, 
+			0, 0, 0,
+			m_Props.w, m_Props.h, 1
+		);
+
+		GenerateMips();
+	}
+
+	Texture2D& Texture2D::operator=(const Texture2D& other)
+	{
+		if (m_Id == other.m_Id)
+			return *this;
+
+		m_Props = other.m_Props;
+
+		UpdateParameters();
+
+		Update();
+
+		glCopyImageSubData(
+			other.m_Id,
+			GL_TEXTURE_2D,
+			0,
+			0, 0, 0,
+			m_Id,
+			GL_TEXTURE_2D,
+			0,
+			0, 0, 0,
+			m_Props.w, m_Props.h, 1
+		);
+
+		GenerateMips();
+
+		return *this;
 	}
 
 	Texture2D::Texture2D(u32 d, const CreationInfoFromData& info)
@@ -41,27 +97,32 @@ namespace EnGl
 			.DataType = info.DataType,
 			.Type = GL_TEXTURE_2D,
 			.Wrap = info.Common.Wrap,
-			.Filtering = info.Common.Filtering,
+			.MinFilter = info.Common.MinFilter,
+			.MagFilter = info.Common.MagFilter,
 			.w = w,
 			.h = h
 		};
 
-		UpdateParameters(info.Data);
+		Update(info.Data);
+		UpdateParameters();
+		GenerateMips();
 	}
 
-	void Texture2D::UpdateParameters(const void* data)
+	void Texture2D::Update(const void* data)
 	{
-		GL_CHECK(glBindTexture(GL_TEXTURE_2D, m_Id));
+		Bind();
 
 		GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, m_Props.GpuFormat, m_Props.w, m_Props.h, 0, m_Props.CpuFormat, m_Props.DataType, data));
+	}
 
-		GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
+	void Texture2D::UpdateParameters()
+	{
+		Bind();
 
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, m_Props.Wrap));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, m_Props.Wrap));
-		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_Props.Filtering));
-		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_Props.Filtering));
-
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_Props.MinFilter));
+		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_Props.MagFilter));
 	}
 
 	Texture3D::Texture3D(u32 d, const CreationInfoFromData& info)
@@ -84,29 +145,34 @@ namespace EnGl
 			.DataType = info.DataType,
 			.Type = GL_TEXTURE_2D,
 			.Wrap = info.Common.Wrap,
-			.Filtering = info.Common.Filtering,
+			.MinFilter = info.Common.MinFilter,
+			.MagFilter = info.Common.MagFilter,
 			.w = w,
 			.h = h,
 			.d = d
 		};
 
-		UpdateParameters(info.Data);
+		UpdateParameters();
+		PopulateData(info.Data);
+		GenerateMips();
 	}
 
-	void Texture3D::UpdateParameters(const void* data)
+	void Texture3D::PopulateData(const void* data)
 	{
-		GL_CHECK(glGenTextures(1, &m_Id));
-		GL_CHECK(glBindTexture(GL_TEXTURE_3D, m_Id));
+		Bind();
 
 		GL_CHECK(glTexImage3D(GL_TEXTURE_3D, 0, m_Props.GpuFormat, m_Props.w, m_Props.h, m_Props.d, 0, m_Props.CpuFormat, m_Props.DataType, data));
+	}
 
-		GL_CHECK(glGenerateMipmap(GL_TEXTURE_3D));
+	void Texture3D::UpdateParameters()
+	{
+		Bind();
 
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, m_Props.Wrap));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, m_Props.Wrap));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, m_Props.Wrap));
-		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, m_Props.Filtering));
-		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, m_Props.Filtering));
+		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, m_Props.MinFilter));
+		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, m_Props.MagFilter));
 	}
 }
 

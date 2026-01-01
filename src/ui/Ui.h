@@ -7,7 +7,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "../../ecs/entity.h"
+#include "../../ecs/systems/Systems.h"
 
 
 namespace EnGl
@@ -18,6 +18,7 @@ namespace EnGl
 		
 		struct State
 		{
+			
 		};
 
 		State m_State;
@@ -26,7 +27,7 @@ namespace EnGl
 		Ui(GLFWwindow* window);
 		~Ui();
 
-		void Render(GameContext& context, EcsImpl::EntityManager& manager);
+		void Render(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& systemRegistry);
 		void Present();
 	private:
 		GLFWwindow* m_Window;

@@ -19,38 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="core\Application.cpp" />
-    <ClCompile Include="core\Global.cpp" />
-    <ClCompile Include="core\InputHandler.cpp" />
-    <ClCompile Include="core\Main.cpp" />
-    <ClCompile Include="glad.c" />
-    <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
-    <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
-    <ClCompile Include="imgui\imgui.cpp" />
-    <ClCompile Include="imgui\imgui_demo.cpp" />
-    <ClCompile Include="imgui\imgui_draw.cpp" />
-    <ClCompile Include="imgui\imgui_tables.cpp" />
-    <ClCompile Include="imgui\imgui_widgets.cpp" />
-    <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
-    <ClCompile Include="math\Random.cpp" />
-    <ClCompile Include="Printer.cpp" />
-    <ClCompile Include="renderer\opengl\ComputeShader.cpp" />
-    <ClCompile Include="renderer\opengl\Framebuffer.cpp" />
-    <ClCompile Include="renderer\opengl\Mesh.cpp" />
-    <ClCompile Include="renderer\opengl\Model.cpp" />
-    <ClCompile Include="renderer\opengl\Shader.cpp" />
-    <ClCompile Include="renderer\opengl\SSBO.cpp" />
-    <ClCompile Include="renderer\opengl\Texture.cpp" />
-    <ClCompile Include="resources\FileSystem.cpp" />
-    <ClCompile Include="resources\importers\AssetHandle.h" />
-    <ClCompile Include="resources\importers\Impl\ModelImporter.cpp" />
-    <ClCompile Include="resources\importers\Impl\ShaderImporter.cpp" />
-    <ClCompile Include="resources\importers\Impl\TextureImporter.cpp" />
-    <ClCompile Include="resources\DebugMesh.cpp" />
-    <ClCompile Include="resources\StaticModel.cpp" />
-    <ClCompile Include="ui\Ui.cpp" />
+    <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="algorithm\compute\FFT.h" />
+    <ClInclude Include="algorithm\compute\noise\Gaussian.h" />
     <ClInclude Include="core\Application.h" />
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\Core.h" />
@@ -60,6 +33,7 @@
     <ClInclude Include="ecs\entity.h" />
     <ClInclude Include="ecs\GameContext.h" />
     <ClInclude Include="ecs\systems\Systems.h" />
+    <ClInclude Include="ecs\systems\WaterSystem.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3_loader.h" />
@@ -75,6 +49,7 @@
     <ClInclude Include="Printer.h" />
     <ClInclude Include="renderer\base\Asset.h" />
     <ClInclude Include="renderer\base\ComputeShader.h" />
+    <ClInclude Include="renderer\base\Cubemap.h" />
     <ClInclude Include="renderer\base\Framebuffer.h" />
     <ClInclude Include="renderer\base\Material.h" />
     <ClInclude Include="renderer\base\Mesh.h" />
@@ -83,15 +58,48 @@
     <ClInclude Include="renderer\base\Shader.h" />
     <ClInclude Include="renderer\base\SSBO.h" />
     <ClInclude Include="renderer\base\Texture.h" />
+    <ClInclude Include="resources\DebugMesh.h" />
     <ClInclude Include="resources\FileSystem.h" />
+    <ClInclude Include="resources\importers\AssetHandle.h" />
     <ClInclude Include="resources\importers\AssetImporter.h" />
     <ClInclude Include="resources\importers\AssetManager.h" />
-    <ClInclude Include="resources\DebugMesh.h" />
     <ClInclude Include="resources\StaticModel.h" />
     <ClInclude Include="ui\Ui.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="imgui.ini" />
+    <ClCompile Include="algorithm\compute\FFT.cpp" />
+    <ClCompile Include="core\Application.cpp" />
+    <ClCompile Include="core\Global.cpp" />
+    <ClCompile Include="core\InputHandler.cpp" />
+    <ClCompile Include="core\Main.cpp" />
+    <ClCompile Include="ecs\systems\WaterSystem.cpp" />
+    <ClCompile Include="glad.c" />
+    <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="math\Random.cpp" />
+    <ClCompile Include="Printer.cpp" />
+    <ClCompile Include="renderer\opengl\ComputeShader.cpp" />
+    <ClCompile Include="renderer\opengl\Cubemap.cpp" />
+    <ClCompile Include="renderer\opengl\Framebuffer.cpp" />
+    <ClCompile Include="renderer\opengl\Mesh.cpp" />
+    <ClCompile Include="renderer\opengl\Model.cpp" />
+    <ClCompile Include="renderer\opengl\Shader.cpp" />
+    <ClCompile Include="renderer\opengl\SSBO.cpp" />
+    <ClCompile Include="renderer\opengl\Texture.cpp" />
+    <ClCompile Include="resources\DebugMesh.cpp" />
+    <ClCompile Include="resources\FileSystem.cpp" />
+    <ClCompile Include="resources\importers\Impl\CubemapImporter.cpp" />
+    <ClCompile Include="resources\importers\Impl\ModelImporter.cpp" />
+    <ClCompile Include="resources\importers\Impl\ShaderImporter.cpp" />
+    <ClCompile Include="resources\importers\Impl\TextureImporter.cpp" />
+    <ClCompile Include="resources\StaticModel.cpp" />
+    <ClCompile Include="ui\Ui.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

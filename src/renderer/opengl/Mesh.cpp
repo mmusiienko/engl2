@@ -2,10 +2,12 @@
 
 #include "../base/Mesh.h"
 #include "../core/Core.h"
+#include "spdlog/spdlog.h"
+
 
 namespace EnGl
 {
-	Mesh::Mesh(const CreationInfo& info) : m_AABB(info.Aabb)
+	Mesh::Mesh(const CreationInfo& info) : m_AABB(info.Aabb), m_DrawType(info.DrawType)
 	{
 		GL_CHECK(glGenVertexArrays(1, &m_Id));
 		GL_CHECK(glBindVertexArray(m_Id));
@@ -48,20 +50,20 @@ namespace EnGl
 	void Mesh::Draw() const
 	{
 		GL_CHECK(glBindVertexArray(m_Id));
-		GL_CHECK(glDrawElements(GL_TRIANGLES, m_IndicesSize, GL_UNSIGNED_INT, 0));
+		GL_CHECK(glDrawElements(m_DrawType, m_IndicesSize, GL_UNSIGNED_INT, 0));
 	}
 
-	void Mesh::UpdateInstanceBuffer(const std::vector<glm::mat4>& transforms)
+	void Mesh::UpdateInstanceBuffer(const std::vector<InstanceData>& instanceData)
 	{
-		m_InstanceSize = transforms.size();
-		m_SSBO.Resize((void*) transforms.data(), transforms.size() * sizeof(glm::mat4));
+		m_InstanceSize = instanceData.size();
+		m_InstanceData.Resize((void*)instanceData.data(), m_InstanceSize * sizeof(InstanceData));
 	}
 
 	void Mesh::DrawInstanced()
 	{
 		glBindVertexArray(m_Id);
-		m_SSBO.Bind(0);
-		glDrawElementsInstanced(GL_TRIANGLES, m_IndicesSize, GL_UNSIGNED_INT, 0, m_InstanceSize);
+		m_InstanceData.Bind(0);
+		glDrawElementsInstanced(m_DrawType, m_IndicesSize, GL_UNSIGNED_INT, 0, m_InstanceSize);
 	}
 
 	Mesh::~Mesh()

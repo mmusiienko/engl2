@@ -63,33 +63,15 @@ namespace EnGl
 		auto operator<=>(const Params&) const = default;
 	};
 
-//	template<>
-//	class AssetImporter<Cubemap>
-//	{
-//	public:
-//		struct SingleFileParams
-//		{
-//			const std::filesystem::path& Path;
-//
-//			auto inline Key() const
-//			{
-//				return Path;
-//			}
-//		};
-//
-//		struct FaceParams
-//		{
-//			const std::filesystem::path& Path;
-//
-//			auto inline Key() const
-//			{
-//				return Path;
-//			}
-//		};
-//
-//		Cubemap Import(const FaceParams& params);
-//		Cubemap Import(const SingleFileParams& params);
-//	};
+	template<>
+	struct AssetImporter<Cubemap>::Params
+	{
+		std::filesystem::path Path;
+		bool IsDirectory = true;
+		auto operator<=>(const Params&) const = default;
+
+		Params(std::filesystem::path path, bool isDirectory = true) : Path(std::move(path)), IsDirectory(isDirectory) { }
+	};
 
 	template<typename AssetT>
 	struct AssetImporterParamsHash
@@ -144,6 +126,18 @@ namespace EnGl
 			size_t res = 0;
 			hash_combine(res, params.Path);
 			hash_combine(res, params.IsInstanced);
+			return res;
+		}
+	};
+
+	template<>
+	struct AssetImporterParamsHash<Cubemap>
+	{
+		size_t operator()(const typename AssetImporter<Cubemap>::Params& params) const
+		{
+			size_t res = 0;
+			hash_combine(res, params.Path);
+			hash_combine(res, params.IsDirectory);
 			return res;
 		}
 	};

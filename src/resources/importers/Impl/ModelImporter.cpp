@@ -27,11 +27,13 @@ namespace EnGl
 
 	Model AssetImporter<Model>::Import(const Params& params)
 	{
+		spdlog::info("Loading model at {}", params.Path.string());
+		
+
 		static u32 flags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes | aiProcess_GenBoundingBoxes;
 		Assimp::Importer importer;
 
 		const aiScene* scene = importer.ReadFile(params.Path.string(), flags);
-
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
 			spdlog::error(importer.GetErrorString());
@@ -51,6 +53,7 @@ namespace EnGl
 		bool isInstanced
 	)
 	{
+
 		for (size_t i = 0; i < node->mNumMeshes; i++)
 		{
 			aiMesh* aMesh = scene->mMeshes[node->mMeshes[i]];
@@ -112,7 +115,6 @@ namespace EnGl
 		if (aMesh->mMaterialIndex >= 0)
 		{
 			auto mat = scene->mMaterials[aMesh->mMaterialIndex];
-			
 			material = GetMaterial(mat, modelDirName, isInstanced);
 		}
 
@@ -142,12 +144,6 @@ namespace EnGl
 		bool isInstanced
 	)
 	{
-		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(mat, aiTextureType_BASE_COLOR, modelDirName);
-		if (baseColorOpt.has_value())
-		{
-			return make_scope<Material::UnlitTextured>(baseColorOpt.value(), isInstanced);
-		}
-
 		std::optional<AssetHandle<Texture2D>> diffuseOpt = TryGetTexture(mat, aiTextureType_DIFFUSE, modelDirName);
 		std::optional<AssetHandle<Texture2D>> specularOpt = TryGetTexture(mat, aiTextureType_SPECULAR, modelDirName);
 		f32 shininess;
@@ -155,8 +151,23 @@ namespace EnGl
 
 		if (diffuseOpt.has_value() && specularOpt.has_value())
 		{
+			spdlog::info("phong");
 			return make_scope<Material::Phong>(diffuseOpt.value(), specularOpt.value(), shininess, isInstanced);
 		}
+
+		if (diffuseOpt.has_value())
+		{
+			spdlog::info("lit");
+			return make_scope<Material::LitTextured>(diffuseOpt.value(), isInstanced);
+		}
+
+		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(mat, aiTextureType_BASE_COLOR, modelDirName);
+		if (baseColorOpt.has_value())
+		{
+			spdlog::info("lit");
+			return make_scope<Material::LitTextured>(baseColorOpt.value(), isInstanced);
+		}
+
 		
 		return nullptr;
 	}

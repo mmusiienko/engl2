@@ -1,6 +1,7 @@
 #pragma once
 #include "components/Components.h"
 #include "../resources/DebugMesh.h"
+#include "../renderer/base/Mesh.h"
 
 
 namespace EnGl
@@ -23,6 +24,11 @@ namespace EnGl
 				glm::mat4 InverseProjection;
 				glm::mat4 ViewProjection;
 				glm::mat4 InverseViewProjection;
+
+				f32 Near;
+				f32 Far;
+				f32 Aspect;
+				f32 FovDegree;
 			};
 
 
@@ -43,13 +49,16 @@ namespace EnGl
 					MaterialHandle.Id == other.MaterialHandle.Id;
 			}
 
-			size_t operator()(const InstancedMaterialMapKey& key) const
+			struct Hash
 			{
-				size_t res = 0;
-				hash_combine(res, key.MeshHandle.Id);
-				hash_combine(res, key.MaterialHandle.Id);
-				return res;
-			}
+				size_t operator()(const InstancedMaterialMapKey& key) const
+				{
+					size_t res = 0;
+					hash_combine(res, key.MeshHandle.Id);
+					hash_combine(res, key.MaterialHandle.Id);
+					return res;
+				}
+			};
 		};
 
 		struct MaterialMapValue
@@ -57,19 +66,19 @@ namespace EnGl
 			struct El
 			{
 				AssetHandle<Mesh> Mesh;
-				glm::mat4 Model;
+				Mesh::InstanceData Data;
 			};
 
-			std::vector<El> Transforms;
+			std::vector<El> InstanceDatas;
 		};
 
 		struct InstancedMaterialMapValue
 		{
-			std::vector<glm::mat4> Transforms;
+			std::vector<Mesh::InstanceData> Data;
 		};
 
 		using MaterialMap = std::unordered_map<AssetHandle<scope<Material::Base>>, MaterialMapValue>;
-		using InstancedMaterialMap = std::unordered_map<InstancedMaterialMapKey, InstancedMaterialMapValue, InstancedMaterialMapKey>;
+		using InstancedMaterialMap = std::unordered_map<InstancedMaterialMapKey, InstancedMaterialMapValue, InstancedMaterialMapKey::Hash>;
 
 		struct RendererInfo
 		{
@@ -86,8 +95,19 @@ namespace EnGl
 
 		RendererInfo Renderer;
 
-		Texture2D* ColorTexture = nullptr;
-		Texture2D* DepthTexture = nullptr;
+		struct FramebufferInfo
+		{
+			AssetHandle<Texture2D> ColorTexture{};
+			AssetHandle<Texture2D> ColorTextureLastFrame{};
+			AssetHandle<Texture2D> DepthTexture{};
+			AssetHandle<Texture2D> DepthTextureLastFrame{};
+			AssetHandle<Texture2D> DepthTextureOpaque{};
+			glm::vec2 Resolution{ 1 };
+		};
+
+		FramebufferInfo Framebuffer;
+		
+		Cubemap* Cubemap = nullptr;
 
 		struct DebugInfo
 		{
@@ -105,5 +125,7 @@ namespace EnGl
 		};
 
 		DebugInfo Debug;
+
+		std::unordered_map<std::string, EcsImpl::Entity> SpecialEntities;
 	};
 }

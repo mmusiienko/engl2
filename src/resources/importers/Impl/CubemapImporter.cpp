@@ -1,0 +1,96 @@
+#include "../AssetImporter.h"
+
+#include <vector>
+#include "../../FileSystem.h"
+#include <unordered_set>
+
+namespace EnGl
+{
+	static std::vector<unsigned char> GetFace(unsigned char* data, u32 topLeftX, u32 topLeftY, u32 w, u32 nrchannels);
+	static std::unordered_set<std::string> SUPPORTED_EXTENSIONS{ ".jpg", ".png" };
+
+	Cubemap AssetImporter<Cubemap>::Import(const Params& params)
+	{
+		spdlog::info(params.Path.string());
+
+		std::vector<Cubemap::FaceData> facesRaw;
+		facesRaw.reserve(6);
+
+		if (params.IsDirectory)
+		{
+			size_t i = 0;
+			std::vector<FileSystem::RaiiImageData> data;
+			data.reserve(6);
+
+			for (const auto& entry : std::filesystem::directory_iterator(params.Path))
+			{
+				if (i >= 6)
+				{
+					spdlog::error("Error loading cubemap texture with stbi: {} | Number of textures is too low", params.Path.string());
+					throw std::runtime_error("Error loading cubemap texture with stbi | Number of textures is too low: " + params.Path.string());
+				}
+				if (!entry.is_regular_file()) continue;
+				auto extenstion = entry.path().extension().string();
+
+				if (!SUPPORTED_EXTENSIONS.contains(extenstion)) continue;
+				i++;
+				i32 width, height, nr_channels;
+
+				auto imgData = FileSystem::ReadImage(entry, &width, &height, &nr_channels, 0);
+				facesRaw.emplace_back(imgData.Data, width, height, nr_channels);
+				data.push_back(std::move(imgData));
+			}
+
+			return Cubemap{ facesRaw };
+		}
+		else
+		{
+			i32 width, height, nr_channels;
+			auto data = FileSystem::ReadImage(params.Path, &width, &height, &nr_channels, 0);
+
+			if (width <= 0 || height <= 0 || !data.Data)
+			{
+				spdlog::error("Error loading cubemap texture with stbi: {}", params.Path.string());
+				throw std::runtime_error("Error loading cubemap texture with stbi: " + params.Path.string());
+			}
+
+			u32 faceWidth = width / 4;
+
+			std::vector<std::vector<unsigned char>> faces
+			{
+				GetFace(data.Data, 2 * faceWidth, faceWidth, faceWidth, nr_channels),
+				GetFace(data.Data, 0, faceWidth, faceWidth, nr_channels),
+				GetFace(data.Data, faceWidth, 0, faceWidth, nr_channels),
+				GetFace(data.Data, faceWidth, 2 * faceWidth, faceWidth, nr_channels),
+				GetFace(data.Data, faceWidth, faceWidth, faceWidth, nr_channels),
+				GetFace(data.Data, 3 * faceWidth, faceWidth, faceWidth, nr_channels),
+			};
+
+			for (size_t i = 0; i < 6; i++)
+			{
+				facesRaw.emplace_back(faces[i].data(), faceWidth, faceWidth, nr_channels);
+			}
+
+			return Cubemap{ facesRaw };
+		}
+	}
+
+	static std::vector<unsigned char> GetFace(unsigned char* data, u32 topLeftX, u32 topLeftY, u32 w, u32 nrchannels)
+	{
+		std::vector<unsigned char> faceData(w * w * nrchannels);
+
+		for (u32 x = 0; x < w; x++)
+		{
+			for (u32 y = 0; y < w; y++)
+			{
+				for (u32 c = 0; c < nrchannels; c++)
+				{
+					faceData[(y * w + x) * nrchannels + c] =
+						data[((topLeftY + y) * w * 4 + (topLeftX + x)) * nrchannels + c];
+				}
+			}
+		}
+
+		return faceData;
+	}
+}

@@ -27,9 +27,10 @@ namespace EnGl
 
 			virtual void SetUniforms() const {};
 
-			void SetModel(const glm::mat4& model) const
+			void SetModel(const glm::mat4& model, const glm::mat3x4& normal) const
 			{
 				m_Shader->SetUniform("uModel", model);
+				m_Shader->SetUniform("uNormal", normal);
 			}
 
 			inline AssetHandle<Shader> Get() const { return m_ShaderHandle; }
@@ -45,11 +46,13 @@ namespace EnGl
 		{
 			glm::vec4 Color{ 1.0f, 0.0f, 0.0f, 1.0f };
 
-			Unlit(bool instanced = false) : 
-				Base(!instanced ? 
+			Unlit(bool instanced = false) :
+				Base(!instanced ?
 					(AssetManager::GRAPHICS_SHADER_DIR / "Unlit") :
 					(AssetManager::GRAPHICS_SHADER_DIR / "UnlitInstanced")
-				) {}
+				)
+			{
+			}
 
 			Unlit(glm::vec4 color, bool instanced = false)
 				: Unlit(instanced)
@@ -65,7 +68,7 @@ namespace EnGl
 				{
 					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				}
-				
+
 				return ok;
 			}
 
@@ -80,8 +83,8 @@ namespace EnGl
 			AssetHandle<Texture2D> TextureHandle;
 
 			UnlitTextured(AssetHandle<Texture2D> texture, bool isInstanced = false)
-				: TextureHandle(texture), 
-				Base(!isInstanced ? 
+				: TextureHandle(texture),
+				Base(!isInstanced ?
 					AssetManager::GRAPHICS_SHADER_DIR / "UnlitTextured" :
 					AssetManager::GRAPHICS_SHADER_DIR / "UnlitTexturedInstanced"
 				)
@@ -108,13 +111,47 @@ namespace EnGl
 			}
 		};
 
+		struct LitTextured : public Base
+		{
+			AssetHandle<Texture2D> TextureHandle;
+
+			LitTextured(AssetHandle<Texture2D> texture, bool isInstanced = false)
+				: TextureHandle(texture),
+				Base(!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "LitTextured" :
+					AssetManager::GRAPHICS_SHADER_DIR / "LitTexturedInstanced"
+				)
+			{
+			}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (ok)
+				{
+					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				}
+				return ok;
+			}
+
+			void SetUniforms() const override
+			{
+				auto [texture, gen] = AssetManager::GetAsset(TextureHandle);
+				if (texture)
+				{
+					m_Shader->SetUniform("uTexture", *texture, 0);
+				}
+			}
+		};
+
 		struct ScreenSpaceTextured : public Base
 		{
 			AssetHandle<Texture2D> TextureHandle;
 
 			ScreenSpaceTextured(AssetHandle<Texture2D> texture, bool isInstanced = false)
 				: TextureHandle(texture), Base(
-					!isInstanced ? 
+					!isInstanced ?
 					AssetManager::GRAPHICS_SHADER_DIR / "ScreenSpaceTextured" :
 					AssetManager::GRAPHICS_SHADER_DIR / "ScreenSpaceTexturedInstanced"
 				)
@@ -141,7 +178,7 @@ namespace EnGl
 				: DiffuseHandle(diffuseHandle),
 				SpecularHandle(specularHandle),
 				Shininess(shininess),
-				Base(!isInstanced ? 
+				Base(!isInstanced ?
 					AssetManager::GRAPHICS_SHADER_DIR / "Phong" :
 					AssetManager::GRAPHICS_SHADER_DIR / "PhongInstanced"
 				)
@@ -176,13 +213,36 @@ namespace EnGl
 		{
 			CoordinatePlane() : Base(AssetManager::GRAPHICS_SHADER_DIR / "CoordinatePlane") {}
 
-			bool SetCommonUniforms(const GameContext & context) override
+			bool SetCommonUniforms(const GameContext& context) override
 			{
 				bool ok = Base::SetCommonUniforms(context);
 				if (ok)
 				{
 					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				}
+
+				return ok;
+			}
+		};
+
+		struct CubemapObj : public Base
+		{
+			AssetHandle<Cubemap> CubemapHandle;
+
+			CubemapObj(AssetHandle<Cubemap> cubemapHandle) : Base(AssetManager::GRAPHICS_SHADER_DIR / "Cubemap"), CubemapHandle(cubemapHandle) {}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				auto [cubemap, g] = AssetManager::GetAsset(CubemapHandle);
+
+				if (ok && cubemap)
+				{
+					m_Shader->SetUniform("uView", glm::mat4(glm::mat3(*context.Camera.Get().View)));
+					m_Shader->SetUniform("uProjection", *context.Camera.Get().Projection);
+					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+					m_Shader->SetUniform("uCubemap", *cubemap, 2);
 				}
 
 				return ok;

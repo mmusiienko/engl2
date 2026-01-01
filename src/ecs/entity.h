@@ -484,7 +484,9 @@ namespace EnGl
         class System
         {
         public:
-            virtual void Run(Ecs<AllCs...>::EntityManager& manager, Context& context) = 0;
+            virtual void Run(Ecs<AllCs...>::EntityManager& manager, Context& context) {};
+            virtual void Init(Ecs<AllCs...>::EntityManager& manager) {};
+            virtual void Editor(Ecs<AllCs...>::EntityManager& manager, Context& context) {};
             virtual ~System() = default;
         };
 
@@ -500,6 +502,22 @@ namespace EnGl
             {
                 m_Systems.push_back(make_scope<T>( std::forward<Args>(args)... ));
                 return *this;
+            }
+
+            void Init()
+            {
+                for (auto& system : m_Systems)
+                {
+                    system->Init(m_Manager);
+                }
+            }
+
+            void Editor(Context& context)
+            {
+                for (auto& system : m_Systems)
+                {
+                    system->Editor(m_Manager, context);
+                }
             }
 
             void Run(Context& context)

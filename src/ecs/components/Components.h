@@ -36,7 +36,7 @@ namespace EnGl
 			f32 Aspect = 16.0f / 9.0f;
 			f32 FovDegree = 45.0f;
 			f32 NearPlane = 0.1f;
-			f32 FarPlane = 10000.0f;
+			f32 FarPlane = 100000.0f;
 
 			glm::mat4 CachedProjection;
 
@@ -63,9 +63,9 @@ namespace EnGl
 			OQ,
 			TT,
 			OL,
+			CUBEMAP,
 			SCREEN_QUAD,
 			SCREEN_SPACE,
-
 			Count
 		};
 
