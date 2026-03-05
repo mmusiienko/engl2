@@ -13,47 +13,54 @@ namespace EnGl
 	}
 
 	static std::vector<Mesh::Vertex> cubeVertices = {
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{-1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
 
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{-1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{-1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
+		// Back face (Z-)
+		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}},
+		{{-1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {0, 0}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}},
+		{{ 1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {1, 1}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}},
 
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
+		// Left face (X-)
+		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}},
+		{{-1.0f, -1.0f, -1.0f}, {-1,  0,  0}, {1, 0}},
+		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}},
+		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}},
+		{{-1.0f,  1.0f,  1.0f}, {-1,  0,  0}, {0, 1}},
+		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}},
 
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{-1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
+		// Right face (X+)
+		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}},
+		{{ 1.0f, -1.0f,  1.0f}, { 1,  0,  0}, {1, 0}},
+		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}},
+		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}},
+		{{ 1.0f,  1.0f, -1.0f}, { 1,  0,  0}, {0, 1}},
+		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}},
 
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{-1.0f,  1.0f,  1.0f}, {}, {}},
-			   {{-1.0f,  1.0f, -1.0f}, {}, {}},
+		// Front face (Z+)
+		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}},
+		{{-1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {0, 1}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}},
+		{{ 1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {1, 0}},
+		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}},
 
-			   {{-1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f, -1.0f}, {}, {}},
-			   {{-1.0f, -1.0f,  1.0f}, {}, {}},
-			   {{ 1.0f, -1.0f,  1.0f}, {}, {}}
+		// Top face (Y+)
+		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}},
+		{{ 1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {1, 0}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}},
+		{{-1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {0, 1}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}},
+
+		// Bottom face (Y-)
+		{{-1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {0, 0}},
+		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}},
+		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}},
+		{{ 1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {1, 1}},
 	};
 
 	static std::vector<Mesh::Index> cubeIndices = {
@@ -87,10 +94,10 @@ namespace EnGl
 
 	static std::vector<Mesh::Vertex> quadVertices =
 	{
-		{{-1.0f, -1.0f, 0.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f, -1.0f, 0.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f,  1.0f, 0.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f,  1.0f, 0.0f}, {}, {0.0f, 1.0f}}
+		{{-1.0f, -1.0f, 0.0f}, {-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f}},
+		{{ 1.0f, -1.0f, 0.0f}, { 1.0f, -1.0f, 1.0f}, {1.0f, 0.0f}},
+		{{ 1.0f,  1.0f, 0.0f}, { 1.0f,  1.0f, 1.0f}, {1.0f, 1.0f}},
+		{{-1.0f,  1.0f, 0.0f}, {-1.0f,  1.0f, 1.0f}, {0.0f, 1.0f}}
 	};
 
 	static std::vector<Mesh::Index> quadIndices =
@@ -168,5 +175,70 @@ namespace EnGl
 			.Mesh = meshHandle,
 			.Material = mat
 		}, true);
+	}
+
+	static AssetHandle<Mesh> GetSphere()
+	{
+		std::vector<Mesh::Vertex> vertices;
+		std::vector<Mesh::Index> indices;
+
+		const unsigned int X_SEGMENTS = 64;
+		const unsigned int Y_SEGMENTS = 64;
+		const float PI = 3.14159265359f;
+		for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
+		{
+			for (unsigned int y = 0; y <= Y_SEGMENTS; ++y)
+			{
+				float xSegment = (float)x / (float)X_SEGMENTS;
+				float ySegment = (float)y / (float)Y_SEGMENTS;
+				float xPos = std::cos(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+				float yPos = std::cos(ySegment * PI);
+				float zPos = std::sin(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+
+				vertices.emplace_back(
+					Mesh::Vertex
+					{
+						.Position = {xPos, yPos, zPos},
+						.Normal = {xPos, yPos, zPos},
+						.TexCoord = {xSegment, ySegment}
+					}
+				);
+			}
+		}
+
+		bool oddRow = false;
+		for (unsigned int y = 0; y < Y_SEGMENTS; ++y)
+		{
+			if (!oddRow) // even rows: y == 0, y == 2; and so on
+			{
+				for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
+				{
+					indices.push_back(y * (X_SEGMENTS + 1) + x);
+					indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+				}
+			}
+			else
+			{
+				for (int x = X_SEGMENTS; x >= 0; --x)
+				{
+					indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+					indices.push_back(y * (X_SEGMENTS + 1) + x);
+				}
+			}
+			oddRow = !oddRow;
+		}
+		auto info = Mesh::CreationInfo{ .Vertices = vertices, .Indices = indices, .HasNormals = true, .HasTextureCoords = true };
+		info.DrawType = GL_TRIANGLE_STRIP;
+		return AssetManager::Put<Mesh>(info);
+	}
+
+	AssetHandle<Model> StaticModel::Sphere(AssetHandle<scope<Material::Base>> mat)
+	{
+		static auto meshHandle = GetSphere();
+
+		return AssetManager::Put<Model>(Model::Submesh{
+			.Mesh = meshHandle,
+			.Material = mat
+		}, false);
 	}
 }

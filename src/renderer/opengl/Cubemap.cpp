@@ -7,6 +7,8 @@ namespace EnGl
 {
 	Cubemap::Cubemap(const std::vector<FaceData>& data)
 	{
+		static const GLenum COMPONENTS_TO_CHANNELS[4]{ GL_RED, GL_RG, GL_RGB, GL_RGBA };
+		static const GLenum COMPONENTS_TO_CHANNELS_GPU[4]{ GL_RED, GL_RG, GL_SRGB, GL_SRGB_ALPHA };
 
 		GL_CHECK(glGenTextures(1, &m_Id));
 		GL_CHECK(glBindTexture(GL_TEXTURE_CUBE_MAP, m_Id));
@@ -16,8 +18,8 @@ namespace EnGl
 		{
 			GL_CHECK(glTexImage2D(
 				GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-				0, GL_SRGB, width, height, 0,
-				GL_RGB, GL_UNSIGNED_BYTE, data
+				0, COMPONENTS_TO_CHANNELS_GPU[nr_channels - 1], width, height, 0,
+				COMPONENTS_TO_CHANNELS[nr_channels - 1], GL_UNSIGNED_BYTE, data
 			));
 			i++;
 		}

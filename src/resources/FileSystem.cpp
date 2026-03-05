@@ -44,6 +44,7 @@ namespace EnGl
 		{
 			const char* reason = stbi_failure_reason();
 			spdlog::error("Failed to load {}: {}", path.string(), reason ? reason : "unknown error");
+			throw std::runtime_error("Failed to load texture");
 		}
 
 		return data;

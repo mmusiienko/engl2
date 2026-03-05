@@ -10,10 +10,23 @@ namespace EnGl
 {
 	class Texture;
 	class SSBO;
-
+	
 	class Shader : public Resource
 	{
 	public:
+		struct UniformDirectionalLight
+		{
+			glm::vec3 Direction;
+			glm::vec3 Color;
+		};
+
+		static constexpr size_t MAX_LIGHTS = 16;
+		struct UniformPointLight
+		{
+			glm::vec3 Position;
+			glm::vec3 Color;
+			f32 Intensity;
+		};
 
 		struct ShaderUnit
 		{
@@ -30,8 +43,6 @@ namespace EnGl
 
 		void Use() const;
 
-
-
 		u32 GetLocation(const std::string& name) const;
 		void SetUniform(const std::string& name, i32 value) const;
 		void SetUniform(const std::string& name, u32 value) const;
@@ -44,6 +55,9 @@ namespace EnGl
 		void SetUniform(const std::string& name, const glm::vec4& value) const;
 		void SetUniform(const std::string& name, const glm::vec3& value) const;
 		void SetUniform(const std::string& name, const glm::vec2& value) const;
+		void SetUniform(const std::string& name, const glm::uvec2& value) const;
+		void SetUniform(const std::string& name, const UniformDirectionalLight& value) const;
+		void SetUniform(const std::string& name, const std::array<UniformPointLight, MAX_LIGHTS>& value) const;
 		void SetUniform(const std::string& name, const Texture& value, u32 unit) const;
 		void SetUniform(const std::string& name, void*) = delete;
 		void SetUniform(const std::string& name, const void*) = delete;

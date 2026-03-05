@@ -33,7 +33,9 @@ namespace EnGl
 
 		m_Props = other.m_Props;
 
+		Update();
 		UpdateParameters();
+
 		glCopyImageSubData(
 			other.m_Id,
 			GL_TEXTURE_2D,
@@ -56,9 +58,9 @@ namespace EnGl
 
 		m_Props = other.m_Props;
 
-		UpdateParameters();
 
 		Update();
+		UpdateParameters();
 
 		glCopyImageSubData(
 			other.m_Id,
@@ -100,11 +102,13 @@ namespace EnGl
 			.MinFilter = info.Common.MinFilter,
 			.MagFilter = info.Common.MagFilter,
 			.w = w,
-			.h = h
+			.h = h,
+			.BorderColor = info.Common.BorderColor
 		};
 
 		Update(info.Data);
 		UpdateParameters();
+
 		GenerateMips();
 	}
 
@@ -123,6 +127,7 @@ namespace EnGl
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, m_Props.Wrap));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_Props.MinFilter));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_Props.MagFilter));
+		GL_CHECK(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(m_Props.BorderColor)));
 	}
 
 	Texture3D::Texture3D(u32 d, const CreationInfoFromData& info)
@@ -143,21 +148,23 @@ namespace EnGl
 			.CpuFormat = info.CpuFormat,
 			.GpuFormat = info.GpuFormat,
 			.DataType = info.DataType,
-			.Type = GL_TEXTURE_2D,
+			.Type = GL_TEXTURE_3D,
 			.Wrap = info.Common.Wrap,
 			.MinFilter = info.Common.MinFilter,
 			.MagFilter = info.Common.MagFilter,
 			.w = w,
 			.h = h,
-			.d = d
+			.d = d,
+			.BorderColor = info.Common.BorderColor
 		};
 
+		Update(info.Data);
 		UpdateParameters();
-		PopulateData(info.Data);
+
 		GenerateMips();
 	}
 
-	void Texture3D::PopulateData(const void* data)
+	void Texture3D::Update(const void* data)
 	{
 		Bind();
 
@@ -173,6 +180,7 @@ namespace EnGl
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, m_Props.Wrap));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, m_Props.MinFilter));
 		GL_CHECK(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, m_Props.MagFilter));
+		GL_CHECK(glTexParameterfv(GL_TEXTURE_3D, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(m_Props.BorderColor)));
 	}
 }
 

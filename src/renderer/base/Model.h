@@ -22,7 +22,7 @@ namespace EnGl
 		Model(Submesh&& mesh, bool IsInstanced = false) noexcept;
 		void AddMesh(Submesh&& mesh) noexcept;
 		void SetMeshes(std::vector<Submesh>&& meshes) noexcept;
-		Submesh GetSubmesh(u32 idx) const { return m_Meshes[idx]; }
+		Submesh& GetSubmesh(u32 idx) { return m_Meshes[idx]; }
 
 		inline u32 TotalMeshes() const { return static_cast<u32>(m_Meshes.size()); }
 		inline bool IsInstanced() const { return m_IsInstanced; }

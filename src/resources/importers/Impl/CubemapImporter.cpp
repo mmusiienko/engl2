@@ -7,33 +7,21 @@
 namespace EnGl
 {
 	static std::vector<unsigned char> GetFace(unsigned char* data, u32 topLeftX, u32 topLeftY, u32 w, u32 nrchannels);
-	static std::unordered_set<std::string> SUPPORTED_EXTENSIONS{ ".jpg", ".png" };
 
 	Cubemap AssetImporter<Cubemap>::Import(const Params& params)
 	{
-		spdlog::info(params.Path.string());
+		spdlog::info("Loading cubemap at: {}", params.Path.string());
 
 		std::vector<Cubemap::FaceData> facesRaw;
 		facesRaw.reserve(6);
 
-		if (params.IsDirectory)
+		if (!params.Faces.empty())
 		{
-			size_t i = 0;
 			std::vector<FileSystem::RaiiImageData> data;
 			data.reserve(6);
 
-			for (const auto& entry : std::filesystem::directory_iterator(params.Path))
+			for (const auto& entry : params.Faces)
 			{
-				if (i >= 6)
-				{
-					spdlog::error("Error loading cubemap texture with stbi: {} | Number of textures is too low", params.Path.string());
-					throw std::runtime_error("Error loading cubemap texture with stbi | Number of textures is too low: " + params.Path.string());
-				}
-				if (!entry.is_regular_file()) continue;
-				auto extenstion = entry.path().extension().string();
-
-				if (!SUPPORTED_EXTENSIONS.contains(extenstion)) continue;
-				i++;
 				i32 width, height, nr_channels;
 
 				auto imgData = FileSystem::ReadImage(entry, &width, &height, &nr_channels, 0);

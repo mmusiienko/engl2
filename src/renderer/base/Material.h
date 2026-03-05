@@ -3,7 +3,7 @@
 #include "../../resources/importers/AssetManager.h"
 #include "../../ecs/GameContext.h"
 #include "../../Printer.h"
-
+#include "../../ui/ImGuiEntry.h"
 
 namespace EnGl
 {
@@ -35,6 +35,9 @@ namespace EnGl
 
 			inline AssetHandle<Shader> Get() const { return m_ShaderHandle; }
 			void Set(const std::filesystem::path& path) { m_ShaderHandle = AssetManager::Load<Shader>(path); }
+			virtual const std::string& Name() const = 0;
+
+			virtual void Editor() {}
 		protected:
 			Base(const std::filesystem::path& path) : m_ShaderHandle(AssetManager::Load<Shader>(path)) {}
 
@@ -76,6 +79,8 @@ namespace EnGl
 			{
 				m_Shader->SetUniform("uColor", Color);
 			}
+
+			const std::string& Name() const override { return "Unlit"; };
 		};
 
 		struct UnlitTextured : public Base
@@ -109,6 +114,156 @@ namespace EnGl
 					m_Shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
+
+			const std::string& Name() const override { return "UnlitTextured"; };
+		};
+
+		struct Lit : public Base
+		{
+			glm::vec4 Color{ 0.4f, 0.4f, 0.4f, 1.0f };
+
+			Lit(bool isInstanced = false) : 
+				Base(!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "Lit" :
+					AssetManager::GRAPHICS_SHADER_DIR / "Lit"
+				)
+			{
+			}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (!ok)
+				{
+					return ok;
+				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
+
+				return ok;
+			}
+
+			void SetUniforms() const override
+			{
+				m_Shader->SetUniform("uColor", Color);
+			}
+
+			const std::string& Name() const override { return "Lit"; };
+		};
+
+		struct PBR : public Base
+		{
+			glm::vec3 Albedo { 1.0f, 0.4f, 0.4f };
+			f32 Metallic = 0.0f;
+			f32 Roughness = 0.2f;
+			f32 AO = 0.0f;
+
+			PBR(bool isInstanced = false) :
+				Base(!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "PBR" :
+					AssetManager::GRAPHICS_SHADER_DIR / "PBR"
+				)
+			{
+			}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (!ok)
+				{
+					return ok;
+				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
+
+				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				if (shadowMap)
+				{
+					m_Shader->SetUniform("uShadowMap", *shadowMap, 0);
+					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				}
+
+				return ok;
+			}
+
+			void SetUniforms() const override
+			{
+				m_Shader->SetUniform("uMaterial.Albedo", Albedo);
+				m_Shader->SetUniform("uMaterial.Metallic", Metallic);
+				m_Shader->SetUniform("uMaterial.Roughness", Roughness);
+				m_Shader->SetUniform("uMaterial.AO", AO);
+			}
+
+			void Editor() override
+			{
+				ImGui::Separator();
+				ImGui::Text("PBR material");
+				ImGui::ColorEdit3("Albedo", glm::value_ptr(Albedo));
+				ImGui::InputFloat("Metallic", &Metallic);
+				ImGui::InputFloat("Roughness", &Roughness);
+				ImGui::InputFloat("Ambient", &AO);
+			}
+
+			const std::string& Name() const override { return "PBR"; };
+		};
+
+		struct PBRTextured : public Base
+		{
+			AssetHandle<Texture2D> AlbedoHandle{};
+			AssetHandle<Texture2D> MetallicHandle{};
+			AssetHandle<Texture2D> RoughnessHandle{};
+			AssetHandle<Texture2D> AOHandle{};
+
+			PBRTextured(bool isInstanced = false) :
+				Base(!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "PBRTextured" :
+					AssetManager::GRAPHICS_SHADER_DIR / "PBRTextured"
+				)
+			{
+			}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (!ok)
+				{
+					return ok;
+				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
+
+				return ok;
+			}
+
+			void SetUniforms() const override
+			{
+				auto [albedo, g0] = AssetManager::GetAsset(AlbedoHandle);
+				auto [metallic, g1] = AssetManager::GetAsset(MetallicHandle);
+				auto [roughness, g2] = AssetManager::GetAsset(RoughnessHandle);
+				auto [ao, g3] = AssetManager::GetAsset(AOHandle);
+				
+				if (albedo && roughness && metallic)
+				{
+					m_Shader->SetUniform("uMaterial.Albedo", *albedo, 0);
+					m_Shader->SetUniform("uMaterial.Metallic", *metallic, 1);
+					m_Shader->SetUniform("uMaterial.Roughness", *roughness, 2);
+					if (ao)
+					{
+						m_Shader->SetUniform("uMaterial.AO", *ao, 3);
+					}
+				}
+			}
+
+			const std::string& Name() const override { return "PBRTextured"; };
 		};
 
 		struct LitTextured : public Base
@@ -127,11 +282,16 @@ namespace EnGl
 			bool SetCommonUniforms(const GameContext& context) override
 			{
 				bool ok = Base::SetCommonUniforms(context);
-				if (ok)
+				if (!ok)
 				{
-					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+					return ok;
 				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
+
 				return ok;
 			}
 
@@ -143,6 +303,8 @@ namespace EnGl
 					m_Shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
+
+			const std::string& Name() const override { return "LitTextured"; };
 		};
 
 		struct ScreenSpaceTextured : public Base
@@ -166,6 +328,21 @@ namespace EnGl
 					m_Shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				auto [sky, g1] = AssetManager::GetAsset(context.SkyTexture);
+				if (ok && sky)
+				{
+					m_Shader->SetUniform("uSkyTexture", *sky, 1);
+				}
+
+
+				return ok;
+			}
+
+			const std::string& Name() const override { return "ScreenSpaceTextured"; };
 		};
 
 		struct Phong : public Base
@@ -188,10 +365,15 @@ namespace EnGl
 			bool SetCommonUniforms(const GameContext& context) override
 			{
 				bool ok = Base::SetCommonUniforms(context);
-				if (ok)
+				if (!ok)
 				{
-					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+					return ok;
 				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				return ok;
 			}
@@ -202,11 +384,13 @@ namespace EnGl
 				auto [textureS, gen2] = AssetManager::GetAsset(SpecularHandle);
 				if (textureD && textureS)
 				{
-					m_Shader->SetUniform("uMaterial.uDiffuse", *textureD, 0);
-					m_Shader->SetUniform("uMaterial.uSpecular", *textureS, 1);
-					m_Shader->SetUniform("uMaterial.uShininness", Shininess);
+					m_Shader->SetUniform("uMaterial.Diffuse", *textureD, 0);
+					m_Shader->SetUniform("uMaterial.Specular", *textureS, 1);
+					m_Shader->SetUniform("uMaterial.Shininess", Shininess);
 				}
 			}
+
+			const std::string& Name() const override { return "Phong"; };
 		};
 
 		struct CoordinatePlane : public Base
@@ -224,6 +408,8 @@ namespace EnGl
 
 				return ok;
 			}
+
+			const std::string& Name() const override { return "CoordinatePlane"; };
 		};
 
 		struct CubemapObj : public Base
@@ -247,6 +433,8 @@ namespace EnGl
 
 				return ok;
 			}
+
+			const std::string& Name() const override { return "Cubemap"; };
 		};
 	}
 }

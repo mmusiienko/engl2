@@ -15,7 +15,7 @@ namespace EnGl
 		spdlog::info("Loading texture: {}", pathStr);
 		int width, height, nr_channels;
 
-		auto data = FileSystem::ReadImage(pathStr.c_str(), &width, &height, &nr_channels, 0);
+		auto data = FileSystem::ReadImage(pathStr.c_str(), &width, &height, &nr_channels, 0, params.Flip);
 
 		auto format = COMPONENTS_TO_CHANNELS[nr_channels - 1];
 		auto gpuformat = COMPONENTS_TO_CHANNELS_GPU[nr_channels - 1];

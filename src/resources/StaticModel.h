@@ -15,6 +15,7 @@ namespace EnGl
 		static AssetHandle<Model> QuadTesselated(AssetHandle<scope<Material::Base>> mat, u32 w, u32 h);
 		static AssetHandle<Model> Cube(AssetHandle<scope<Material::Base>> mat = GetDefaultMaterial());
 		static AssetHandle<Model> CubeInstanced(AssetHandle<scope<Material::Base>> mat = GetDefaultMaterial());
+		static AssetHandle<Model> Sphere(AssetHandle<scope<Material::Base>> mat = GetDefaultMaterial());
 		static AssetHandle<scope<Material::Base>> GetDefaultMaterial();
 	};
 }

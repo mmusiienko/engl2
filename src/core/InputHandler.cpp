@@ -41,6 +41,14 @@ namespace EnGl
 		}
 	}
 
+	void InputHandler::ScrollCallback(GLFWwindow* window, f64 xoffset, f64 yoffset)
+	{
+		if (ImGui::GetIO().WantCaptureMouse)
+			return;
+
+		State.ScrollDelta += static_cast<f32>(yoffset);
+	}
+
 	void InputHandler::KeyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		if (ImGui::GetIO().WantCaptureKeyboard)
@@ -91,6 +99,7 @@ namespace EnGl
 	void InputHandler::ResetState()
 	{
 		State.MouseDelta = {};
+		State.ScrollDelta = 0.0f;
 
 		for (size_t i = 0; i < MAX_KEYS; i++)
 		{

@@ -2,6 +2,7 @@
 #include "components/Components.h"
 #include "../resources/DebugMesh.h"
 #include "../renderer/base/Mesh.h"
+#include "../renderer/base/Framebuffer.h"
 
 
 namespace EnGl
@@ -10,6 +11,7 @@ namespace EnGl
 	{
 		struct CameraInfo
 		{
+			//for uniform data
 			struct Camera
 			{
 				EcsImpl::Entity Entity;
@@ -27,15 +29,16 @@ namespace EnGl
 
 				f32 Near;
 				f32 Far;
-				f32 Aspect;
-				f32 FovDegree;
 			};
-
 
 			std::vector<Camera> Cameras;
 			size_t CameraIdx = 0;
+			size_t DirShadowCameraIdx = 0;
 			
-			inline Camera Get() const { return Cameras[CameraIdx]; }
+			inline Camera& Get() { return Cameras[CameraIdx]; }
+			inline Camera& GetDirShadowCamera() { return Cameras[DirShadowCameraIdx]; }
+			inline const Camera& Get() const { return Cameras[CameraIdx]; }
+			inline const Camera& GetDirShadowCamera() const { return Cameras[DirShadowCameraIdx]; }
 		};
 
 		struct InstancedMaterialMapKey
@@ -66,6 +69,7 @@ namespace EnGl
 			struct El
 			{
 				AssetHandle<Mesh> Mesh;
+				AssetHandle<scope<Material::Base>> Material;
 				Mesh::InstanceData Data;
 			};
 
@@ -77,13 +81,14 @@ namespace EnGl
 			std::vector<Mesh::InstanceData> Data;
 		};
 
-		using MaterialMap = std::unordered_map<AssetHandle<scope<Material::Base>>, MaterialMapValue>;
+		using MaterialMap = std::unordered_map<std::string, MaterialMapValue>;
 		using InstancedMaterialMap = std::unordered_map<InstancedMaterialMapKey, InstancedMaterialMapValue, InstancedMaterialMapKey::Hash>;
 
 		struct RendererInfo
 		{
 			std::array<MaterialMap, Component::RenderLayerNumber> PerMaterial;
 			std::array<InstancedMaterialMap, Component::RenderLayerNumber> PerInstancedMaterial;
+			AssetHandle<scope<Material::Base>> MaterialOverride;
 		};
 
 		f64 Time = 0.0f;
@@ -97,12 +102,9 @@ namespace EnGl
 
 		struct FramebufferInfo
 		{
-			AssetHandle<Texture2D> ColorTexture{};
-			AssetHandle<Texture2D> ColorTextureLastFrame{};
-			AssetHandle<Texture2D> DepthTexture{};
-			AssetHandle<Texture2D> DepthTextureLastFrame{};
 			AssetHandle<Texture2D> DepthTextureOpaque{};
-			glm::vec2 Resolution{ 1 };
+			Framebuffer* MainFramebuffer = nullptr;
+			Framebuffer* DirShadowFramebuffer = nullptr;
 		};
 
 		FramebufferInfo Framebuffer;
@@ -126,6 +128,10 @@ namespace EnGl
 
 		DebugInfo Debug;
 
+		Shader::UniformDirectionalLight DirLight;
+		std::array<Shader::UniformPointLight, Shader::MAX_LIGHTS> PointLights;
+
+		AssetHandle<Texture2D> SkyTexture;
 		std::unordered_map<std::string, EcsImpl::Entity> SpecialEntities;
 	};
 }

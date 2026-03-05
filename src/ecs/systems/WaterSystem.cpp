@@ -171,16 +171,17 @@ namespace EnGl
 			m_Shader->SetUniform("uCameraPos", *cam.Position);
 			m_Shader->SetUniform("uNear", cam.Near);
 			m_Shader->SetUniform("uFar", cam.Far);
-			m_Shader->SetUniform("uResolution", context.Framebuffer.Resolution);
+			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
 			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
+			m_Shader->SetUniform("uDirectionalLight", context.DirLight);
 
 			if (context.Cubemap)
 			{
 				m_Shader->SetUniform("uCubemap", *context.Cubemap, 0);
 			}
 
-			auto [foam, g] = AssetManager::GetAsset(m_FoamTex);
-			auto [depth, g2] = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque);
+			auto foam = AssetManager::GetAsset(m_FoamTex).Asset;
+			auto depth = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque).Asset;
 			if (foam && depth)
 			{
 				m_Shader->SetUniform("uFoamDetail", *foam, 1);
@@ -212,11 +213,13 @@ namespace EnGl
 
 			return ok;
 		}
+
+		const std::string& Name() const override { return "WaterSurface"; };
 	};
 
 	void WaterSystem::Init(EcsImpl::EntityManager& manager)
 	{
-		waterSurface = manager.Create<
+		m_WaterSurface = manager.Create<
 			Component::Transform, Component::ModelMatrix, Component::RenderedModel
 		>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
@@ -226,7 +229,7 @@ namespace EnGl
 				model.Layer = Component::RenderLayer::TT;
 				transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
 				transform.Scale = glm::vec3{9000.0f};
-			}
+			}, "WaterSurface"
 		);
 	}
 
@@ -249,20 +252,47 @@ namespace EnGl
 		m_Displacement = GenRGBA32FTexture(N);
 	}
 
-	void WaterSystem::Cascade::Cleanup()
+	static void Resize(AssetHandle<Texture2D> toResize, u32 newDim)
 	{
-		AssetManager::Remove(m_IFFTDYCOMBINEDDXZ.Ping);
-		AssetManager::Remove(m_IFFTDYCOMBINEDDXZ.Pong);
-		AssetManager::Remove(m_IFFTDXCOMBINEDZ.Ping);
-		AssetManager::Remove(m_IFFTDXCOMBINEDZ.Pong);
-		AssetManager::Remove(m_IFFTDDXCOMBINEDDZ.Ping);
-		AssetManager::Remove(m_IFFTDDXCOMBINEDDZ.Pong);
-		AssetManager::Remove(m_IFFTDYDXCOMBINEDYDZ.Ping);
-		AssetManager::Remove(m_IFFTDYDXCOMBINEDYDZ.Pong);
-		AssetManager::Remove(m_Spectrum);
-		AssetManager::Remove(m_ConjSpectrum);
-		AssetManager::Remove(m_Normal);
-		AssetManager::Remove(m_Displacement);
+		auto [tex, g] = AssetManager::GetAsset(toResize);
+		tex->Properties().w = newDim;
+		tex->Properties().h = newDim;
+		tex->Update();
+	}
+
+	void WaterSystem::Cascade::ResizeAll()
+	{
+		m_Gaussian = Noise::Gaussian::Get(m_CommonData.N);
+		Resize(m_IFFTDYCOMBINEDDXZ.Ping, m_CommonData.N);
+		Resize(m_IFFTDYCOMBINEDDXZ.Pong, m_CommonData.N);
+		Resize(m_IFFTDXCOMBINEDZ.Ping, m_CommonData.N);
+		Resize(m_IFFTDXCOMBINEDZ.Pong, m_CommonData.N);
+		Resize(m_IFFTDDXCOMBINEDDZ.Ping, m_CommonData.N);
+		Resize(m_IFFTDDXCOMBINEDDZ.Pong, m_CommonData.N);
+		Resize(m_IFFTDYDXCOMBINEDYDZ.Ping, m_CommonData.N);
+		Resize(m_IFFTDYDXCOMBINEDYDZ.Pong, m_CommonData.N);
+		Resize(m_Spectrum, m_CommonData.N);
+		Resize(m_ConjSpectrum, m_CommonData.N);
+		Resize(m_Normal, m_CommonData.N);
+		Resize(m_Displacement, m_CommonData.N);
+
+		m_GroupCount = GetGroupCount(m_CommonData.N);
+		m_NStages = GetNStages(m_CommonData.N);
+
+		m_IFFTDYCOMBINEDDXZ.GroupCount = m_GroupCount;
+		m_IFFTDXCOMBINEDZ.GroupCount = m_GroupCount;
+		m_IFFTDDXCOMBINEDDZ.GroupCount = m_GroupCount;
+		m_IFFTDYDXCOMBINEDYDZ.GroupCount = m_GroupCount;
+
+		m_IFFTDYCOMBINEDDXZ.Nstages = m_NStages;
+		m_IFFTDXCOMBINEDZ.Nstages = m_NStages;
+		m_IFFTDDXCOMBINEDDZ.Nstages = m_NStages;
+		m_IFFTDYDXCOMBINEDYDZ.Nstages = m_NStages;
+
+		m_IFFTDYCOMBINEDDXZ.N = m_CommonData.N;
+		m_IFFTDXCOMBINEDZ.N = m_CommonData.N;
+		m_IFFTDDXCOMBINEDDZ.N = m_CommonData.N;
+		m_IFFTDYDXCOMBINEDYDZ.N = m_CommonData.N;
 	}
 
 	WaterSystem::Cascade::Cascade(SpectrumData& data, CommonSpectrumData& commonData, const FFT& fft) :
@@ -291,8 +321,7 @@ namespace EnGl
 
 		if (m_CommonData.DimensionChanged)
 		{
-			Cleanup();
-			Init(m_CommonData.N);
+			ResizeAll();
 		}
 
 		auto [spectrum, g0] = AssetManager::GetAsset(m_SpectrumShader);

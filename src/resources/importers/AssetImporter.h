@@ -29,10 +29,10 @@ namespace EnGl
 	struct AssetImporter<Texture2D>::Params
 	{
 		std::filesystem::path Path;
+		bool Flip = false;
 		Texture::CommonInfo TextureParams;
-
-		Params(std::filesystem::path path) : Path(std::move(path)) {}
-		Params(std::filesystem::path path, Texture::CommonInfo& params) : Path(std::move(path)), TextureParams(params) {}
+		Params(std::filesystem::path path, Texture::CommonInfo params = {}, bool flip = false) 
+			: Path(std::move(path)), TextureParams(std::move(params)), Flip(flip) {}
 		auto operator<=>(const Params&) const = default;
 	};
 
@@ -41,9 +41,9 @@ namespace EnGl
 	{
 		std::filesystem::path Path;
 		bool IsInstanced = false;
-
-		Params(std::filesystem::path path) : Path(std::move(path)) {}
-		Params(std::filesystem::path path, bool isInstanced) : Path(std::move(path)), IsInstanced(isInstanced) {}
+		bool FlipTextures = false;
+		Params(std::filesystem::path path, bool isInstanced = false, bool flipTextures = false) 
+			: Path(std::move(path)), IsInstanced(isInstanced), FlipTextures(flipTextures) {}
 		auto operator<=>(const Params&) const = default;
 	};
 
@@ -67,10 +67,13 @@ namespace EnGl
 	struct AssetImporter<Cubemap>::Params
 	{
 		std::filesystem::path Path;
-		bool IsDirectory = true;
+		std::vector<std::filesystem::path> Faces;
 		auto operator<=>(const Params&) const = default;
+		Params(std::filesystem::path path) : Path(std::move(path)) {}
+		Params(std::vector<std::filesystem::path> faces) : Faces(std::move(faces)) { assert(Faces.size() == 6); }
 
-		Params(std::filesystem::path path, bool isDirectory = true) : Path(std::move(path)), IsDirectory(isDirectory) { }
+	private:
+		bool SingleFile = true;
 	};
 
 	template<typename AssetT>
@@ -92,6 +95,7 @@ namespace EnGl
 			size_t res = 0;
 			hash_combine(res, params.Path);
 			hash_combine(res, params.TextureParams);
+			hash_combine(res, params.Flip);
 			return res;
 		}
 	};
@@ -126,6 +130,7 @@ namespace EnGl
 			size_t res = 0;
 			hash_combine(res, params.Path);
 			hash_combine(res, params.IsInstanced);
+			hash_combine(res, params.FlipTextures);
 			return res;
 		}
 	};
@@ -137,7 +142,10 @@ namespace EnGl
 		{
 			size_t res = 0;
 			hash_combine(res, params.Path);
-			hash_combine(res, params.IsDirectory);
+			for (const auto& face : params.Faces)
+			{
+				hash_combine(res, face);
+			}
 			return res;
 		}
 	};

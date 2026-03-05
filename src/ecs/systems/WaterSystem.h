@@ -143,7 +143,7 @@ namespace EnGl
 			void CombineResults(f32 dt);
 			void Init(u32 N);
 			void Update(f64 time, f32 dt);
-			void Cleanup();
+			void ResizeAll();
 
 			friend class WaterSystem;
 		};
@@ -155,7 +155,7 @@ namespace EnGl
 		std::vector<Cascade> m_Cascades;
 	private:
 		std::vector<Cascade> GenCascades();
-		EcsImpl::Entity waterSurface = 0;
+		EcsImpl::Entity m_WaterSurface = 0;
 
 		void CombineResults(f32 dt);
 	};

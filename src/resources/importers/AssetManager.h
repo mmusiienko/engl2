@@ -39,8 +39,8 @@ namespace EnGl
 			> AssetToPath;
 
 			std::vector<AssetT> Assets;
-			std::vector<u32> Generations;
-			std::vector<bool> Alive;
+			std::vector<u32> Generations{ 0 };
+			std::vector<bool> Alive{ false };
 			std::queue<AssetId> DeadIds;
 		};
 
@@ -73,11 +73,11 @@ namespace EnGl
 		static AssetResult<AssetT> GetAsset(AssetHandle<AssetT> handle)
 		{
 			auto& storage = GetAssetStorage<AssetT>();
-			AssetResult<AssetT> res;
+			AssetResult<AssetT> res{};
 
 			if (storage.Alive[handle.Id])
 			{
-				res.Asset = &storage.Assets[handle.Id];
+				res.Asset = &storage.Assets[handle.Id - 1];
 				res.CurrentGeneration = storage.Generations[handle.Id];
 			}
 
@@ -88,18 +88,18 @@ namespace EnGl
 		static AssetT* GetAssetNoCheck(AssetHandle<AssetT> handle)
 		{
 			auto& storage = GetAssetStorage<AssetT>();
-			return &storage.Assets[handle.Id];
+			return &storage.Assets[handle.Id - 1];
 		}
 
 		template<typename AssetT>
 		static AssetResult<scope<AssetT>> GetAsset(AssetHandle< scope<AssetT> > handle)
 		{
 			auto& storage = GetAssetStorage<scope<AssetT>>();
-			AssetResult<AssetT> res;
+			AssetResult<scope<AssetT>> res;
 
 			if (storage.Alive[handle.Id])
 			{
-				res.Asset = storage.Assets[handle.Id].get();
+				res.Asset = storage.Assets[handle.Id - 1].get();
 				res.CurrentGeneration = storage.Generations[handle.Id];
 			}
 
@@ -110,7 +110,7 @@ namespace EnGl
 		static AssetT* GetAssetNoCheck(AssetHandle< scope<AssetT> > handle)
 		{
 			auto& storage = GetAssetStorage<scope<AssetT>>();
-			return storage.Assets[handle.Id].get();
+			return storage.Assets[handle.Id - 1].get();
 		}
 
 		template<typename AssetT>
@@ -147,25 +147,21 @@ namespace EnGl
 				u32 gen = 0;
 				if (storage.DeadIds.empty())
 				{
-					id = static_cast<AssetId>(storage.Assets.size());
+					id = static_cast<AssetId>(storage.Assets.size()) + 1;
 					storage.Assets.push_back(std::move(asset));
-					storage.Generations.push_back(0);
+					storage.Generations.push_back(gen);
 					storage.Alive.push_back(true);
 				}
 				else
 				{
 					id = storage.DeadIds.front();
 					storage.DeadIds.pop();
-					storage.Assets[id] = std::move(asset);
+					storage.Assets[id - 1] = std::move(asset);
 					storage.Alive[id] = true;
 					gen = storage.Generations[id]++;
 				}
 
-				return AssetHandle<AssetT>
-				{
-					.Id = id,
-					.Generation = gen
-				};
+				return AssetHandle<AssetT> {id, gen};
 			}
 		public:
 
@@ -194,7 +190,7 @@ namespace EnGl
 
 			for (const auto& [importParams, id] : storage.PathToAsset)
 			{
-				storage.Assets[id] = AssetImporter<AssetT>::Import(importParams);
+				storage.Assets[id - 1] = AssetImporter<AssetT>::Import(importParams);
 			}
 		}
 

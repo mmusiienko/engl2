@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../core/Core.h"
 #include "Resource.h"
-
+#include "../math/Math.h"
 
 namespace EnGl
 {
@@ -15,6 +14,7 @@ namespace EnGl
 			u32 Wrap = GL_REPEAT;
 			u32 MinFilter = GL_LINEAR;
 			u32 MagFilter = GL_LINEAR;
+			glm::vec4 BorderColor{ 1.0f };
 
 			auto operator<=>(const CommonInfo&) const = default;
 		};
@@ -42,6 +42,8 @@ namespace EnGl
 			u32 w = 1;
 			u32 h = 1;
 			u32 d = 0;
+
+			glm::vec4 BorderColor;
 		};
 
 		Texture(Texture&& other) noexcept = default;
@@ -91,7 +93,7 @@ namespace EnGl
 		Texture3D(Texture3D&& other) noexcept = default;
 		Texture3D& operator=(Texture3D&& other) noexcept = default;
 		void UpdateParameters();
-		void PopulateData(const void* data = nullptr);
+		void Update(const void* data = nullptr);
 	protected:
 		void CreateTexture3DFromData(u32 w, u32 h, u32 d, const CreationInfoFromData& info);
 	};

@@ -23,7 +23,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algorithm\compute\FFT.h" />
+    <ClInclude Include="algorithm\compute\noise\Fractal.h" />
     <ClInclude Include="algorithm\compute\noise\Gaussian.h" />
+    <ClInclude Include="algorithm\compute\noise\Noise.h" />
+    <ClInclude Include="algorithm\compute\noise\Perlin.h" />
+    <ClInclude Include="algorithm\compute\noise\Voronoi.h" />
     <ClInclude Include="core\Application.h" />
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\Core.h" />
@@ -32,6 +36,7 @@
     <ClInclude Include="ecs\components\Components.h" />
     <ClInclude Include="ecs\entity.h" />
     <ClInclude Include="ecs\GameContext.h" />
+    <ClInclude Include="ecs\systems\FractalSystem.h" />
     <ClInclude Include="ecs\systems\Systems.h" />
     <ClInclude Include="ecs\systems\WaterSystem.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
@@ -64,14 +69,21 @@
     <ClInclude Include="resources\importers\AssetImporter.h" />
     <ClInclude Include="resources\importers\AssetManager.h" />
     <ClInclude Include="resources\StaticModel.h" />
+    <ClInclude Include="ui\Components.h" />
     <ClInclude Include="ui\Ui.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="algorithm\compute\FFT.cpp" />
+    <ClCompile Include="algorithm\compute\noise\Fractal.cpp" />
+    <ClCompile Include="algorithm\compute\noise\Perlin.cpp" />
+    <ClCompile Include="algorithm\compute\noise\Voronoi.cpp" />
     <ClCompile Include="core\Application.cpp" />
     <ClCompile Include="core\Global.cpp" />
     <ClCompile Include="core\InputHandler.cpp" />
     <ClCompile Include="core\Main.cpp" />
+    <ClCompile Include="ecs\systems\CloudSystem.cpp" />
+    <ClCompile Include="ecs\systems\CloudSystem.h" />
+    <ClCompile Include="ecs\systems\FractalSystem.cpp" />
     <ClCompile Include="ecs\systems\WaterSystem.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
@@ -99,6 +111,8 @@
     <ClCompile Include="resources\importers\Impl\ShaderImporter.cpp" />
     <ClCompile Include="resources\importers\Impl\TextureImporter.cpp" />
     <ClCompile Include="resources\StaticModel.cpp" />
+    <ClCompile Include="ui\Components.cpp" />
+    <ClCompile Include="ui\ImGuiEntry.h" />
     <ClCompile Include="ui\Ui.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

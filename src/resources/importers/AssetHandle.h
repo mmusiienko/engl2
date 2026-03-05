@@ -9,8 +9,8 @@ namespace EnGl
 	template<typename AssetT>
 	struct AssetHandle
 	{
-		AssetId Id;
-		u32 Generation;
+		AssetId Id = 0;
+		u32 Generation = 0;
 
 		bool operator==(const AssetHandle& other) const noexcept {
 			return Id == other.Id;

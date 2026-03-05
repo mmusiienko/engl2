@@ -141,6 +141,27 @@ namespace EnGl
 		GL_CHECK(glUniform2f(GetLocation(name), value.x, value.y));
 	}
 
+	void Shader::SetUniform(const std::string& name, const glm::uvec2& value) const
+	{
+		GL_CHECK(glUniform2ui(GetLocation(name), value.x, value.y));
+	}
+
+	void Shader::SetUniform(const std::string& name, const UniformDirectionalLight& value) const
+	{
+		SetUniform(std::format("{}.Direction", name), value.Direction);
+		SetUniform(std::format("{}.Color", name), value.Color);
+	}
+
+	void Shader::SetUniform(const std::string& name, const std::array<UniformPointLight, MAX_LIGHTS>& value) const
+	{
+		for (size_t i = 0; i < value.size(); i++)
+		{
+			SetUniform(std::format("{}[{}].Position", name, i), value[i].Position);
+			SetUniform(std::format("{}[{}].Color", name, i), value[i].Color);
+			SetUniform(std::format("{}[{}].Intensity", name, i), value[i].Intensity);
+		}
+	}
+
 	void Shader::BindTextureUnit(const Texture& tex, u32 unit) const
 	{
 		GL_CHECK(glBindTextureUnit(unit, tex.Id()));
