@@ -1,10 +1,10 @@
 #pragma once
-#include "Shader.h"
-#include "../../resources/importers/AssetManager.h"
-#include "../../ecs/GameContext.h"
-#include "../../Printer.h"
-#include "../../ui/ImGuiEntry.h"
-#include "../../core/Global.h"
+
+#include "renderer/base/Shader.h"
+#include "resources/importers/AssetManager.h"
+#include "ecs/GameContext.h"
+#include "ui/ImGuiEntry.h"
+#include "core/Global.h"
 
 
 namespace EnGl

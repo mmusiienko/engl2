@@ -1,7 +1,8 @@
-#include "../AssetImporter.h"
+#include "resources/importers/AssetImporter.h"
 
 #include <vector>
-#include "../../FileSystem.h"
+
+#include "resources/FileSystem.h"
 
 
 namespace EnGl

@@ -1,8 +1,9 @@
 #include "WaterSystem.h"
-#include "../../algorithm/compute/noise/Gaussian.h"
-#include "../../renderer/base/Model.h"
-#include "../../ui/Components.h"
-#include "../../resources/StaticModel.h"
+
+#include "algorithm/compute/noise/Gaussian.h"
+#include "renderer/base/Model.h"
+#include "ui/Components.h"
+#include "resources/StaticModel.h"
 
 
 namespace EnGl

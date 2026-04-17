@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Resource.h"
-#include "../math/Math.h"
+#include "renderer/base/Resource.h"
+#include "math/Math.h"
+
 
 namespace EnGl
 {

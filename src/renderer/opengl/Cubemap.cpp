@@ -1,7 +1,8 @@
-#include "../base/Cubemap.h"
+#include "renderer/base/Cubemap.h"
+
 #include "spdlog/spdlog.h"
-#include "../resources/FileSystem.h"
-#include "../core/Global.h"
+#include "resources/FileSystem.h"
+#include "core/Global.h"
 
 namespace EnGl
 {

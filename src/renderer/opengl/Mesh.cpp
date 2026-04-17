@@ -1,5 +1,6 @@
-#include "../base/Mesh.h"
-#include "../core/Core.h"
+#include "renderer/base/Mesh.h"
+
+#include "core/Core.h"
 #include "spdlog/spdlog.h"
 
 
@@ -16,7 +17,7 @@ namespace EnGl
 
 		GL_CHECK(glGenBuffers(1, &m_EBO));
 
-		m_IndicesSize = info.Indices.size();
+		m_IndicesSize = static_cast<u32>(info.Indices.size());
 
 		GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO));
 		GL_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Index) * m_IndicesSize, info.Indices.data(), GL_STATIC_DRAW));
@@ -63,7 +64,7 @@ namespace EnGl
 
 	void Mesh::UpdateInstanceBuffer(const std::vector<InstanceData>& instanceData)
 	{
-		m_InstanceSize = instanceData.size();
+		m_InstanceSize = static_cast<u32>(instanceData.size());
 		m_InstanceData.Resize((void*)instanceData.data(), m_InstanceSize * sizeof(InstanceData));
 	}
 

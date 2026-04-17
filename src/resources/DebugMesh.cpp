@@ -1,5 +1,4 @@
-#include "DebugMesh.h"
-#include "../../Printer.h"
+#include "resources/DebugMesh.h"
 
 
 namespace EnGl
@@ -127,7 +126,7 @@ namespace EnGl
 		glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
 		glBufferData(GL_ARRAY_BUFFER, m_Vertices.size() * sizeof(DebugVertex), (void*) m_Vertices.data(), GL_DYNAMIC_DRAW);
 
-		glDrawArrays(GL_TRIANGLES, 0, m_Vertices.size());
+		glDrawArrays(GL_TRIANGLES, 0, static_cast<u32>(m_Vertices.size()));
 	}
 }
 

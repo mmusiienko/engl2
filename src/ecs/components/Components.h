@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../../core/Constants.h"
-#include "../../resources/importers/AssetManager.h"
-#include "../../renderer/base/Model.h"
+#include "core/Constants.h"
+#include "resources/importers/AssetManager.h"
+#include "renderer/base/Model.h"
 
-#include "../entity.h"
+#include "ecs/entity.h"
 
 
 namespace EnGl

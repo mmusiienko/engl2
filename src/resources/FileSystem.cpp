@@ -1,11 +1,13 @@
+#include "resources/FileSystem.h"
+
 #include <string>
 #include <fstream>
 #include <vector>
 #include <stdexcept>
-#include "FileSystem.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stbimg/stb_image.h"
+
 #include "spdlog/spdlog.h"
 
 

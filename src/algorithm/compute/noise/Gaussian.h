@@ -1,6 +1,7 @@
 #pragma once
-#include "../../resources/importers/AssetImporter.h"
-#include "../../math/Random.h"
+
+#include "resources/importers/AssetImporter.h"
+#include "math/Random.h"
 
 
 namespace EnGl

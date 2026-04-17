@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Noise.h"
+#include "algorithm/compute/noise/Noise.h"
 
 
 namespace EnGl

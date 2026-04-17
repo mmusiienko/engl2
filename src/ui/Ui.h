@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../ecs/GameContext.h"
-
-#include "EcsUi.h"
+#include "ecs/GameContext.h"
+#include "ui/EcsUi.h"
 
 
 namespace EnGl

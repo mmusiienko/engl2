@@ -1,6 +1,7 @@
-#include "Global.h"
-#include "../resources/importers/AssetManager.h"
-#include "../renderer/base/Material.h"
+#include "core/Global.h"
+
+#include "resources/importers/AssetManager.h"
+#include "renderer/base/Material.h"
 
 
 namespace EnGl

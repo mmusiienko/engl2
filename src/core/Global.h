@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core.h"
-#include "../math/Math.h"
+#include "math/Math.h"
 
 
 namespace EnGl

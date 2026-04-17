@@ -1,5 +1,5 @@
-#include "../base/Framebuffer.h"
-#include "../../core/Global.h"
+#include "renderer/base/Framebuffer.h"
+#include "core/Global.h"
 
 
 namespace EnGl

@@ -1,4 +1,4 @@
-#include "../AssetImporter.h"
+#include "resources/importers/AssetImporter.h"
 
 
 namespace EnGl

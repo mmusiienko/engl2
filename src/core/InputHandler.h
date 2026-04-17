@@ -1,7 +1,8 @@
 #pragma once
+
 #include "Core.h"
-#include "../math/Math.h"
-#include "imgui_impl_glfw.h"
+
+#include "math/Math.h"
 
 
 namespace EnGl

@@ -1,16 +1,17 @@
 #pragma once
 
 #include <queue>
-#include "../../core/Core.h"
-#include "AssetImporter.h"
 #include <algorithm>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "AssetHandle.h"
 #include <ranges>
+
+#include "core/Core.h"
+#include "resources/importers/AssetImporter.h"
+#include "resources/importers/AssetHandle.h"
 
 
 namespace EnGl

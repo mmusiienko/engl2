@@ -1,26 +1,23 @@
+#include "core/Application.h"
 
 #include <stdexcept>
 #include <vector>
-#include <iostream>
 
-#include "Application.h"
 #include "InputHandler.h"
 
 #include "Global.h"
-#include "../math/Math.h"
+#include "math/Math.h"
 
-#include "../renderer/base/Shader.h"
-#include "../renderer/base/Material.h"
-#include "../resources/importers/AssetManager.h"
+#include "renderer/base/Material.h"
+#include "resources/importers/AssetManager.h"
 
-#include "../ecs/entity.h"
-#include "../ecs/components/Components.h"
-#include "../ecs/systems/Systems.h"
-#include "../ecs/systems/WaterSystem.h"
-#include "../ecs/systems/CloudSystem.h"
-#include "../ecs/systems/FractalSystem.h"
+#include "ecs/entity.h"
+#include "ecs/components/Components.h"
+#include "ecs/systems/Systems.h"
+#include "ecs/systems/WaterSystem.h"
+#include "ecs/systems/CloudSystem.h"
 
-#include "../ui/Ui.h"
+#include "ui/Ui.h"
 
 
 namespace EnGl 

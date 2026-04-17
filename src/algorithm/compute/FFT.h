@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../resources/importers/AssetManager.h"
-#include "../../renderer/base/Texture.h"
-#include "../../renderer/base/ComputeShader.h"
+#include "resources/importers/AssetManager.h"
+#include "renderer/base/Texture.h"
+#include "renderer/base/ComputeShader.h"
 
 
 namespace EnGl

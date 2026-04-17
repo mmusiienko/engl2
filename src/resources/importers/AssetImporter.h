@@ -1,11 +1,13 @@
 #pragma once
 
-#include "AssetManager.h"
-#include "../renderer/base/Texture.h"
-#include "../renderer/base/Model.h"
-#include "../renderer/base/ComputeShader.h"
-#include "../renderer/base/Cubemap.h"
-#include "../FileSystem.h"
+#include "resources/importers/AssetManager.h"
+#include "resources/FileSystem.h"
+
+#include "renderer/base/Texture.h"
+#include "renderer/base/Model.h"
+#include "renderer/base/ComputeShader.h"
+#include "renderer/base/Cubemap.h"
+
 
 namespace EnGl
 {

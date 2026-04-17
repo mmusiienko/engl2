@@ -1,6 +1,7 @@
 #pragma once
-#include "Texture.h"
-#include "../../resources/importers/AssetManager.h"
+
+#include "renderer/base/Texture.h"
+#include "resources/importers/AssetManager.h"
 
 
 namespace EnGl

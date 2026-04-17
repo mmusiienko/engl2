@@ -1,8 +1,9 @@
 #pragma once
+
 #include "components/Components.h"
-#include "../resources/DebugMesh.h"
-#include "../renderer/base/Mesh.h"
-#include "../renderer/base/Framebuffer.h"
+#include "resources/DebugMesh.h"
+#include "renderer/base/Mesh.h"
+#include "renderer/base/Framebuffer.h"
 
 
 namespace EnGl
@@ -11,7 +12,6 @@ namespace EnGl
 	{
 		struct CameraInfo
 		{
-			//for uniform data
 			struct Camera
 			{
 				Entity Entity;

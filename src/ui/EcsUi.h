@@ -1,9 +1,10 @@
 #pragma once
 
-#include "ImGuiEntry.h"
-#include "../ecs/systems/Systems.h"
-#include "../resources/StaticModel.h"
-#include "Components.h"
+#include "ui/ImGuiEntry.h"
+
+#include "ecs/systems/Systems.h"
+#include "resources/StaticModel.h"
+#include "ui/Components.h"
 
 
 namespace EnGl

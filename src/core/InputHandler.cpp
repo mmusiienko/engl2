@@ -1,4 +1,5 @@
-#include "InputHandler.h"
+#include "core/InputHandler.h"
+#include "ui/ImguiEntry.h"
 
 
 namespace EnGl

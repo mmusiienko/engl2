@@ -1,7 +1,8 @@
 #pragma once
-#include <filesystem>
-#include "../core/Core.h"
-#include "Texture.h"
+
+#include "core/Core.h"
+#include "renderer/base/Texture.h"
+
 
 namespace EnGl
 {

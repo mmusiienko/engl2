@@ -1,5 +1,6 @@
 #pragma once
-#include "Resource.h"
+
+#include "renderer/base/Resource.h"
 
 
 namespace EnGl

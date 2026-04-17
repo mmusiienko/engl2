@@ -1,9 +1,10 @@
 #pragma once
 
-#include "../math/Math.h"
 #include <vector>
-#include "Resource.h"
-#include "SSBO.h"
+
+#include "math/Math.h"
+#include "renderer/base/Resource.h"
+#include "renderer/base/SSBO.h"
 
 
 namespace EnGl
@@ -92,11 +93,11 @@ namespace EnGl
 	private:
 		u32 m_DrawType = GL_TRIANGLES;
 
-		size_t m_IndicesSize = 0;
+		u32 m_IndicesSize = 0;
 		u32 m_VBO = 0;
 		u32 m_EBO = 0;
 		AABB m_AABB{};
 		SSBO m_InstanceData{ nullptr, 0 };
-		size_t m_InstanceSize = 0;
+		u32 m_InstanceSize = 0;
 	};
 }

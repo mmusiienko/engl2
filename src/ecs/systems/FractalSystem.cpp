@@ -1,5 +1,6 @@
-#include "FractalSystem.h"
-#include "../resources/StaticModel.h"
+#include "ecs/systems/FractalSystem.h"
+
+#include "resources/StaticModel.h"
 
 
 namespace EnGl

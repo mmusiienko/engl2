@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shader.h"
-#include "Texture.h"
+#include "renderer/base/Shader.h"
+#include "renderer/base/Texture.h"
 
 
 namespace EnGl

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../resources/importers/AssetHandle.h"
+#include "resources/importers/AssetHandle.h"
 
 
 namespace EnGl

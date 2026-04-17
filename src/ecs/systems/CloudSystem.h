@@ -1,7 +1,7 @@
 #pragma once
 
-#include "./Systems.h"
-#include "../algorithm/compute/noise/NoiseTexture.h"
+#include "ecs/systems/Systems.h"
+#include "algorithm/compute/noise/NoiseTexture.h"
 
 
 namespace EnGl

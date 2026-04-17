@@ -1,7 +1,8 @@
-#include "StaticModel.h"
-#include "../renderer/base/Model.h"
-#include "../renderer/base/Material.h"
-#include "../renderer/base/Mesh.h"
+#include "resources/StaticModel.h"
+
+#include "renderer/base/Model.h"
+#include "renderer/base/Material.h"
+#include "renderer/base/Mesh.h"
 
 
 namespace EnGl

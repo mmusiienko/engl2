@@ -1,5 +1,6 @@
-#include "../base/Texture.h"
-#include "../core/Core.h"
+#include "renderer/base/Texture.h"
+
+#include "core/Core.h"
 
 
 namespace EnGl

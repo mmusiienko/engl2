@@ -1,10 +1,11 @@
 #include <stdexcept>
 
-#include "../base/Shader.h"
-#include "../math/Math.h"
-#include "../core/Core.h"
-#include "../base/SSBO.h"
-#include "../base/Texture.h"
+#include "renderer/base/Shader.h"
+#include "renderer/base/SSBO.h"
+#include "renderer/base/Texture.h"
+
+#include "math/Math.h"
+#include "core/Core.h"
 
 
 namespace EnGl 

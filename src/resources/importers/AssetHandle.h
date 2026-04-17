@@ -1,5 +1,6 @@
 #pragma once
-#include "../../core/Core.h"
+
+#include "core/Core.h"
 
 
 namespace EnGl

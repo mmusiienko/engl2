@@ -1,6 +1,6 @@
 #include "CloudSystem.h"
-#include "../ui/Components.h"
-#include "../resources/StaticModel.h"
+
+#include "ui/Components.h"
 
 
 namespace EnGl

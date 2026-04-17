@@ -1,12 +1,13 @@
-#include "../AssetImporter.h"
+#include "resources/importers/AssetImporter.h"
+
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
 #include <vector>
 
-#include "../../renderer/base/Mesh.h"
-#include "../../renderer/base/Material.h"
+#include "renderer/base/Mesh.h"
+#include "renderer/base/Material.h"
 
 namespace EnGl
 {

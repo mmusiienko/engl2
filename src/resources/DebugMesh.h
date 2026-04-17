@@ -1,6 +1,8 @@
 #pragma once
-#include "../../math/Math.h"
+
 #include <vector>
+
+#include "math/Math.h"
 
 
 namespace EnGl

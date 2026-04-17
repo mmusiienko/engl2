@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Core.h"
-#include "../renderer/base/Framebuffer.h"
 
-#include "../ecs/entity.h"
-#include "../ecs/components/Components.h"
+#include "renderer/base/Framebuffer.h"
+
+#include "ecs/entity.h"
+#include "ecs/components/Components.h"
 
 
 namespace EnGl 

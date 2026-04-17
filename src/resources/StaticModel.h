@@ -1,5 +1,6 @@
 #pragma once
-#include "importers/AssetManager.h"
+
+#include "resources/importers/AssetManager.h"
 
 
 namespace EnGl

@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "../math/Math.h"
+#include "math/Math.h"
 #include "Resource.h"
 
 

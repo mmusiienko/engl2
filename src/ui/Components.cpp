@@ -1,4 +1,5 @@
-#include "Components.h"
+#include "ui/Components.h"
+#include "ui/ImGuiEntry.h"
 
 
 namespace EnGl
@@ -115,7 +116,7 @@ namespace EnGl
 			return;
 		}
 
-		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(tex->Properties().w, tex->Properties().h));
+		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(static_cast<f32>(tex->Properties().w), static_cast<f32>(tex->Properties().h)));
 	}
 
 	void UiComponents::Texture3DView(AssetHandle<Texture3D> texA)
