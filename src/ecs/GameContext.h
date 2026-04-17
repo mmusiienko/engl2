@@ -14,7 +14,7 @@ namespace EnGl
 			//for uniform data
 			struct Camera
 			{
-				EcsImpl::Entity Entity;
+				Entity Entity;
 				bool CanRotate = false;
 				glm::vec3* Position;
 				glm::vec3 Forward;
@@ -44,7 +44,7 @@ namespace EnGl
 		struct InstancedMaterialMapKey
 		{
 			AssetHandle<Mesh> MeshHandle;
-			AssetHandle<scope<Material::Base>> MaterialHandle;
+			AssetHandle<Material::Base> MaterialHandle;
 
 			bool operator==(const InstancedMaterialMapKey& other) const
 			{
@@ -69,7 +69,7 @@ namespace EnGl
 			struct El
 			{
 				AssetHandle<Mesh> Mesh;
-				AssetHandle<scope<Material::Base>> Material;
+				AssetHandle<Material::Base> Material;
 				Mesh::InstanceData Data;
 			};
 
@@ -81,14 +81,14 @@ namespace EnGl
 			std::vector<Mesh::InstanceData> Data;
 		};
 
-		using MaterialMap = std::unordered_map<std::string, MaterialMapValue>;
+		using MaterialMap = std::unordered_map<u32, MaterialMapValue>;
 		using InstancedMaterialMap = std::unordered_map<InstancedMaterialMapKey, InstancedMaterialMapValue, InstancedMaterialMapKey::Hash>;
 
 		struct RendererInfo
 		{
 			std::array<MaterialMap, Component::RenderLayerNumber> PerMaterial;
 			std::array<InstancedMaterialMap, Component::RenderLayerNumber> PerInstancedMaterial;
-			AssetHandle<scope<Material::Base>> MaterialOverride;
+			AssetHandle<Material::Base> MaterialOverride;
 		};
 
 		f64 Time = 0.0f;
@@ -132,6 +132,8 @@ namespace EnGl
 		std::array<Shader::UniformPointLight, Shader::MAX_LIGHTS> PointLights;
 
 		AssetHandle<Texture2D> SkyTexture;
-		std::unordered_map<std::string, EcsImpl::Entity> SpecialEntities;
+		AssetHandle<Texture2D> SkyDepthTexture;
+
+		std::unordered_map<std::string, Entity> SpecialEntities;
 	};
 }

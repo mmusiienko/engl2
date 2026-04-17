@@ -3,203 +3,127 @@
 
 namespace EnGl
 {
-	UiComponents::ParamsChanged UiComponents::VoronoiNoiseChannelView(VoronoiNoiseParams& params, FractalNoiseParams& fParams)
+	bool UiComponents::Noise3DChannelView(Noise3DChannel& channel)
 	{
-		ParamsChanged changed{};
+		bool changed = false;
 
-		auto sectionName = std::format("Channel {}", params.NChannel);
+		auto sectionName = std::format("Channel {}", channel.Params.NChannel);
 		ImGui::SeparatorText(sectionName.c_str());
 
-		ImGui::SeparatorText("Voronoi Parameters");
-
-		changed.BaseNoise |= InputUInt("Grid Cells", &params.NPoints);
-		params.NPoints = std::clamp(params.NPoints, 2u, 128u);
-
-		ImGui::SeparatorText("Fractal (FBM) Parameters");
-
-		changed.Fbm |= InputUInt("Octaves", &fParams.NOctaves);
-		fParams.NOctaves = std::clamp(fParams.NOctaves, 1u, 16u);
-
-		changed.Fbm |= ImGui::InputFloat("Persistence", &fParams.Persistence, 0.0f, 0.0f, "%.3f");
-		fParams.Persistence = std::clamp(fParams.Persistence, 0.0f, 1.0f);
-
-		changed.Fbm |= ImGui::InputFloat("Lacunarity", &fParams.Lacunarity, 0.0f, 0.0f, "%.3f");
-		fParams.Lacunarity = std::clamp(fParams.Lacunarity, 1.0f, 4.0f);
+		changed |= InputUInt("Grid cells", &channel.Params.NCells);
+		changed |= InputUInt("Seed", &channel.Params.Seed);
+		changed |= InputUInt("Octaves", &channel.Params.Octaves);
 
 		return changed;
 	}
 
-	UiComponents::ParamsChanged UiComponents::PerlinNoiseChannelView(PerlinNoiseParams& params, FractalNoiseParams& fParams)
+	void UiComponents::Noise3DView(Noise3DWrapper& noise)
 	{
-		ParamsChanged changed{};
+		ImGui::Text("Noise 3D Parameters");
 
-		auto sectionName = std::format("Channel {}", params.NChannel);
-		ImGui::SeparatorText(sectionName.c_str());
-
-		ImGui::SeparatorText("Perlin Texture Parameters");
-
-		changed.BaseNoise |= InputUInt("Grid Cells", &params.NCells);
-		params.NCells = std::clamp(params.NCells, 2u, 128u);
-
-		ImGui::SeparatorText("FBM Parameters");
-
-		changed.Fbm |= InputUInt("Octaves", &fParams.NOctaves);
-		fParams.NOctaves = std::clamp(fParams.NOctaves, 1u, 16u);
-
-		changed.Fbm |= ImGui::InputFloat("Persistence", &fParams.Persistence, 0.0f, 0.0f, "%.3f");
-		fParams.Persistence = std::clamp(fParams.Persistence, 0.0f, 1.0f);
-
-		changed.Fbm |= ImGui::InputFloat("Lacunarity", &fParams.Lacunarity, 0.0f, 0.0f, "%.3f");
-		fParams.Lacunarity = std::clamp(fParams.Lacunarity, 1.0f, 4.0f);
-
-		return changed;
-	}
-	
-	void UiComponents::VoronoiNoiseView(VoronoiWrapper& wrapper)
-	{
-		ImGui::Text("Voronoi FBM Parameters");
+		auto tex = AssetManager::GetAsset(noise.Texture).Asset;
 		
-		bool dimChanged = false;
-		dimChanged |= InputUInt("Texture Size", &wrapper.Dim);
-
-		ImGui::PushID(0);
-		auto [BaseNoiseChangedR, FbmChangedR] = VoronoiNoiseChannelView(wrapper.ParamsR, wrapper.FParamsR);
-		ImGui::PopID();
-		ImGui::PushID(1);
-		auto [BaseNoiseChangedG, FbmChangedG] = VoronoiNoiseChannelView(wrapper.ParamsG, wrapper.FParamsG);
-		ImGui::PopID();
-		ImGui::PushID(2);
-		auto [BaseNoiseChangedB, FbmChangedB] = VoronoiNoiseChannelView(wrapper.ParamsB, wrapper.FParamsB);
-		ImGui::PopID();
-		ImGui::PushID(3);
-		auto [BaseNoiseChangedA, FbmChangedA] = VoronoiNoiseChannelView(wrapper.ParamsA, wrapper.FParamsA);
-		ImGui::PopID();
-		auto [tex, gen] = AssetManager::GetAsset(wrapper.Voronoi);
-		auto [texFbm, gen2] = AssetManager::GetAsset(wrapper.VoronoiFBM);
-
-		if (!tex || !texFbm)
+		if (!tex)
 		{
-			spdlog::error("Voronoi textures are not loaded.");
+			spdlog::error("Noise texture is not loaded.");
 			return;
 		}
 
-		if (dimChanged)
+		bool changed = false;
+
+		if (InputUInt("Texture Size", &tex->Properties().w))
 		{
-			tex->Properties().w = wrapper.Dim;
-			tex->Properties().h = wrapper.Dim;
-			tex->Properties().d = wrapper.Dim;
+			tex->Properties().h = tex->Properties().w;
+			tex->Properties().d = tex->Properties().w;
 			tex->Update();
-
-			texFbm->Properties().w = wrapper.Dim;
-			texFbm->Properties().h = wrapper.Dim;
-			texFbm->Properties().d = wrapper.Dim;
-			texFbm->Update();
-
-			VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsR);
-			VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsG);
-			VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsB);
-			VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsA);
-			FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsR);
-			FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsG);
-			FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsB);
-			FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsA);
 		}
-		else
+
+		for (u32 i = 0; i < Noise3DChannels; i++)
 		{
-			if (BaseNoiseChangedR)
-				VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsR);
-			if (FbmChangedR || BaseNoiseChangedR)
-				FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsR);
-			if (BaseNoiseChangedG)
-				VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsG);
-			if (FbmChangedG || BaseNoiseChangedG)
-				FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsG);
-			if (BaseNoiseChangedB)
-				VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsB);
-			if (FbmChangedB || BaseNoiseChangedB)
-				FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsG);
-			if (BaseNoiseChangedA)
-				VoronoiNoise3D::Fill(wrapper.Voronoi, wrapper.ParamsA);
-			if (FbmChangedA || BaseNoiseChangedA)
-				FractalNoise3D::Fill(wrapper.VoronoiFBM, wrapper.Voronoi, wrapper.FParamsA);
+			ImGui::PushID(i);
+
+			if (Noise3DChannelView(noise.Channels[i]) && !changed)
+			{
+				noise.Channels[i].Strategy(noise.Texture, noise.Channels[i].Params);
+			}
+
+			ImGui::PopID();
 		}
 
-		ImGui::Separator();
+		if (changed)
+			noise.Fill();
 	}
 
-	void UiComponents::PerlinNoiseView(PerlinWrapper& wrapper)
+	bool UiComponents::Noise2DChannelView(Noise2DChannel& channel)
 	{
-		ImGui::Text("Perlin FBM Parameters");
+		bool changed = false;
 
-		bool dimChanged = false;
-		dimChanged |= InputUInt("Texture Size", &wrapper.Dim);
+		auto sectionName = std::format("Channel {}", channel.Params.NChannel);
+		ImGui::SeparatorText(sectionName.c_str());
 
-		ImGui::PushID(0);
-		auto [BaseNoiseChangedR, FbmChangedR] = PerlinNoiseChannelView(wrapper.ParamsR, wrapper.FParamsR);
-		ImGui::PopID();
-		ImGui::PushID(1);
-		auto [BaseNoiseChangedG, FbmChangedG] = PerlinNoiseChannelView(wrapper.ParamsG, wrapper.FParamsG);
-		ImGui::PopID();
-		ImGui::PushID(2);
-		auto [BaseNoiseChangedB, FbmChangedB] = PerlinNoiseChannelView(wrapper.ParamsB, wrapper.FParamsB);
-		ImGui::PopID();
-		ImGui::PushID(3);
-		auto [BaseNoiseChangedA, FbmChangedA] = PerlinNoiseChannelView(wrapper.ParamsA, wrapper.FParamsA);
-		ImGui::PopID();
-		auto [tex, gen] = AssetManager::GetAsset(wrapper.Perlin);
-		auto [texFbm, gen2] = AssetManager::GetAsset(wrapper.PerlinFBM);
+		changed |= InputUInt("Grid cells", &channel.Params.NCells);
+		changed |= InputUInt("Seed", &channel.Params.Seed);
+		changed |= InputUInt("Octaves", &channel.Params.Octaves);
 
-		if (!tex || !texFbm)
+		return changed;
+	}
+
+	void UiComponents::Noise2DView(Noise2DWrapper& noise)
+	{
+		ImGui::Text("Noise 3D Parameters");
+
+		auto tex = AssetManager::GetAsset(noise.Texture).Asset;
+
+		if (!tex)
 		{
-			spdlog::error("Perlin textures are not loaded.");
+			spdlog::error("Noise texture is not loaded.");
 			return;
 		}
 
-		if (dimChanged)
+		bool changed = false;
+
+		if (InputUInt("Texture Size", &tex->Properties().w))
 		{
-			tex->Properties().w = wrapper.Dim;
-			tex->Properties().h = wrapper.Dim;
-			tex->Properties().d = wrapper.Dim;
+			tex->Properties().h = tex->Properties().w;
 			tex->Update();
-
-			texFbm->Properties().w = wrapper.Dim;
-			texFbm->Properties().h = wrapper.Dim;
-			texFbm->Properties().d = wrapper.Dim;
-			texFbm->Update();
-
-			PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsR);
-			PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsG);
-			PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsB);
-			PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsA);
-			FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsR);
-			FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsG);
-			FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsB);
-			FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsA);
 		}
-		else
+
+		for (u32 i = 0; i < Noise3DChannels; i++)
 		{
-			if (BaseNoiseChangedR)
-				PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsR);
-			if (FbmChangedR || BaseNoiseChangedR)
-				FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsR);
-			if (BaseNoiseChangedG)
-				PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsG);
-			if (FbmChangedG || BaseNoiseChangedG)
-				FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsG);
-			if (BaseNoiseChangedB)
-				PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsB);
-			if (FbmChangedB || BaseNoiseChangedB)
-				FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsG);
-			if (BaseNoiseChangedA)
-				PerlinNoise3D::Fill(wrapper.Perlin, wrapper.ParamsA);
-			if (FbmChangedA || BaseNoiseChangedA)
-				FractalNoise3D::Fill(wrapper.PerlinFBM, wrapper.Perlin, wrapper.FParamsA);
+			ImGui::PushID(i);
+
+			if (Noise2DChannelView(noise.Channels[i]) && !changed)
+			{
+				noise.Channels[i].Strategy(noise.Texture, noise.Channels[i].Params);
+			}
+
+			ImGui::PopID();
 		}
 
-		ImGui::Separator();
+		Texture2DView(noise.Texture);
+
+		if (changed)
+			noise.Fill();
 	}
 
-	bool UiComponents::InputUInt(const char* label, uint32_t* v, int step, int step_fast)
+	void UiComponents::Texture2DView(AssetHandle<Texture2D> texA)
+	{
+		auto tex = AssetManager::GetAsset(texA).Asset;
+		if (!tex)
+		{
+			ImGui::Text("Texture is not loaded.");
+			return;
+		}
+
+		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(tex->Properties().w, tex->Properties().h));
+	}
+
+	void UiComponents::Texture3DView(AssetHandle<Texture3D> texA)
+	{
+		return;
+	}
+
+	bool UiComponents::InputUInt(const char* label, u32* v, int step, int step_fast)
 	{
 		int temp = static_cast<int>(*v);
 		bool changed = ImGui::InputInt(label, &temp, step, step_fast);

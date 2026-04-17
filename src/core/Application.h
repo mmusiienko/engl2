@@ -38,7 +38,7 @@ namespace EnGl
 		GLFWwindow* m_Window = nullptr;
 		scope<Framebuffer> m_Framebuffer = nullptr;
 
-		EcsImpl::Entity m_Camera = 0;
+		Entity m_Camera = 0;
 		EcsImpl m_Ecs;
 		InputInfo info;
 		void CreateFramebuffer(u32 w, u32 h);

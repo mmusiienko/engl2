@@ -14,7 +14,7 @@ namespace EnGl
 			auto [shader, gen] = AssetManager::GetAsset(m_ButterflyShader);
 			if (shader)
 			{
-				Texture2D butterflyTex = Texture2D{ nstages, N };
+				Texture2D butterflyTex = Texture2D{ nstages, N, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat= GL_RGBA32F } };
 
 				shader->Use();
 				shader->SetUniform("N", N);

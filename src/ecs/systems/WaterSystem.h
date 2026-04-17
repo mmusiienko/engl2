@@ -13,7 +13,7 @@ namespace EnGl
 
 		struct SpectrumData
 		{
-			f32 L = 1000;
+			f32 L = 1000.0f;
 
 			f32 Lambda = 2.0f;
 
@@ -29,16 +29,16 @@ namespace EnGl
 
 		struct CommonSpectrumData
 		{
-			u32 N = 256;
+			u32 N = 256u;
 
-			f32 WindSpeed = 15;
+			f32 WindSpeed = 15.0f;
 			f32 WindAngleDegree = 45.0f;
 			
 			f32 Swell = 0.5f;
-			f32 Fetch = 1000.0f * 1000;
-			f32 Depth = 500;
+			f32 Fetch = 1000.0f * 1000.0f * 100.0f;
+			f32 Depth = 500.0f;
 
-			f32 FoamAdd = 0.7f;
+			f32 FoamAdd = 0.764f;
 			f32 FoamDecay = 0.055f;
 
 			bool DimensionChanged = false;
@@ -155,7 +155,7 @@ namespace EnGl
 		std::vector<Cascade> m_Cascades;
 	private:
 		std::vector<Cascade> GenCascades();
-		EcsImpl::Entity m_WaterSurface = 0;
+		Entity m_WaterSurface = 0;
 
 		void CombineResults(f32 dt);
 	};

@@ -1,0 +1,196 @@
+#version 460 core
+
+//adapted from https://github.com/Biebras/Ocean-Simulation-Unity
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+#define PI 3.1415926
+#define G 9.81
+
+uniform uint uSize;
+uniform float uLengthScale;
+uniform float uLowCutoff;
+uniform float uHighCutoff;
+uniform float uWindSpeed;
+uniform float uWindAngle;
+uniform float uSwell;
+uniform float uFetch;
+uniform float uDepth;
+
+layout(rg32f, binding = 0) uniform readonly image2D uGaussianNoise;
+layout(rg32f, binding = 1) uniform writeonly image2D uInitSpectrum;
+
+float DispersionPeak()
+{
+    return 22.0 * pow(G * G / (uWindSpeed * uFetch), 0.33);
+}
+
+float WaveDispersion(float kLength)
+{
+    return sqrt(G * kLength);
+}
+
+float DispersionDerivative(float kLength)
+{
+    return G / (2.0 * sqrt(G * kLength));
+}
+
+float GammaApprox(float x)
+{
+    float firstPart = sqrt(2.0 * PI / x) * pow(x / exp(1.0), x);
+    float secondPart = 1.0 + 1.0 / (12.0 * x) + 1.0 / (288.0 * x * x) - 139.0 / (51840.0 * x * x * x) - 571.0 / (2488320.0 * x * x * x * x);
+    return firstPart * secondPart;
+}
+
+float NormalizationFactor(float s)
+{
+    float firstPart = pow(2.0, 2.0*s - 1.0) / PI;
+    float secondPart = pow(GammaApprox(s+1.0), 2.0) / GammaApprox(2.0*s + 1.0);
+    return firstPart * secondPart;
+}
+
+float WaveAngle(vec2 k)
+{
+    const float windAngle = uWindAngle / 180.0 * PI;
+    float angle = atan(k.y, k.x) - windAngle;
+
+    angle = mod(angle + PI, 2.0 * PI);
+    if (angle < 0.0)
+        angle += 2.0 * PI;
+    return angle - PI;
+}
+
+float TMACorrection(float dispersion)
+{
+    float omegaH = dispersion * sqrt(uDepth / G);
+
+    if(omegaH <= 1.0)
+        return 0.5 * omegaH * omegaH;
+    if(omegaH < 2.0)
+        return 1.0 - 0.5 * (2.0 - omegaH) * (2.0 - omegaH);
+    
+    return 1.0; 
+}
+
+float JONSWAP(float dispersion)
+{
+    float alpha = 0.076 * pow(uWindSpeed * uWindSpeed / (uFetch * G), 0.22);
+    float omega_p = DispersionPeak();
+    float sigma = dispersion <= omega_p ? 0.07 : 0.09;
+    float r = exp(-(dispersion - omega_p) * (dispersion - omega_p) / (2.0 * sigma * sigma * omega_p * omega_p));
+    
+    float firstPart = alpha * G * G / (dispersion * dispersion * dispersion * dispersion * dispersion);
+    float secondPart = exp(-1.25 * pow(omega_p / dispersion, 4.0));
+    float thirdPart = pow(3.3, r);
+
+    return TMACorrection(dispersion) * firstPart * secondPart * thirdPart;
+}
+
+float BaseSpread(float dispersion, float angle)
+{
+    float omega_p = DispersionPeak();
+    float omegaOverOmegaPeek = dispersion / omega_p;
+    float beta;
+
+    if(omegaOverOmegaPeek < 0.95)
+    {
+        beta = 2.61 * pow(omegaOverOmegaPeek, 1.3);
+    }
+    else if(0.95 <= omegaOverOmegaPeek && omegaOverOmegaPeek <= 1.6)
+    {
+        beta = 2.28 * pow(omegaOverOmegaPeek, -1.3);
+    }
+    else
+    {
+        float epsilon = -0.4 + 0.8393 * exp(-0.567 * log(omegaOverOmegaPeek * omegaOverOmegaPeek));
+        beta = pow(10.0, epsilon);
+    }
+    
+    float sech = 1.0 / cosh(beta * angle);
+    
+    float firstPart = beta / (2.0 * tanh(beta * PI));
+    float secondPart = sech * sech;
+
+    return firstPart * secondPart;
+}
+
+float SwellDirection(float dispersion, float angle)
+{
+    float s = 16.0 * tanh(DispersionPeak() / dispersion) * uSwell * uSwell;
+    return NormalizationFactor(s) * pow(abs(cos(angle/2.0)), 2.0 * s);
+}
+
+float DirectionalSpread(float dispersion, float angle)
+{
+    float base = BaseSpread(dispersion, angle);
+    float sweel = SwellDirection(dispersion, angle);
+    return base * sweel;
+}
+
+float IntegratedDirectionalSpread(float dispersion)
+{
+    float stepSize = 0.01;
+    float sum = 0.0;
+    for(float angle = -PI; angle < PI; angle += stepSize)
+    {
+        sum += DirectionalSpread(dispersion, angle) * stepSize;
+    }
+
+    return 1.0/sum;
+}
+
+float FinalDirectionalSpread(float dispersion, float angle)
+{
+    float integration = IntegratedDirectionalSpread(dispersion);
+    float base = BaseSpread(dispersion, angle);
+    float swell = SwellDirection(dispersion, angle);
+    return integration * base * swell;
+}
+
+float Spectrum(float kLength, float dispersion, float angle)
+{
+    return JONSWAP(dispersion) * FinalDirectionalSpread(dispersion, angle) * DispersionDerivative(kLength) / kLength;
+}
+
+vec2 FourierWaveAmplitude(ivec2 pos, vec2 k, float dispersion, float angle)
+{
+    float deltaK = 2.0 * PI / float(uLengthScale);
+    float kLength = length(k);
+    vec2 rand = imageLoad(uGaussianNoise, pos).rg;
+
+    return rand * sqrt(2.0 * Spectrum(kLength, dispersion, angle) * deltaK * deltaK);
+}
+
+vec2 WaveVector(ivec2 pos)
+{
+    float n = float(uSize) / 2.0;
+    float k_x = 2.0 * PI * (float(pos.x) - n) / float(uLengthScale);
+    float k_z = 2.0 * PI * (float(pos.y) - n) / float(uLengthScale);
+    vec2 k = vec2(k_x, k_z);
+    if (length(k) == 0)
+    {
+        k.x = 0.0001;
+        k.y = 0.0001;
+    }
+
+    return k;
+}
+
+void main()
+{
+    ivec2 id = ivec2(gl_GlobalInvocationID.xy);
+    vec2 k = WaveVector(id);
+    float kLength = length(k);
+    float dispersion = WaveDispersion(kLength);
+    float angle = WaveAngle(k);
+    
+    if(kLength > uLowCutoff && kLength < uHighCutoff)
+    {
+        vec2 h_0 = FourierWaveAmplitude(id, k, dispersion, angle);
+        imageStore(uInitSpectrum, id, vec4(h_0, 0, 0));
+    }
+    else
+    {
+        imageStore(uInitSpectrum, id, vec4(0));
+    }
+}

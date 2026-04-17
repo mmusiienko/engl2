@@ -1,0 +1,62 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (rg32f, binding = 0) readonly uniform image2D iGaussian;
+layout (rg32f, binding = 1) writeonly uniform image2D Spectrum;
+
+uniform uint N;
+uniform float L;
+uniform float A;
+uniform float Vmag;
+uniform vec2 windDir;
+uniform float lowCutoff;
+uniform float highCutoff;
+
+const float g = 9.81;
+
+#define PI 3.1415926535897932384626433832795
+
+
+void main(void)
+{
+    vec2 x = vec2(gl_GlobalInvocationID.xy) - float(N) / 2.0;
+
+    vec2 k = vec2(
+        2.0 * PI * x.x / L,
+        2.0 * PI * x.y / L
+    );
+
+    float L_ = (Vmag * Vmag) / g;
+    float mag = length(k);
+    
+    if (mag > lowCutoff && mag < highCutoff)
+    {
+        float magSq = mag * mag;
+
+        // Phillips spectrum sqrt(Ph(k)) / sqrt(2)
+        float dw = dot(k / mag, normalize(windDir));
+
+        float h0k =
+            sqrt(
+                (A / (magSq * magSq)) *
+                dw * dw 
+            ) / sqrt(2.0);
+
+        vec4 gauss_random = imageLoad(iGaussian, ivec2(gl_GlobalInvocationID.xy));
+
+        imageStore(
+            Spectrum,
+            ivec2(gl_GlobalInvocationID.xy),
+            vec4(gauss_random.xy * h0k, 0.0, 1.0)
+        );
+    }
+    else
+    {
+        imageStore(
+            Spectrum,
+            ivec2(gl_GlobalInvocationID.xy),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        );
+    }
+}

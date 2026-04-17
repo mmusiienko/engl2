@@ -34,8 +34,6 @@ namespace EnGl
 
 			return ok;
 		}
-
-		const std::string& Name() const override { return "JuliaFractalQuad"; };
 	};
 
 	void JuliaFractalSystem::Init(EcsImpl::EntityManager& manager)
@@ -44,7 +42,7 @@ namespace EnGl
 		(
 			[=](Component::Transform&, Component::ModelMatrix&, Component::RenderedModel& model)
 			{
-				auto mat = AssetManager::Put<scope<Material::Base>>(make_scope<JuliaFractalQuad>());
+				auto mat = AssetManager::PutScope<Material::Base>(make_scope<JuliaFractalQuad>());
 
 				model.Layer = Component::RenderLayer::SCREEN_SPACE;
 				model.Model = StaticModel::Quad(mat);
@@ -76,8 +74,6 @@ namespace EnGl
 
 			return ok;
 		}
-
-		const std::string& Name() const override { return "FractalQuad2D"; };
 	};
 
 	void Fractal2DSystem::Init(EcsImpl::EntityManager& manager)
@@ -86,7 +82,7 @@ namespace EnGl
 		(
 			[=](Component::Transform& t, Component::ModelMatrix&, Component::RenderedModel& model)
 			{
-				auto mat = AssetManager::Put<scope<Material::Base>>(make_scope<Fractal2DQuad>(*this, AssetManager::GRAPHICS_SHADER_DIR / "MandelbrotFractal"));
+				auto mat = AssetManager::PutScope<Material::Base>(make_scope<Fractal2DQuad>(*this, AssetManager::GRAPHICS_SHADER_DIR / "MandelbrotFractal"));
 				t.Scale = glm::vec3{ 0.5f, 1.0f, 1.0f };
 				t.Position = glm::vec3{-0.5f, 0.0f, 0.0f};
 				model.Layer = Component::RenderLayer::SCREEN_SPACE;
@@ -98,7 +94,7 @@ namespace EnGl
 		(
 			[=](Component::Transform& t, Component::ModelMatrix&, Component::RenderedModel& model)
 			{
-				auto mat = AssetManager::Put<scope<Material::Base>>(make_scope<Fractal2DQuad>(*this, AssetManager::GRAPHICS_SHADER_DIR / "JuliaFractal"));
+				auto mat = AssetManager::PutScope<Material::Base>(make_scope<Fractal2DQuad>(*this, AssetManager::GRAPHICS_SHADER_DIR / "JuliaFractal"));
 				t.Scale = glm::vec3{ 0.5f, 1.0f, 1.0f };
 				t.Position = glm::vec3{ 0.5f, 0.0f, 0.0f };
 				model.Layer = Component::RenderLayer::SCREEN_SPACE;

@@ -23,7 +23,7 @@ namespace EnGl
 
 		struct ModelMatrix
 		{
-			glm::mat4 CachedModel;
+			glm::mat4 CachedModel{};
 			bool Dirty = true;
 		};
 
@@ -80,7 +80,7 @@ namespace EnGl
 			Count
 		};
 
-		constexpr u32 RenderLayerNumber = RenderLayer::Count;
+		constexpr inline u32 RenderLayerNumber = RenderLayer::Count;
 
 		struct RenderedModel
 		{
@@ -91,13 +91,40 @@ namespace EnGl
 
 		struct PointLight
 		{
-			glm::vec3 Color;
-			float Intensity;
+			glm::vec3 Color{1.0f};
+			float Intensity = 100.0f;
 		};
 
 		struct DirectionalLight
 		{
-			glm::vec3 Color;
+			glm::vec3 Color{ 1.0f };
+		};
+
+		struct SphereCollider
+		{
+			glm::vec3 Offset{};
+			f32 Radius = 1.0f;
+		};
+
+		struct PhysicalMomentum
+		{
+			glm::vec3 Velocity{};
+			f32 InverseMass = 1.0f;
+			f32 Restitution = 1.0f;
+		};
+
+		struct LengthConstraint
+		{
+			Entity E1 = 0;
+			Entity E2 = 0;
+			f32 Length = 1.0f;
+		};
+
+		struct MaxLengthConstraint
+		{
+			Entity E1 = 0;
+			Entity E2 = 0;
+			f32 MaxLength = 1.0f;
 		};
 	}
 	
@@ -112,6 +139,10 @@ namespace EnGl
 		Component::Velocity,
 		Component::RenderedModel,
 		Component::PointLight,
-		Component::DirectionalLight
+		Component::DirectionalLight,
+		Component::SphereCollider,
+		Component::PhysicalMomentum,
+		Component::LengthConstraint,
+		Component::MaxLengthConstraint
 	>;
 }

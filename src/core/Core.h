@@ -1,14 +1,15 @@
 #pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <memory>
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
 #include <stdint.h>
 #include <spdlog/spdlog.h>
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 
 template<class T>

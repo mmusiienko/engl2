@@ -21,7 +21,7 @@ namespace EnGl
 					for (size_t i = 0; i < data.size(); i++)
 					{
 						data[i] = { rand.GaussianPair() };
-						rand.AddToState(i);
+						rand.AddToState(static_cast<u32>(i));
 					}
 
 					auto handle = AssetManager::Put<Texture2D>(

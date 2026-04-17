@@ -23,11 +23,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algorithm\compute\FFT.h" />
-    <ClInclude Include="algorithm\compute\noise\Fractal.h" />
     <ClInclude Include="algorithm\compute\noise\Gaussian.h" />
     <ClInclude Include="algorithm\compute\noise\Noise.h" />
-    <ClInclude Include="algorithm\compute\noise\Perlin.h" />
-    <ClInclude Include="algorithm\compute\noise\Voronoi.h" />
     <ClInclude Include="core\Application.h" />
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\Core.h" />
@@ -74,9 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="algorithm\compute\FFT.cpp" />
-    <ClCompile Include="algorithm\compute\noise\Fractal.cpp" />
-    <ClCompile Include="algorithm\compute\noise\Perlin.cpp" />
-    <ClCompile Include="algorithm\compute\noise\Voronoi.cpp" />
+    <ClCompile Include="algorithm\compute\noise\NoiseTexture.h" />
     <ClCompile Include="core\Application.cpp" />
     <ClCompile Include="core\Global.cpp" />
     <ClCompile Include="core\InputHandler.cpp" />
@@ -112,6 +107,7 @@
     <ClCompile Include="resources\importers\Impl\TextureImporter.cpp" />
     <ClCompile Include="resources\StaticModel.cpp" />
     <ClCompile Include="ui\Components.cpp" />
+    <ClCompile Include="ui\EcsUi.h" />
     <ClCompile Include="ui\ImGuiEntry.h" />
     <ClCompile Include="ui\Ui.cpp" />
   </ItemGroup>

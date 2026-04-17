@@ -1,0 +1,119 @@
+#version 460 core
+
+layout (local_size_x=16, local_size_y=16) in;
+layout (binding=0, r32f) writeonly uniform image2D Texture;
+
+uniform float uRTop = 6420000.0;
+uniform float uRBottom = 6360000.0;
+uniform float uHeight;
+
+struct Layer
+{
+	float W;
+	float Exp;
+	float ExpScale;
+	float Linear;
+	float Constant;
+};
+
+struct Profile
+{
+	Layer Layer1;
+	Layer Layer2;
+};
+
+uniform Profile uRayleighDensity = Profile(
+    Layer(0.0, 0.0, 0.0, 0.0, 0.0),         // Layer1 (unused, width=0)
+    Layer(0.0, 1.0, -1.0/8000.0, 0.0, 0.0)  // Layer2: e^(-h/8000)
+);
+uniform Profile uMieDensity = Profile(
+    Layer(0.0, 0.0, 0.0, 0.0, 0.0),          // Layer1 (unused)
+    Layer(0.0, 1.0, -1.0/1200.0, 0.0, 0.0)   // Layer2: e^(-h/1200)
+);
+uniform Profile uAbsorptionDensity = Profile(
+    Layer(25000.0, 0.0, 0.0,  1.0/15000.0, -2.0/3.0),  // 0→1 from 10–25km
+    Layer(    0.0, 0.0, 0.0, -1.0/15000.0,  8.0/3.0)   // 1→0 from 25–40km
+);
+
+uniform float uRayleighScattering=1.24062e-6 * pow(0.550, -4);
+uniform float uMieExtinction = 5.328e-3 / 1200.0;
+uniform float uAbsorbtionExtincition  = 5.374e15 * 2.139e-25;
+
+float DistToArc(float arcR, float r, float mu)
+{
+	float delta = sqrt(max(r * r * (mu * mu - 1.0) + arcR * arcR, 0.0));
+	return max(-r * mu + delta, 0.0);
+}
+
+bool IntersectsGround(float r, float mu)
+{
+	return mu < 0.0 && r * r * (mu * mu - 1.0) + uRBottom * uRBottom >= 0.0;
+}
+
+float LayerDensity(Layer layer, float alt)
+{
+	float density = layer.Exp * exp(layer.ExpScale * alt) + layer.Linear * alt + layer.Constant;
+	return clamp(density, 0.0, 1.0);
+}
+
+float ProfileDensity(Profile profile, float alt)
+{
+	return alt < profile.Layer1.W ? 
+		LayerDensity(profile.Layer1, alt) :
+		LayerDensity(profile.Layer2, alt);
+}
+
+float OpticalLength(Profile profile, float r, float mu)
+{
+	const uint SAMPLES = 500;
+	float stepSize = DistToArc(uRTop, r, mu) / SAMPLES;
+	float res = 0.0;
+
+	for (uint i = 0; i < SAMPLES; i++)
+	{
+		float disti = stepSize * i;
+		float ri = sqrt(disti * disti + 2.0 * r * mu + r * r);
+		float densi = ProfileDensity(profile, ri - uRBottom);
+		float weighti = i == 0 || i == SAMPLES - 1 ? 0.5 : 1.0;
+		res += weighti * densi * stepSize;
+	}
+
+	return res;
+}
+
+float Transmittance(float r, float mu)
+{
+	return exp(-(
+		uRayleighScattering * OpticalLength(uRayleighDensity, r, mu) +
+		uMieExtinction * OpticalLength(uMieDensity, r, mu) +
+		uAbsorbtionExtincition * OpticalLength(uAbsorptionDensity, r, mu)
+	));
+}
+
+float remap(float val, float mn, float mx, float nmn, float nmx)
+{
+	return (val - mn) / (mx - mn) * (nmx - nmn) + nmn;
+}
+
+void GetRMu(out float r, out float mu)
+{
+	float rx = remap(gl_GlobalInvocationID.x, 0, imageSize(Texture).x - 1, 0, 1);
+	float mux = remap(gl_GlobalInvocationID.y, 0, imageSize(Texture).y - 1, 0, 1);
+	float rho = uHeight * rx;
+	float rho2 = rho * rho;
+	r = sqrt(rho2 + uRBottom * uRBottom);
+	float dmin = uRTop - r;
+	float dmax = rho + uHeight;
+	float d = dmin + mux * (dmax - dmin);
+	mu = d == 0.0 ? 1.0 : (uHeight * uHeight - rho2 - d * d) / (2.0 * r * d);
+	mu = clamp(mu, -1.0, 1.0);
+}
+
+void main()
+{
+	float r = 0.0;
+	float mu = 0.0;
+	GetRMu(r, mu);
+	float res = Transmittance(r, mu);
+	imageStore(Texture, ivec2(gl_GlobalInvocationID.xy), vec4(res));
+}

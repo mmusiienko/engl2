@@ -11,7 +11,7 @@ namespace EnGl
 {
 	namespace Math
 	{
-		constexpr f32 PI = 3.1415f;
-		constexpr f32 TWO_PI = 3.1415f * 2;
+		constexpr inline f32 PI = 3.1415f;
+		constexpr inline f32 TWO_PI = 3.1415f * 2;
 	}
 }

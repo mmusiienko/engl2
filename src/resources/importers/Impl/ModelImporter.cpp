@@ -13,7 +13,7 @@ namespace EnGl
 	static void ProcessModelNode(const std::string& modelDirName, aiNode* node, const aiScene* scene, std::vector<Model::Submesh>& out, bool isInstanced, bool flipTextures);
 	static Model::Submesh ConvertAIMeshToMesh(const std::string& modelDirName, aiMesh* aMesh, const aiScene* scene, bool isInstanced, bool flipTextures);
 	static scope<Material::Base> GetMaterial(aiMaterial* mat, const std::string& modelDirName, bool isInstanced, bool flipTextures);
-	static std::optional<AssetHandle<Texture2D>> TryGetTexture(aiMaterial* mat, aiTextureType type, const std::string& modelDirName, bool flipTextures);
+	static std::optional<AssetHandle<Texture2D>> TryGetTexture(aiMaterial* mat, aiTextureType type, const std::string& modelDirName, bool flipTextures, bool isColor = false);
 
 	static glm::vec3 ToVec3(const aiVector3D& vec3)
 	{
@@ -30,7 +30,15 @@ namespace EnGl
 		spdlog::info("Loading model at {}", params.Path.string());
 		
 
-		static u32 flags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeGraph | aiProcess_OptimizeMeshes | aiProcess_GenBoundingBoxes | aiProcess_PreTransformVertices;
+		static u32 flags = 
+			aiProcess_Triangulate |
+			aiProcess_FlipUVs |
+			aiProcess_OptimizeGraph | 
+			aiProcess_OptimizeMeshes |
+			aiProcess_GenBoundingBoxes |
+			aiProcess_PreTransformVertices | 
+			aiProcess_CalcTangentSpace |
+			aiProcess_JoinIdenticalVertices;
 		Assimp::Importer importer;
 
 		const aiScene* scene = importer.ReadFile(params.Path.string(), flags);
@@ -87,11 +95,14 @@ namespace EnGl
 			glm::vec3 vpos{ pos.x, pos.y, pos.z };
 			glm::vec3 vnorm{};
 			glm::vec2 vtc{};
+			glm::vec3 tangent{};
+			glm::vec3 bitangent{};
 			
 			if (hasNormals)
 			{
-				auto norm = aMesh->mNormals[i];
-				vnorm = ToVec3(norm);
+				vnorm = ToVec3(aMesh->mNormals[i]);
+				tangent = ToVec3(aMesh->mTangents[i]);
+				bitangent = ToVec3(aMesh->mBitangents[i]);
 			}
 
 			if (hasTextureCoords)
@@ -100,7 +111,7 @@ namespace EnGl
 				vtc = { tex.x, tex.y };
 			}
 
-			vertices.emplace_back(vpos, vnorm, vtc);
+			vertices.emplace_back(vpos, vnorm, vtc, tangent, bitangent);
 		}
 
 		for (size_t i = 0; i < aMesh->mNumFaces; i++)
@@ -112,7 +123,6 @@ namespace EnGl
 			}
 		}
 
-		f32 shininess;
 		scope<Material::Base> material = nullptr;
 		if (aMesh->mMaterialIndex >= 0)
 		{
@@ -132,10 +142,11 @@ namespace EnGl
 				.Indices = indices,
 				.HasNormals = hasNormals,
 				.HasTextureCoords = hasTextureCoords,
+				.HasTangents = hasNormals,
 				.Aabb = ToAABB(aMesh->mAABB)
 			}
 		});
-		auto materialHandle = AssetManager::Put<scope<Material::Base>>(std::move(material));
+		auto materialHandle = AssetManager::PutScope<Material::Base>(std::move(material));
 
 		return { .Mesh = meshHandle, .Material = materialHandle };
 	}
@@ -150,23 +161,48 @@ namespace EnGl
 		std::optional<AssetHandle<Texture2D>> metalnessOpt = TryGetTexture(mat, aiTextureType_METALNESS, modelDirName, flipTextures);
 		std::optional<AssetHandle<Texture2D>> roughnessOpt = TryGetTexture(mat, aiTextureType_DIFFUSE_ROUGHNESS, modelDirName, flipTextures);
 		std::optional<AssetHandle<Texture2D>> aoOpt = TryGetTexture(mat, aiTextureType_AMBIENT_OCCLUSION, modelDirName, flipTextures);
-		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(mat, aiTextureType_BASE_COLOR, modelDirName, flipTextures);
-		spdlog::info(metalnessOpt.has_value());
-		if (metalnessOpt.has_value() && roughnessOpt.has_value() && aoOpt.has_value() && baseColorOpt.has_value())
+		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(mat, aiTextureType_BASE_COLOR, modelDirName, flipTextures, true);
+		std::optional<AssetHandle<Texture2D>> normalsOpt = TryGetTexture(mat, aiTextureType_NORMALS, modelDirName, flipTextures);
+
+		if (baseColorOpt.has_value() && metalnessOpt.has_value() && roughnessOpt.has_value())
 		{
-			spdlog::info("PBR");
-
-			auto mat = make_scope<Material::PBRTextured>();
+			auto roughnessHandle = roughnessOpt.value();
+			auto metallicHandle = metalnessOpt.value();
+			if (roughnessHandle.Id == metallicHandle.Id)
+			{
+				auto mat = make_scope<Material::PBRTexturedARM>();
+				mat->AlbedoHandle = baseColorOpt.value();
+				mat->ARMHandle = roughnessHandle;
+				if (normalsOpt.has_value())
+					mat->NormalsHandle = normalsOpt.value();
+				
+				return mat;
+			}
+			else
+			{
+				auto mat = make_scope<Material::PBRTextured>();
+				mat->AlbedoHandle = baseColorOpt.value();
+				mat->RoughnessHandle = roughnessOpt.value();
+				mat->MetallicHandle = metalnessOpt.value();
+				if (aoOpt.has_value())
+					mat->AOHandle = aoOpt.value();
+				if (normalsOpt.has_value())
+					mat->NormalsHandle = normalsOpt.value();
+				return mat;
+			}
+		}
+		else if (baseColorOpt.has_value())
+		{
+			auto mat = make_scope<Material::PBRTexturedARM>();
 			mat->AlbedoHandle = baseColorOpt.value();
-			mat->RoughnessHandle = roughnessOpt.value();
-			mat->MetallicHandle = metalnessOpt.value();
-			mat->AOHandle = aoOpt.value();
-
+			mat->ARMHandle = Material::PlaceholderTextures::ARM;
+			if (normalsOpt.has_value())
+				mat->NormalsHandle = normalsOpt.value();
 			return mat;
 		}
 
-		std::optional<AssetHandle<Texture2D>> diffuseOpt = TryGetTexture(mat, aiTextureType_DIFFUSE, modelDirName, flipTextures);
-		std::optional<AssetHandle<Texture2D>> specularOpt = TryGetTexture(mat, aiTextureType_SPECULAR, modelDirName, flipTextures);
+		std::optional<AssetHandle<Texture2D>> diffuseOpt = TryGetTexture(mat, aiTextureType_DIFFUSE, modelDirName, flipTextures, true);
+		std::optional<AssetHandle<Texture2D>> specularOpt = TryGetTexture(mat, aiTextureType_SPECULAR, modelDirName, flipTextures, true);
 		f32 shininess;
 		mat->Get(AI_MATKEY_SHININESS, shininess);
 
@@ -180,12 +216,6 @@ namespace EnGl
 			return make_scope<Material::LitTextured>(diffuseOpt.value(), isInstanced);
 		}
 
-		if (baseColorOpt.has_value())
-		{
-			return make_scope<Material::LitTextured>(baseColorOpt.value(), isInstanced);
-		}
-
-		
 		return nullptr;
 	}
 
@@ -193,7 +223,8 @@ namespace EnGl
 		aiMaterial* mat,
 		aiTextureType type,
 		const std::string& modelDirName,
-		bool flipTextures
+		bool flipTextures,
+		bool isColor
 	)
 	{
 		std::optional < AssetHandle<Texture2D> > textureHandleOpt;
@@ -218,11 +249,11 @@ namespace EnGl
 			{
 				try
 				{
-					AssetImporter<Texture2D>::Params params{ texPath, {}, flipTextures };
+					AssetImporter<Texture2D>::Params params{ texPath, {}, flipTextures, isColor };
 					textureHandleOpt = AssetManager::Load<Texture2D>(params);
 					return textureHandleOpt;
 				}
-				catch (const std::exception& e)
+				catch (const std::exception&)
 				{
 				}
 			}

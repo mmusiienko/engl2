@@ -21,11 +21,14 @@ namespace EnGl
 		};
 
 		void Dispatch(const ComputeInfo& info);
-		void Wait(u32 bit);
+		static void Wait(u32 bit);
 		void DispatchWait(const ComputeInfo& info, u32 bit);
 
-		static void BindReadTexture(const Texture& tex, u32 unit);
-		static void BindWriteTexture(const Texture& tex, u32 unit);
-		static void BindReadWriteTexture(const Texture& tex, u32 unit);
+		static void BindReadTexture(const Texture2D& tex, u32 unit);
+		static void BindWriteTexture(const Texture2D& tex, u32 unit);
+		static void BindReadWriteTexture(const Texture2D& tex, u32 unit);
+		static void BindReadTexture(const Texture3D& tex, u32 unit);
+		static void BindWriteTexture(const Texture3D& tex, u32 unit);
+		static void BindReadWriteTexture(const Texture3D& tex, u32 unit);
 	};
 }

@@ -6,61 +6,61 @@
 
 namespace EnGl
 {
-	AssetHandle<scope<Material::Base>> StaticModel::GetDefaultMaterial()
+	AssetHandle<Material::Base> StaticModel::GetDefaultMaterial()
 	{
-		static AssetHandle<scope<Material::Base>> mat = AssetManager::Put<scope<Material::Base>>(make_scope<Material::Unlit>());
+		static AssetHandle<Material::Base> mat = AssetManager::PutScope<Material::Base>(make_scope<Material::Unlit>());
 		return mat;
 	}
 
 	static std::vector<Mesh::Vertex> cubeVertices = {
 
 		// Back face (Z-)
-		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}},
-		{{-1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {0, 0}},
-		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}},
-		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}},
-		{{ 1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {1, 1}},
-		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}, {}, {}},
+		{{-1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {0, 0}, {}, {}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}, {}, {}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0,  0, -1}, {1, 0}, {}, {}},
+		{{ 1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {1, 1}, {}, {}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  0, -1}, {0, 1}, {}, {}},
 
 		// Left face (X-)
-		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}},
-		{{-1.0f, -1.0f, -1.0f}, {-1,  0,  0}, {1, 0}},
-		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}},
-		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}},
-		{{-1.0f,  1.0f,  1.0f}, {-1,  0,  0}, {0, 1}},
-		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}},
+		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}, {}, {}},
+		{{-1.0f, -1.0f, -1.0f}, {-1,  0,  0}, {1, 0}, {}, {}},
+		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}, {}, {}},
+		{{-1.0f,  1.0f, -1.0f}, {-1,  0,  0}, {1, 1}, {}, {}},
+		{{-1.0f,  1.0f,  1.0f}, {-1,  0,  0}, {0, 1}, {}, {}},
+		{{-1.0f, -1.0f,  1.0f}, {-1,  0,  0}, {0, 0}, {}, {}},
 
 		// Right face (X+)
-		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}},
-		{{ 1.0f, -1.0f,  1.0f}, { 1,  0,  0}, {1, 0}},
-		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}},
-		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}},
-		{{ 1.0f,  1.0f, -1.0f}, { 1,  0,  0}, {0, 1}},
-		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}},
+		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}, {}, {}},
+		{{ 1.0f, -1.0f,  1.0f}, { 1,  0,  0}, {1, 0}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 1,  0,  0}, {1, 1}, {}, {}},
+		{{ 1.0f,  1.0f, -1.0f}, { 1,  0,  0}, {0, 1}, {}, {}},
+		{{ 1.0f, -1.0f, -1.0f}, { 1,  0,  0}, {0, 0}, {}, {}},
 
 		// Front face (Z+)
-		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}},
-		{{-1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {0, 1}},
-		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}},
-		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}},
-		{{ 1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {1, 0}},
-		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}},
+		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}, {}, {}},
+		{{-1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {0, 1}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  0,  1}, {1, 1}, {}, {}},
+		{{ 1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {1, 0}, {}, {}},
+		{{-1.0f, -1.0f,  1.0f}, { 0,  0,  1}, {0, 0}, {}, {}},
 
 		// Top face (Y+)
-		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}},
-		{{ 1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {1, 0}},
-		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}},
-		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}},
-		{{-1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {0, 1}},
-		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}, {}, {}},
+		{{ 1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {1, 0}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}, {}, {}},
+		{{ 1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {1, 1}, {}, {}},
+		{{-1.0f,  1.0f,  1.0f}, { 0,  1,  0}, {0, 1}, {}, {}},
+		{{-1.0f,  1.0f, -1.0f}, { 0,  1,  0}, {0, 0}, {}, {}},
 
 		// Bottom face (Y-)
-		{{-1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {0, 0}},
-		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}},
-		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}},
-		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}},
-		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}},
-		{{ 1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {1, 1}},
+		{{-1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {0, 0}, {}, {}},
+		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}, {}, {}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}, {}, {}},
+		{{ 1.0f, -1.0f, -1.0f}, { 0, -1,  0}, {1, 0}, {}, {}},
+		{{-1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {0, 1}, {}, {}},
+		{{ 1.0f, -1.0f,  1.0f}, { 0, -1,  0}, {1, 1}, {}, {}},
 	};
 
 	static std::vector<Mesh::Index> cubeIndices = {
@@ -72,32 +72,27 @@ namespace EnGl
 		30, 31, 32, 33, 34, 35
 	};
 
-	AssetHandle<Model> StaticModel::Cube(AssetHandle<scope<Material::Base>> mat)
+	AssetHandle<Model> StaticModel::Cube(AssetHandle<Material::Base> mat, bool isInstanced)
 	{
-		static auto meshHandle = AssetManager::Put<Mesh>(Mesh::CreationInfo{ .Vertices = cubeVertices, .Indices = cubeIndices, .HasNormals = true, .HasTextureCoords = true });
-
 		return AssetManager::Put<Model>(Model::Submesh{
-			.Mesh = meshHandle,
+			.Mesh = StaticMesh::Cube(),
 			.Material = mat
-		});
+		}, isInstanced);
 	}
 
-	AssetHandle<Model> StaticModel::CubeInstanced(AssetHandle<scope<Material::Base>> mat)
+	AssetHandle<Mesh> StaticMesh::Cube()
 	{
 		static auto meshHandle = AssetManager::Put<Mesh>(Mesh::CreationInfo{ .Vertices = cubeVertices, .Indices = cubeIndices, .HasNormals = true, .HasTextureCoords = true });
 
-		return AssetManager::Put<Model>(Model::Submesh{
-			.Mesh = meshHandle,
-			.Material = mat
-		}, true);
+		return meshHandle;
 	}
 
 	static std::vector<Mesh::Vertex> quadVertices =
 	{
-		{{-1.0f, -1.0f, 0.0f}, {-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f}},
-		{{ 1.0f, -1.0f, 0.0f}, { 1.0f, -1.0f, 1.0f}, {1.0f, 0.0f}},
-		{{ 1.0f,  1.0f, 0.0f}, { 1.0f,  1.0f, 1.0f}, {1.0f, 1.0f}},
-		{{-1.0f,  1.0f, 0.0f}, {-1.0f,  1.0f, 1.0f}, {0.0f, 1.0f}}
+		{{-1.0f, -1.0f, 0.0f}, {-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f}, {}, {}},
+		{{ 1.0f, -1.0f, 0.0f}, { 1.0f, -1.0f, 1.0f}, {1.0f, 0.0f}, {}, {}},
+		{{ 1.0f,  1.0f, 0.0f}, { 1.0f,  1.0f, 1.0f}, {1.0f, 1.0f}, {}, {}},
+		{{-1.0f,  1.0f, 0.0f}, {-1.0f,  1.0f, 1.0f}, {0.0f, 1.0f}, {}, {}}
 	};
 
 	static std::vector<Mesh::Index> quadIndices =
@@ -111,17 +106,22 @@ namespace EnGl
 		0, 1, 2, 3
 	};
 
-	AssetHandle<Model> StaticModel::Quad(AssetHandle<scope<Material::Base>> mat)
+	AssetHandle<Model> StaticModel::Quad(AssetHandle<Material::Base> mat, bool isInstanced)
 	{
-		static auto meshHandle = AssetManager::Put<Mesh>(Mesh::CreationInfo{.Vertices = quadVertices, .Indices = quadIndices, .HasNormals = true, .HasTextureCoords = true });
-
 		return AssetManager::Put<Model>(Model::Submesh{
-			.Mesh = meshHandle,
+			.Mesh = StaticMesh::Quad(),
 			.Material = mat
-		});
+		}, isInstanced);
 	}
 
-	AssetHandle<Model> StaticModel::QuadTesselated(AssetHandle<scope<Material::Base>> mat, u32 w, u32 h)
+	AssetHandle<Mesh> StaticMesh::Quad()
+	{
+		static auto meshHandle = AssetManager::Put<Mesh>(Mesh::CreationInfo{ .Vertices = quadVertices, .Indices = quadIndices, .HasNormals = true, .HasTextureCoords = true });
+
+		return meshHandle;
+	}
+
+	AssetHandle<Model> StaticModel::QuadTesselated(AssetHandle<Material::Base> mat, u32 w, u32 h)
 	{
 		std::vector<Mesh::Vertex> vertices;
 		std::vector<Mesh::Index> indices;
@@ -132,7 +132,7 @@ namespace EnGl
 			{
 				f32 u = static_cast<f32>(x) / w;
 				f32 v = static_cast<f32>(y) / h;
-				vertices.push_back({ {2.0f * u - 1.0f, 2.0f * v - 1.0f, 0.0f}, {}, {u,v} });
+				vertices.push_back({ {2.0f * u - 1.0f, 2.0f * v - 1.0f, 0.0f}, {}, {u,v}, {}, {} });
 			}
 		}
 
@@ -167,14 +167,12 @@ namespace EnGl
 		});
 	}
 
-	AssetHandle<Model> StaticModel::QuadInstanced(AssetHandle<scope<Material::Base>> mat)
+	AssetHandle<Model> StaticModel::Sphere(AssetHandle<Material::Base> mat, bool isInstanced)
 	{
-		static auto meshHandle = AssetManager::Put<Mesh>(Mesh::CreationInfo{ .Vertices = quadVertices, .Indices = quadIndices, .HasNormals = true, .HasTextureCoords = true });
-		
 		return AssetManager::Put<Model>(Model::Submesh{
-			.Mesh = meshHandle,
+			.Mesh = StaticMesh::Sphere(),
 			.Material = mat
-		}, true);
+		}, isInstanced);
 	}
 
 	static AssetHandle<Mesh> GetSphere()
@@ -182,12 +180,12 @@ namespace EnGl
 		std::vector<Mesh::Vertex> vertices;
 		std::vector<Mesh::Index> indices;
 
-		const unsigned int X_SEGMENTS = 64;
-		const unsigned int Y_SEGMENTS = 64;
-		const float PI = 3.14159265359f;
-		for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
+		const u32 X_SEGMENTS = 64;
+		const u32 Y_SEGMENTS = 64;
+		const f32 PI = 3.14159265359f;
+		for (u32 x = 0; x <= X_SEGMENTS; ++x)
 		{
-			for (unsigned int y = 0; y <= Y_SEGMENTS; ++y)
+			for (u32 y = 0; y <= Y_SEGMENTS; ++y)
 			{
 				float xSegment = (float)x / (float)X_SEGMENTS;
 				float ySegment = (float)y / (float)Y_SEGMENTS;
@@ -200,18 +198,20 @@ namespace EnGl
 					{
 						.Position = {xPos, yPos, zPos},
 						.Normal = {xPos, yPos, zPos},
-						.TexCoord = {xSegment, ySegment}
+						.TexCoord = {xSegment, ySegment},
+						.Tangent = {},
+						.BiTangent = {}
 					}
 				);
 			}
 		}
 
 		bool oddRow = false;
-		for (unsigned int y = 0; y < Y_SEGMENTS; ++y)
+		for (u32 y = 0; y < Y_SEGMENTS; ++y)
 		{
 			if (!oddRow) // even rows: y == 0, y == 2; and so on
 			{
-				for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
+				for (u32 x = 0; x <= X_SEGMENTS; ++x)
 				{
 					indices.push_back(y * (X_SEGMENTS + 1) + x);
 					indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
@@ -219,7 +219,7 @@ namespace EnGl
 			}
 			else
 			{
-				for (int x = X_SEGMENTS; x >= 0; --x)
+				for (i32 x = X_SEGMENTS; x >= 0; --x)
 				{
 					indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
 					indices.push_back(y * (X_SEGMENTS + 1) + x);
@@ -232,13 +232,9 @@ namespace EnGl
 		return AssetManager::Put<Mesh>(info);
 	}
 
-	AssetHandle<Model> StaticModel::Sphere(AssetHandle<scope<Material::Base>> mat)
+	AssetHandle<Mesh> StaticMesh::Sphere()
 	{
 		static auto meshHandle = GetSphere();
-
-		return AssetManager::Put<Model>(Model::Submesh{
-			.Mesh = meshHandle,
-			.Material = mat
-		}, false);
+		return meshHandle;
 	}
 }

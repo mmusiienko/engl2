@@ -15,7 +15,7 @@ namespace EnGl
 		struct Submesh
 		{
 			AssetHandle<Mesh> Mesh;
-			AssetHandle<scope<Material::Base>> Material;
+			AssetHandle<Material::Base> Material;
 		};
 
 		Model(std::vector<Submesh>&& meshes, bool IsInstanced = false) noexcept;

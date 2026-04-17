@@ -29,7 +29,6 @@ namespace EnGl
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
 				auto query = manager.Query<Component::Transform, Component::ModelMatrix>();
-				u32 i = 0;
 
 				for (auto [e, transform, model] : query)
 				{
@@ -44,8 +43,6 @@ namespace EnGl
 
 						model.Dirty = true;
 					}
-
-					i++;
 				}
 			}
 
@@ -71,9 +68,17 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				auto query = manager.Query<Component::Transform, Component::Velocity>();
+				auto query1 = manager.Query<Component::Transform, Component::PhysicalMomentum>();
+				auto query2 = manager.Query<Component::Transform, Component::Velocity>();
 
-				for (auto [e, transform, velocity] : query)
+				for (auto [e, transform, momentum] : query1)
+				{
+					transform.Position += context.DeltaTime * momentum.Velocity;
+
+					transform.OnlyPosDirty = true;
+				}
+
+				for (auto [e, transform, velocity] : query2)
 				{
 					transform.Position += context.DeltaTime * velocity.Speed * velocity.NormalizedDirection;
 					transform.OnlyPosDirty = true;
@@ -257,12 +262,6 @@ namespace EnGl
 						const auto& camTransform = manager.Get<Component::Transform>(camera);
 
 						dirCamTransform.Position = camTransform.Position + dir * m_DirLightCameraDist;
-
-						if (context.Debug.Draw.Enabled)
-						{
-							static constexpr auto WIDTH = glm::vec3{ 5.0f };
-							context.Debug.DebugMeshes.Line(dirCamTransform.Position, dirCamTransform.Position + dir * m_DirLightCameraDist);
-						}
 					}
 					
 					break;
@@ -274,7 +273,7 @@ namespace EnGl
 					context.PointLights[i++] = { .Position = t.Position, .Color = p.Color, .Intensity = p.Intensity };
 					if (context.Debug.Draw.Enabled)
 					{
-						static constexpr auto WIDTH = glm::vec3{ 5.0f };
+						static constexpr auto WIDTH = glm::vec3{ 0.1f };
 						context.Debug.DebugMeshes.FrameCube(t.Position - WIDTH, t.Position + WIDTH);
 					}
 
@@ -282,7 +281,7 @@ namespace EnGl
 				}
 			}
 
-			f32 m_DirLightCameraDist = 200.0f;
+			f32 m_DirLightCameraDist = 800.0f;
 		};
 
 		class PrepareDebugDraw : public SystemImpl
@@ -382,7 +381,7 @@ namespace EnGl
 			static void AddToMaterialMap(
 				GameContext& context,
 				Model* model,
-				size_t idx,
+				u32 idx,
 				Component::ModelMatrix& modelMatrix,
 				Component::RenderLayer layer
 			)
@@ -415,7 +414,7 @@ namespace EnGl
 						return;
 					}
 
-					auto& bucket = map[material->Name()];
+					auto& bucket = map[material->Get().Id];
 					bucket.InstanceDatas.push_back(
 						{
 							.Mesh = submesh.Mesh,
@@ -441,17 +440,24 @@ namespace EnGl
 				auto material = (isMaterialOverridden) ? materialOverride : AssetManager::GetAssetNoCheck(value.InstanceDatas[0].Material);
 
 				bool ok = material->SetCommonUniforms(context);
+
 				if (!ok)
 				{
 					spdlog::error("Error setting material.");
 				}
 
+				auto shaderH = material->Get();
+				auto shader = AssetManager::GetAssetNoCheck(shaderH);
+				
+
 				for (auto& data : value.InstanceDatas)
 				{
 					auto mesh = AssetManager::GetAssetNoCheck(data.Mesh);
 
-					material->SetModel(data.Data.Model, data.Data.Normal);
-					material->SetUniforms();
+					material = (isMaterialOverridden) ? materialOverride : AssetManager::GetAssetNoCheck(data.Material);
+
+					material->SetModel(shader, data.Data.Model, data.Data.Normal);
+					material->SetUniforms(shader);
 					mesh->Draw();
 
 					if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
@@ -475,6 +481,10 @@ namespace EnGl
 					spdlog::error("Error setting material.");
 				}
 
+				auto shaderH = material->Get();
+				auto shader = AssetManager::GetAssetNoCheck(shaderH);
+
+
 				mesh->UpdateInstanceBuffer(value.Data);
 
 				if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
@@ -488,7 +498,7 @@ namespace EnGl
 					}
 				}
 
-				material->SetUniforms();
+				material->SetUniforms(shader);
 				mesh->DrawInstanced();
 			}
 		}
@@ -499,7 +509,7 @@ namespace EnGl
 			{
 				auto unlit = make_scope<Material::Unlit>();
 				unlit->Color = {};
-				m_Unlit = AssetManager::Put<scope<Material::Base>>(
+				m_Unlit = AssetManager::PutScope<Material::Base>(
 					std::move(unlit)
 				);
 			}
@@ -566,7 +576,7 @@ namespace EnGl
 			}
 
 			AssetHandle<Shader> m_DebugShader = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "DebugLines");
-			AssetHandle<scope<Material::Base>> m_Unlit;
+			AssetHandle<Material::Base> m_Unlit;
 		};
 
 		class RenderToDefaultFramebuffer : public SystemImpl
@@ -615,6 +625,134 @@ namespace EnGl
 				}
 
 				context.Debug.DebugMeshes.Tick();
+			}
+		};
+
+		class Gravity : public SystemImpl
+		{
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto query = manager.Query<Component::PhysicalMomentum>();
+
+				for (auto [e, p] : query)
+				{
+					if (p.InverseMass != 0.0f)
+					{
+						p.Velocity -= 9.81f * context.DeltaTime;
+					}
+				}
+			}
+		};
+
+		class CollisionDetection : public SystemImpl
+		{
+			struct Contact
+			{
+				glm::vec3 Normal;
+				f32 Depth;
+			};
+
+			struct Body
+			{
+				glm::vec3* Pos;
+				Component::PhysicalMomentum* P;
+			};
+
+			struct Collision 
+			{
+				Contact Contact;
+				Body Body1;
+				Body Body2;
+				f32 Compliance;
+				bool IsConstraint;
+			};
+
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto query = manager.Query<Component::Transform, Component::SphereCollider, Component::PhysicalMomentum>();
+				auto queryConstraint = manager.Query<Component::LengthConstraint>();
+				using collider = std::tuple<glm::vec3*, Component::SphereCollider*, Component::PhysicalMomentum*>;
+				using collisionEl = std::tuple<glm::vec3*, Contact, Component::PhysicalMomentum*>;
+				std::vector<collider> all;
+				std::vector<Collision> collisions;
+				all.reserve(manager.CountAll<Component::Transform, Component::SphereCollider, Component::PhysicalMomentum>());
+
+				for (auto [e, transform, collider, pm] : query)
+				{
+					all.push_back({ &transform.Position, &collider, &pm });
+				}
+
+				for (size_t i = 0; i < all.size(); i++)
+				{
+					for (size_t j = i + 1; j < all.size(); j++)
+					{
+						auto& [pos1, sphere1, p1] = all[i];
+						auto& [pos2, sphere2, p2] = all[j];
+						
+						glm::vec3 diff = *pos2 + sphere2->Offset - *pos1 - sphere1->Offset;
+						f32 dist = glm::length(diff);
+						f32 depth = sphere1->Radius + sphere2->Radius - dist;
+						if (dist > Constants::TOLERANCE && depth >= Constants::TOLERANCE)
+						{
+							Collision col{};
+							col.Body1.Pos = pos1;
+							col.Body2.Pos = pos2;
+							col.Body1.P = p1;
+							col.Body2.P = p2;
+							col.Compliance = std::min(p1->Restitution, p2->Restitution);
+							col.Contact.Depth = depth;
+							col.Contact.Normal = diff / dist;
+							col.IsConstraint = false;
+							collisions.emplace_back(std::move(col));
+						}
+					}
+				}
+
+				for (auto [e, constraint] : queryConstraint)
+				{
+					if (constraint.E1 == 0 || constraint.E2 == 0) continue;
+
+					auto [t1, c1, p1] = manager.Get<Component::Transform, Component::SphereCollider, Component::PhysicalMomentum>(constraint.E1);
+					auto [t2, c2, p2] = manager.Get<Component::Transform, Component::SphereCollider, Component::PhysicalMomentum>(constraint.E2);
+
+					glm::vec3 diff = t2.Position + c2.Offset - t1.Position - c1.Offset;
+					f32 dist = glm::length(diff);
+					f32 depth = dist - constraint.Length;
+					if (dist > Constants::TOLERANCE && abs(depth) >= Constants::TOLERANCE)
+					{
+						Collision col{};
+						col.Body1.Pos = &t1.Position;
+						col.Body2.Pos = &t2.Position;
+						col.Body1.P = &p1;
+						col.Body2.P = &p2;
+						col.Contact.Normal = -diff / dist;
+						col.Contact.Depth = depth;
+						col.Compliance = 0.0f;
+						col.IsConstraint = true;
+
+						collisions.emplace_back(std::move(col));
+					}
+				}
+
+				for (const auto& col : collisions)
+				{
+					f32 relativeVel = glm::dot(col.Contact.Normal, col.Body2.P->Velocity - col.Body1.P->Velocity);
+
+					if (!col.IsConstraint && relativeVel > 0.0f) continue;
+
+					f32 invsum = col.Body1.P->InverseMass + col.Body2.P->InverseMass;
+
+					f32 j = -(1 + col.Compliance) * relativeVel / invsum;
+
+					col.Body1.P->Velocity -= j * col.Body1.P->InverseMass * col.Contact.Normal;
+					col.Body2.P->Velocity += j * col.Body2.P->InverseMass * col.Contact.Normal;
+
+					f32 cor =  !col.IsConstraint ? std::max(col.Contact.Depth - Constants::TOLERANCE, 0.0f) / invsum : col.Contact.Depth;
+					glm::vec3 corV = cor * col.Contact.Normal;
+
+					*col.Body1.Pos -= col.Body1.P->InverseMass * corV;
+					*col.Body2.Pos += col.Body2.P->InverseMass * corV;
+				}
 			}
 		};
 	}

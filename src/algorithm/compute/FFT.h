@@ -14,11 +14,11 @@ namespace EnGl
 
 		struct IFFT2Dinfo
 		{
-			AssetHandle<Texture2D> Ping;
-			AssetHandle<Texture2D> Pong;
-			u32 N;
-			u32 Nstages;
-			u32 GroupCount;
+			AssetHandle<Texture2D> Ping{};
+			AssetHandle<Texture2D> Pong{};
+			u32 N = 0u;
+			u32 Nstages = 0u;
+			u32 GroupCount = 0u;
 		};
 
 		AssetHandle<Texture2D> IFFT2D(IFFT2Dinfo& info) const;

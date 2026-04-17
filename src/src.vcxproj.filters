@@ -147,15 +147,6 @@
     <ClInclude Include="renderer\base\Cubemap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="algorithm\compute\noise\Voronoi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="algorithm\compute\noise\Perlin.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="algorithm\compute\noise\Fractal.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ui\Components.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -266,15 +257,6 @@
     <ClCompile Include="resources\importers\Impl\CubemapImporter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="algorithm\compute\noise\Voronoi.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="algorithm\compute\noise\Perlin.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="algorithm\compute\noise\Fractal.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ecs\systems\CloudSystem.h">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -288,6 +270,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ui\ImGuiEntry.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\EcsUi.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="algorithm\compute\noise\NoiseTexture.h">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

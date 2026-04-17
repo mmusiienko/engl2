@@ -1,0 +1,249 @@
+#version 460 core
+
+layout (local_size_x=16, local_size_y=16) in;
+layout (binding=0, rgba32f) writeonly uniform image2D Sky;
+layout (binding=1, r32f) writeonly uniform image2D SkyDepth;
+
+uniform mat4 uInvView;
+uniform mat4 uInvProjection;
+uniform uvec2 uResolution;
+uniform vec3 uCameraPos;
+
+uniform float uNear;
+uniform float uFar;
+
+uniform float uTime;
+
+struct UniformDirectionalLight { vec3 Direction; vec3 Color; };
+uniform UniformDirectionalLight uDirectionalLight;
+
+uniform float uCloudScale = 0.1;
+uniform float uDetailScale = 3.0;
+uniform float uWeatherScale = 1.0;
+
+uniform float uSkySpan = 10000.0;
+uniform float uSkyHeightMin = 200.0;
+uniform float uSkyHeightMax = 300.0;
+
+uniform uint uNumSteps = 64;
+uniform uint uNumStepsLight = 4;
+
+uniform vec3 uDirection = vec3(0);
+uniform float uSpeed = 1.0;
+
+uniform sampler2D uDepth;
+uniform sampler2D uColor;
+uniform sampler3D uShape;
+uniform sampler3D uDetail;
+uniform sampler2D uWeather;
+
+uniform float uGlobalCoverage = 0.49;
+uniform float uGlobalOpacity = 0.02;
+
+uniform float uDarknessThreshold = 0.0;
+
+uniform float uLightAbsorptionSun = 1.0;
+uniform float uLightAbsorptionCloud = 1.0;
+
+uniform float uPhaseVal = 1.0;
+
+uniform float uResScale = 4;
+
+uniform float uAnvil = 0.5;
+
+uniform vec2 uCurrentOffset = vec2(0, 0);
+
+uniform samplerCube uCubemap;
+
+
+float linDepth(float depth)
+{
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+}
+
+struct IntersectionResult
+{
+	bool intersect;
+	float tNear;
+	float tFar;
+};
+
+IntersectionResult intersectSkyBox(vec3 rayOrigin, vec3 rayDir, vec3 boundsMin, vec3 boundsMax)
+{
+	IntersectionResult res;
+
+    vec3 invDir = 1.0 / rayDir;
+    vec3 t1 = (boundsMin - rayOrigin) * invDir;
+    vec3 t2 = (boundsMax - rayOrigin) * invDir;
+
+    vec3 tmin = min(t1, t2);
+    vec3 tmax = max(t1, t2);
+
+    res.tNear = max(max(tmin.x, tmin.y), tmin.z);
+	res.tFar  = min(min(tmax.x, tmax.y), tmax.z);
+
+    res.intersect = (res.tNear <= res.tFar && res.tFar > 0.0);
+
+    return res;
+}
+
+float remap(float val, float mn1, float mx1, float mn2, float mx2)
+{
+	return (val - mn1) / (mx1 - mn1) * (mx2 - mn2) + mn2;
+}
+
+float saturate(float val)
+{
+	return clamp(val, 0, 1);
+}
+
+float grad(float val, float mn1, float mx1, float mn2, float mx2)
+{
+	return saturate(remap(val, mn1, mx1, mn2, mx2));
+}
+
+float shapeAlter(float h)
+{
+	const float wh = 1.0;
+
+	float bottom = grad(h, 0.0, 0.07, 0.0, 1.0);
+	float stopHeight = wh + 0.12;
+	float top = grad(h, stopHeight * 0.2, stopHeight, 1.0, 0.0);
+	float alter = bottom * top;
+	float anvil = pow(alter, grad(h, 0.65, 0.95, 1.0, 1.0 - uAnvil * uGlobalCoverage));
+	return anvil;
+}
+
+float densityAlter(float h)
+{
+	const float wd = 0.5;
+
+	float bottom = h * grad(h, 0.0, 0.2, 0.0, 1.0);
+	float top = grad(h, 0.9, 1.0, 1.0, 0.0);
+	float density = wd * 2.0;
+	float alter = bottom * top * density * uGlobalOpacity;
+	float anvil = alter * mix(1.0, grad(pow(h, 0.5), 0.4, 0.95, 1.0, 0.2), uAnvil);
+	return anvil;
+}
+
+float sampleDensity(vec3 pos, vec3 boundsMin, vec3 boundsMax)
+{
+	vec4 weather = texture(uWeather, 0.00001 * (uWeatherScale * pos.xz + uTime * uSpeed * 1.5));
+
+	float weatherCoverage = max(weather.r, 2.0 * weather.g * saturate(uGlobalCoverage - 0.5));
+	float h = (pos.y - uSkyHeightMin) / (uSkyHeightMax - uSkyHeightMin);
+
+	vec3 samplePos1 = 0.001 * ((boundsMax - boundsMin) * 0.5 + pos + uSpeed * uDirection * uTime);
+	vec3 samplePos2 = 0.001 * ((boundsMax - boundsMin) * 0.5 + pos + 1.5 * uSpeed * uDirection * uTime);
+	vec4 shapeSample = texture(uShape, samplePos1 * uCloudScale);
+	vec4 detailSample = texture(uDetail, samplePos2 * uDetailScale);
+
+	float shape = remap(shapeSample.r, (0.625 * shapeSample.g + 0.25 * shapeSample.b + 0.125 * shapeSample.a) - 1.0, 1.0, 0.0, 1.0);
+
+	if (shape < 0.01) return 0.0;
+
+	float detail = 0.625 * detailSample.g + 0.25 * detailSample.b + 0.125 * detailSample.a;
+	float detailModifier = mix(detail, 1.0 - detail, saturate(h * 5.0)) * 0.35 * exp(-uGlobalCoverage * 0.75);
+
+	float shapeDensity = grad(shape * shapeAlter(h), 1.0 - uGlobalCoverage * weatherCoverage, 1.0, 0.0, 1.0);
+
+	return grad(shapeDensity, detailModifier, 1.0, 0.0, 1.0) * densityAlter(h);
+}
+
+float sampleTransmittance(vec3 pos, vec3 boundsMin, vec3 boundsMax)
+{
+	IntersectionResult res = intersectSkyBox(pos, uDirectionalLight.Direction, boundsMin, boundsMax);
+	float stepSize = 100;
+	float totalDensity = 0;
+	vec3 lightDir = uDirectionalLight.Direction;
+	for (uint i = 0; i < uNumStepsLight; i++)
+	{
+		pos += lightDir * stepSize;
+		totalDensity += sampleDensity(pos, boundsMin, boundsMax) * stepSize;
+	}
+
+	return uDarknessThreshold + exp(-totalDensity * uLightAbsorptionSun) * (1 - uDarknessThreshold);
+}
+
+float random(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+
+void main()
+{
+	vec2 pixel = vec2(gl_GlobalInvocationID.xy) * uResScale + 0.5 + uCurrentOffset;
+	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy * uResScale + uCurrentOffset);
+	vec2 uv = pixel / uResolution;
+	vec2 ndc = uv * 2.0 - 1.0;
+
+	vec3 boundsMin = vec3(uCameraPos.x - uSkySpan, uSkyHeightMin, uCameraPos.z - uSkySpan);
+	vec3 boundsMax = vec3(uCameraPos.x + uSkySpan, uSkyHeightMax, uCameraPos.z + uSkySpan);
+
+	vec4 clipFar = vec4(ndc, 1.0, 1.0);
+
+	vec4 viewFar = uInvProjection * clipFar;
+	viewFar /= viewFar.w;
+
+	vec4 worldFar = uInvView * viewFar;
+
+	vec3 rayOrigin = uCameraPos.xyz;
+	vec3 rayDir = normalize(worldFar.xyz - rayOrigin);
+
+	IntersectionResult res = intersectSkyBox(rayOrigin, rayDir, boundsMin, boundsMax);
+
+	float nonLinDepth = texture(uDepth, uv).r;
+
+	for (int i = 1; i < uResScale; i++)
+	{
+		for (int j = 0; j < uResScale; j++)
+		{
+			vec2 uvOffset = (pixel + vec2(i, j)) / uResolution;
+			nonLinDepth = min(texture(uDepth, uvOffset).r, nonLinDepth);
+		}
+	}
+
+	float depth = linDepth(nonLinDepth);
+	float lightEnergy = 0;
+	float transmittance = 1;
+	float near = max(res.tNear, 0.0);
+	float distInside = res.tFar - near;
+	float distToTravel = min(depth - near, distInside);
+	float dist = 0.0;
+	float yDiff = max(max(uCameraPos.y - uSkyHeightMax, uSkyHeightMin - uCameraPos.y), 0.0);
+	float maxDist = sqrt(yDiff * yDiff + uSkySpan * uSkySpan);
+	float firstDist = uFar;
+	float alpha = 0.0;
+
+	if (res.intersect)
+	{
+		float stepSize = min(distToTravel / uNumSteps, 33.0);
+
+		vec3 pos = rayOrigin + (near + random(gl_GlobalInvocationID.xy)) * rayDir;
+		int i = 0;
+		while (dist < distToTravel)
+		{
+			pos += stepSize * rayDir;
+			dist += stepSize;
+
+			float density = sampleDensity(pos, boundsMin, boundsMax);
+			if (density > 0)
+			{
+				if (firstDist == uFar)
+					firstDist = dist;
+				float lightTransmittance = sampleTransmittance(pos, boundsMin, boundsMax);
+				lightEnergy += density * stepSize * lightTransmittance * transmittance * uPhaseVal;
+				transmittance *= exp(-density * stepSize * uLightAbsorptionCloud);
+
+				if (transmittance < 0.01) break;
+			}
+			i++;
+		}
+	}
+	vec3 cubemapColor = texture(uCubemap, rayDir).rgb;
+	vec3 cloudColor = uDirectionalLight.Color * lightEnergy;
+
+	imageStore(Sky, storePos, vec4(cloudColor, transmittance));
+	imageStore(SkyDepth, storePos, vec4(firstDist));
+}

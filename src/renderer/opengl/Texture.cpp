@@ -1,6 +1,4 @@
 #include "../base/Texture.h"
-#include <glad/glad.h>
-
 #include "../core/Core.h"
 
 

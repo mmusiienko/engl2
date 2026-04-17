@@ -10,7 +10,7 @@ namespace EnGl
 		void Init(EcsImpl::EntityManager& manager) override;
 
 	private:
-		EcsImpl::Entity m_ScreenQuad;
+		Entity m_ScreenQuad;
 		AssetHandle<Shader> m_Shader = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "JuliaFractal");
 	};
 
@@ -24,9 +24,9 @@ namespace EnGl
 		f64 m_Zoom = 1.0f;
 		glm::f64vec2 m_Position{};
 
-		EcsImpl::Entity m_MandelbrotQuad = 0;
-		EcsImpl::Entity m_JuliaQuad = 0;
+		Entity m_MandelbrotQuad = 0;
+		Entity m_JuliaQuad = 0;
 		AssetHandle<Shader> m_Shader = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "JuliaFractal");
-		friend class Fractal2DQuad;
+		friend struct Fractal2DQuad;
 	};
 }

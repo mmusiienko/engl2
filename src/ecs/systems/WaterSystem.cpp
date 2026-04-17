@@ -1,7 +1,8 @@
 #include "WaterSystem.h"
 #include "../../algorithm/compute/noise/Gaussian.h"
-#include "../../ui/Ui.h"
 #include "../../renderer/base/Model.h"
+#include "../../ui/Components.h"
+#include "../../resources/StaticModel.h"
 
 
 namespace EnGl
@@ -36,7 +37,7 @@ namespace EnGl
 		spectrumChanged |= ImGui::SliderFloat("WindAngleDegree", &m_Data.WindAngleDegree, 0.0f, 359.99f);
 		spectrumChanged |= ImGui::InputFloat("WindSpeed", &m_Data.WindSpeed);
 
-		int powof2 = glm::log2(static_cast<f32>(m_Data.N));
+		i32 powof2 = static_cast<u32>(glm::log2(static_cast<f32>(m_Data.N)));
 		if (ImGui::SliderInt("Power of 2 for N", &powof2, 0, 12))
 		{
 			m_Data.N = 1 << powof2;
@@ -44,7 +45,7 @@ namespace EnGl
 		}
 
 		ImGui::Separator();
-		for (size_t i = 0; i < WaterSystem::NCascades; i++)
+		for (u32 i = 0; i < WaterSystem::NCascades; i++)
 		{
 			ImGui::PushID(static_cast<int>(i));
 
@@ -58,7 +59,19 @@ namespace EnGl
 
 			ImGui::Spacing();
 			ImGui::Separator();
-
+			UiComponents::Texture2DView(m_Cascades[i].m_Spectrum);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_Displacement);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_Normal);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_dxcombinedz);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_dycombineddxz);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_dydxcombinedydz);
+			ImGui::SameLine();
+			UiComponents::Texture2DView(m_Cascades[i].m_ddxcombineddz);
 			ImGui::PopID();
 		}
 	}
@@ -174,6 +187,7 @@ namespace EnGl
 			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
 			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
 			m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+			m_Shader->SetUniform("uPointLights", context.PointLights);
 
 			if (context.Cubemap)
 			{
@@ -188,6 +202,13 @@ namespace EnGl
 				m_Shader->SetUniform("uDepth", *depth, 2);
 			}
 
+			auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+			if (shadowMap)
+			{
+				m_Shader->SetUniform("uShadowMap", *shadowMap, 3);
+				m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+			}
+
 			for (u32 i = 0; i < WaterSystem::NCascades; i++)
 			{
 				auto [dispTex, g0] = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Displacement);
@@ -198,9 +219,9 @@ namespace EnGl
 					continue;
 				}
 
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Displacement", *dispTex, (2 * i + 3));
+				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Displacement", *dispTex, (2 * i + 4));
 
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Normal", *normalTex, (2 * i + 4));
+				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Normal", *normalTex, (2 * i + 5));
 
 
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].N", m_WaterSystem.m_Cascades[i].m_CommonData.N);
@@ -211,10 +232,10 @@ namespace EnGl
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamFlatSubtract", m_WaterSystem.m_Cascades[i].m_CommonData.FoamDecay);
 			}
 
+			
+
 			return ok;
 		}
-
-		const std::string& Name() const override { return "WaterSurface"; };
 	};
 
 	void WaterSystem::Init(EcsImpl::EntityManager& manager)
@@ -224,7 +245,7 @@ namespace EnGl
 		>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
 			{
-				auto mat = AssetManager::Put<scope<Material::Base>>(make_scope<WaterSurface>(*this));
+				auto mat = AssetManager::PutScope<Material::Base>(make_scope<WaterSurface>(*this));
 				model.Model = StaticModel::QuadTesselated(mat, 200, 200);
 				model.Layer = Component::RenderLayer::TT;
 				transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });

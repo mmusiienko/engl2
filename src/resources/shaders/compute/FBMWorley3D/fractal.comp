@@ -1,0 +1,85 @@
+#version 460 core
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+layout(rgba32f, binding = 0) uniform image3D Fractal;
+
+uniform uint uOctaves = 8;
+uniform uint uChannel = 0;
+uniform uint uNCells = 4;
+uniform uint uSeed = 133;
+
+
+uvec3 pcg3d(uvec3 v) {
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+    v ^= v >> 16u;
+    v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+    return v;
+}
+
+vec3 getPoint(ivec3 p, vec3 dim, uint seed, uint NCells) {
+    uvec3 gridPos = uvec3(p % int(NCells));
+    
+    uvec3 h = pcg3d(gridPos ^ uvec3(seed, seed * 13, seed * 17));
+    
+    vec3 g = vec3(h) / 4294967295.0;
+    
+    return (p + g) * dim;
+}
+
+float remap(float val, float mn1, float mx1, float mn2, float mx2)
+{
+	return (val - mn1) / (mx1 - mn1) * (mx2 - mn2) + mn2;
+}
+
+float worley3d(ivec3 pos, uint seed, uint NCells)
+{
+    vec3 dimensions = vec3(imageSize(Fractal)) / float(NCells);
+
+    float maxDistSqr = dot(dimensions, dimensions);
+	float minDistSqr = maxDistSqr;
+
+	ivec3 cell = ivec3(floor(vec3(pos) / dimensions));
+
+	for (int i = -1; i <= 1; i++)
+	{
+		for (int j = -1; j <= 1; j++)
+		{
+			for (int k = -1; k <= 1; k++)
+			{
+				ivec3 newCell = cell + ivec3(i, j, k);
+
+				vec3 point = getPoint(newCell, dimensions, seed, NCells);
+				vec3 diff = pos - point;
+				float distsqr = dot(diff, diff);
+				minDistSqr = min(distsqr, minDistSqr);
+			}
+		}
+	}
+
+	return clamp(1.0 - 2.0 * sqrt(minDistSqr / maxDistSqr), 0.0, 1.0);
+}
+
+void main() 
+{
+	ivec3 ipos = ivec3(gl_GlobalInvocationID);
+    float total = 0.0;
+    int freq = 1;
+    float amplitude = 1.0;
+    float maxVal = 0.0;
+
+    for (int i = 0; i < uOctaves; i++) 
+	{
+        float val = worley3d(ipos, uSeed + i, uNCells * freq);
+
+        total += val * amplitude;
+        maxVal += amplitude;
+
+        amplitude *= 0.5;
+        freq *= 2;
+    }
+
+    float val = total / maxVal;
+    vec4 prevVal = imageLoad(Fractal, ipos);
+    prevVal[uChannel] = val;
+	imageStore(Fractal, ipos, prevVal);
+}

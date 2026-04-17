@@ -18,21 +18,24 @@ namespace EnGl
 			glm::vec3 Position;
 			glm::vec3 Normal;
 			glm::vec2 TexCoord;
+			glm::vec3 Tangent;
+			glm::vec3 BiTangent;
 		};
 
 		struct AABB
 		{
-			glm::vec3 Min;
-			glm::vec3 Max;
+			glm::vec3 Min{};
+			glm::vec3 Max{};
 		};
 
 		struct CreationInfo
 		{
 			std::vector<Vertex> Vertices;
 			std::vector<Index> Indices;
-			bool HasNormals;
-			bool HasTextureCoords;
-			AABB Aabb;
+			bool HasNormals = false;
+			bool HasTextureCoords = false;
+			bool HasTangents = false;
+			AABB Aabb{};
 			u32 DrawType = GL_TRIANGLES;
 		};
 

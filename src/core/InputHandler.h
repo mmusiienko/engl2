@@ -8,8 +8,8 @@ namespace EnGl
 {
 	struct InputHandler
 	{
-		static constexpr size_t MAX_KEYS = GLFW_KEY_LAST + 1;
-		static constexpr size_t MAX_MOUSE_BUTTONS = GLFW_MOUSE_BUTTON_LAST + 1;
+		static constexpr inline u32 MAX_KEYS = GLFW_KEY_LAST + 1;
+		static constexpr inline u32 MAX_MOUSE_BUTTONS = GLFW_MOUSE_BUTTON_LAST + 1;
 
 		struct State
 		{
@@ -18,13 +18,13 @@ namespace EnGl
 			glm::vec2 MouseDelta{};
 			f32 ScrollDelta = 0.0f;
 
-			bool KeysHeld[MAX_KEYS];
-			bool KeysPressed[MAX_KEYS];
-			bool KeysReleased[MAX_KEYS];
+			bool KeysHeld[MAX_KEYS]{};
+			bool KeysPressed[MAX_KEYS]{};
+			bool KeysReleased[MAX_KEYS]{};
 
-			bool MouseBHeld[MAX_MOUSE_BUTTONS];
-			bool MouseBReleased[MAX_MOUSE_BUTTONS];
-			bool MouseBPressed[MAX_MOUSE_BUTTONS];
+			bool MouseBHeld[MAX_MOUSE_BUTTONS]{};
+			bool MouseBReleased[MAX_MOUSE_BUTTONS]{};
+			bool MouseBPressed[MAX_MOUSE_BUTTONS]{};
 		};
 
 		inline static State State;

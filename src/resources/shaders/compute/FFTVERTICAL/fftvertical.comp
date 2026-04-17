@@ -1,0 +1,40 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (binding=0, rgba32f) readonly uniform image2D butterflyTex;
+layout (binding=1, rg32f) uniform image2D pingpong0;
+layout (binding=2, rg32f) uniform image2D pingpong1;
+
+uniform uint pingpong;
+uniform uint stage;
+
+void main()
+{
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+	vec4 butterflyData = imageLoad(butterflyTex, ivec2(stage, pos.y));
+	vec2 twiddle = butterflyData.xy;
+	vec2 indices = butterflyData.zw;
+
+	if (pingpong == 0)
+	{
+		vec2 first = imageLoad(pingpong0, ivec2(pos.x, indices.x)).xy;
+		vec2 second = imageLoad(pingpong0, ivec2(pos.x, indices.y)).xy;
+
+		vec2 mulRes = vec2(second.x * twiddle.x - second.y * twiddle.y, second.x * twiddle.y + twiddle.x * second.y);
+		vec2 res = first + mulRes;
+
+		imageStore(pingpong1, pos, vec4(res, 0.0, 1.0));
+	}
+	else
+	{
+		vec2 first = imageLoad(pingpong1, ivec2(pos.x, indices.x)).xy;
+		vec2 second = imageLoad(pingpong1, ivec2(pos.x, indices.y)).xy;
+
+		vec2 mulRes = vec2(second.x * twiddle.x - second.y * twiddle.y, second.x * twiddle.y + twiddle.x * second.y);
+		vec2 res = first + mulRes;
+
+		imageStore(pingpong0, pos, vec4(res, 0.0, 1.0));
+	}
+}

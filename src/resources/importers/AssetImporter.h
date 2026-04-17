@@ -30,9 +30,10 @@ namespace EnGl
 	{
 		std::filesystem::path Path;
 		bool Flip = false;
+		bool IsColor = false;
 		Texture::CommonInfo TextureParams;
-		Params(std::filesystem::path path, Texture::CommonInfo params = {}, bool flip = false) 
-			: Path(std::move(path)), TextureParams(std::move(params)), Flip(flip) {}
+		Params(std::filesystem::path path, Texture::CommonInfo params = {}, bool flip = false, bool isColor = false) 
+			: Path(std::move(path)), TextureParams(std::move(params)), Flip(flip), IsColor(isColor) {}
 		auto operator<=>(const Params&) const = default;
 	};
 
@@ -41,7 +42,7 @@ namespace EnGl
 	{
 		std::filesystem::path Path;
 		bool IsInstanced = false;
-		bool FlipTextures = false;
+		bool FlipTextures = true;
 		Params(std::filesystem::path path, bool isInstanced = false, bool flipTextures = false) 
 			: Path(std::move(path)), IsInstanced(isInstanced), FlipTextures(flipTextures) {}
 		auto operator<=>(const Params&) const = default;
@@ -96,6 +97,7 @@ namespace EnGl
 			hash_combine(res, params.Path);
 			hash_combine(res, params.TextureParams);
 			hash_combine(res, params.Flip);
+			hash_combine(res, params.IsColor);
 			return res;
 		}
 	};

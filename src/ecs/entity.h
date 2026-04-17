@@ -20,10 +20,11 @@ namespace EnGl
         std::is_move_assignable_v<T> &&
         std::is_trivially_destructible_v<T>;
 
+    using Entity = u32;
+
     template<ECSComponent... AllCs>
     struct Ecs
     {
-        using Entity = u32;
         static constexpr size_t NComponents = sizeof...(AllCs);
         using CSignature = std::bitset<NComponents>;
 
@@ -48,10 +49,10 @@ namespace EnGl
                 }
                 else
                 {
-                    ((std::get<std::vector<Cs>>(arch.Components).push_back(Cs{})), ...);
+                    ((std::get<std::vector<Cs>>(arch.Components).emplace_back()), ...);
                     arch.Entities.push_back(id);
                 }
-                arch.GlobalToLocal.insert({ id, arch.Size });
+                arch.GlobalToLocal[id] = arch.Size;
                 arch.Size++;
 
                 return { .Signature = signature };
@@ -77,7 +78,146 @@ namespace EnGl
                     arch.Entities.push_back(id);
                 }
                 
-                arch.GlobalToLocal.insert({ id, arch.Size });
+                arch.GlobalToLocal[id] = arch.Size;
+                arch.Size++;
+
+                return { .Signature = signature };
+            }
+
+            template<ECSComponent... Cs>
+            CreationInfo Add(Entity id, const CSignature& prevSignature)
+            {
+                auto signature = GetSignature<Cs...>();
+                ArchetypeInfo& prevArch = GetArchetypeStorage(prevSignature);
+                signature |= prevSignature;
+                ArchetypeInfo& arch = GetArchetypeStorage(signature);
+
+                bool reuse = arch.Size < arch.Entities.size();
+               
+                auto addNew = [&]<ECSComponent C>()
+                {
+                    if (reuse)
+                    {
+                        std::get<std::vector<C>>(arch.Components)[arch.Size] = C{};
+                    }
+                    else
+                    {
+                        std::get<std::vector<C>>(arch.Components).emplace_back();
+                    }
+                };
+
+                auto copyPrev = [&]<ECSComponent C>()
+                {
+                    if (!prevSignature[GetComponentId<C>()]) return;
+
+                    if (reuse)
+                    {
+                        std::get<std::vector<C>>(arch.Components)[arch.Size] = std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]];
+                    }
+                    else
+                    {
+                        std::get<std::vector<C>>(arch.Components).push_back(std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]]);
+                    }
+                };
+
+                if (reuse) arch.Entities[arch.Size] = id;
+                else arch.Entities.push_back(id);
+
+                (addNew.template operator() <Cs>(), ...);
+                (copyPrev.template operator() <AllCs>(), ...);
+
+                Remove(id, prevSignature);
+                arch.GlobalToLocal[id] = arch.Size;
+                arch.Size++;
+
+                return { .Signature = signature };
+            }
+
+            template<ECSComponent... Cs, typename F>
+            CreationInfo Add(Entity id, const CSignature& prevSignature, F&& initializer)
+            {
+                auto signature = GetSignature<Cs...>();
+                ArchetypeInfo& prevArch = GetArchetypeStorage(prevSignature);
+                signature |= prevSignature;
+                ArchetypeInfo& arch = GetArchetypeStorage(signature);
+
+                std::tuple<Cs...> newComponents{};
+                std::apply(std::forward<F>(initializer), newComponents);
+
+                bool reuse = arch.Size < arch.Entities.size();
+
+                auto addNew = [&]<ECSComponent C>()
+                {
+                    if (reuse)
+                    {
+                        std::get<std::vector<C>>(arch.Components)[arch.Size] = std::get<C>(newComponents);
+                    }
+                    else
+                    {
+                        std::get<std::vector<C>>(arch.Components).emplace_back(std::move(std::get<C>(newComponents)));
+                    }
+                };
+
+                auto copyPrev = [&]<ECSComponent C>()
+                {
+                    if (!prevSignature[GetComponentId<C>()]) return;
+
+                    if (reuse)
+                    {
+                        std::get<std::vector<C>>(arch.Components)[arch.Size] = std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]];
+                    }
+                    else
+                    {
+                        std::get<std::vector<C>>(arch.Components).push_back(std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]]);
+                    }
+                };
+
+                if (reuse) arch.Entities[arch.Size] = id;
+                else arch.Entities.push_back(id);
+
+                (addNew.template operator() <Cs>(), ...);
+                (copyPrev.template operator() <AllCs>(), ...);
+
+                Remove(id, prevSignature);
+                arch.GlobalToLocal[id] = arch.Size;
+                arch.Size++;
+
+                return { .Signature = signature };
+            }
+
+            template<ECSComponent... Cs>
+            CreationInfo Remove(Entity id, const CSignature& prevSignature)
+            {
+                auto signature = GetSignature<Cs...>();
+                ArchetypeInfo& prevArch = GetArchetypeStorage(prevSignature);
+
+                signature = prevSignature & ~signature;
+
+                ArchetypeInfo& arch = GetArchetypeStorage(signature);
+
+                bool reuse = arch.Size < arch.Entities.size();
+
+                auto copyMatching = [&]<ECSComponent C>()
+                {
+                    if (!signature[GetComponentId<C>()]) return;
+
+                    if (reuse)
+                    {
+                        std::get<std::vector<C>>(arch.Components)[arch.Size] = std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]];
+                    }
+                    else
+                    {
+                        std::get<std::vector<C>>(arch.Components).push_back(std::get<std::vector<C>>(prevArch.Components)[prevArch.GlobalToLocal[id]]);
+                    }
+                };
+
+                if (reuse) arch.Entities[arch.Size] = id;
+                else arch.Entities.push_back(id);
+
+                (copyMatching.template operator() <AllCs>(), ...);
+
+                Remove(id, prevSignature);
+                arch.GlobalToLocal[id] = arch.Size;
                 arch.Size++;
 
                 return { .Signature = signature };
@@ -88,7 +228,7 @@ namespace EnGl
             {
                 ArchetypeInfo& arch = m_Archetypes[signature];
                 
-                Entity localId = arch.GlobalToLocal.at(entity);
+                Entity localId = arch.GlobalToLocal[entity];
 
                 return std::tie(
                     std::get<std::vector<C1>>(arch.Components)[localId],
@@ -102,17 +242,15 @@ namespace EnGl
             {
                 ArchetypeInfo& arch = m_Archetypes[signature];
 
-                Entity localId = arch.GlobalToLocal.at(entity);
+                Entity localId = arch.GlobalToLocal[entity];
 
                 return std::get<std::vector<C>>(arch.Components)[localId];
             }
 
             template<ECSComponent Cs>
-            bool Has(Entity entity, const CSignature& signature)
+            bool Has(const CSignature& signature) const
             {
-                ArchetypeInfo& arch = m_Archetypes[signature];
-
-                return signature[GetComponentId<Cs>()] && arch.GlobalToLocal.contains(entity);
+                return signature[GetComponentId<Cs>()];
             }
 
             void Remove(Entity id, const CSignature& signature)
@@ -134,17 +272,16 @@ namespace EnGl
                         }
                     , arch.Components);
 
-                    arch.GlobalToLocal.erase(moved);
-                    arch.GlobalToLocal.insert({ moved, localId });
+                    arch.GlobalToLocal[moved] = localId;
                 }
                 
                 arch.Size--;
             }
 
             template<ECSComponent... Cs>
-            size_t CountAll()
+            u32 CountAll() const
             {
-                size_t count = 0;
+                u32 count = 0;
 
                 CSignature signature = GetSignature<Cs...>();
 
@@ -152,21 +289,22 @@ namespace EnGl
                 {
                     if ((archSignature & signature) != signature) continue;
 
-                    (( count += std::get<std::vector<Cs>&>(arch.Components).size() ), ...);
+                    (( count += static_cast<Entity>(std::get<std::vector<Cs>>(arch.Components).size()) ), ...);
                 }
 
                 return count;
             }
 
             template<ECSComponent C>
-            u32 GetComponentId()
+            constexpr u32 GetComponentId() const
             {
-                static u32 id = m_TotalComponents++;
+                u32 id = 0;
+                ((std::is_same_v<AllCs, C> ? false : (id++, true)) && ...);
                 return id;
             }
 
             template<ECSComponent... Cs>
-            CSignature GetSignature()
+            CSignature GetSignature() const
             {
                 CSignature signature;
                 ((signature[GetComponentId<Cs>()] = true), ...);
@@ -176,7 +314,7 @@ namespace EnGl
         private:
             struct ArchetypeInfo
             {
-                size_t Size = 0;
+                Entity Size = 0;
                 std::vector<Entity> Entities;
                 std::tuple<std::vector<AllCs>...> Components;
                 std::unordered_map<Entity, Entity> GlobalToLocal;
@@ -367,6 +505,7 @@ namespace EnGl
         class EntityManager
         {
         public:
+
             template<ECSComponent... Cs>
             Entity Create(std::string name = "Entity")
             {
@@ -375,6 +514,7 @@ namespace EnGl
 
                 (id == m_Entities.size()) ? NewEntity(res, std::move(name)) : ReuseEntity(res, std::move(name), id);
                 
+                Size++;
                 return id;
             }
 
@@ -385,8 +525,33 @@ namespace EnGl
                 auto res = m_ComponentStorage.Create<Cs...>(id, std::forward<F>(initializer));
 
                 (id == m_Entities.size()) ? NewEntity(res, std::move(name)) : ReuseEntity(res, std::move(name), id);
+                Size++;
 
                 return id;
+            }
+
+            template<ECSComponent... Cs>
+            void Add(Entity id)
+            {
+                auto res = m_ComponentStorage.Add<Cs...>(id, m_Signatures[id]);
+
+                m_Signatures[id] = res.Signature;
+            }
+
+            template<ECSComponent... Cs, typename F>
+            void Add(Entity id, F&& initializer)
+            {
+                auto res = m_ComponentStorage.Add<Cs...>(id, m_Signatures[id], std::forward<F>(initializer));
+
+                m_Signatures[id] = res.Signature;
+            }
+
+            template<ECSComponent... Cs>
+            void Remove(Entity id)
+            {
+                auto res = m_ComponentStorage.Remove<Cs...>(id, m_Signatures[id]);
+
+                m_Signatures[id] = res.Signature;
             }
 
             template<ECSComponent C1, ECSComponent C2, ECSComponent... Cs>
@@ -407,9 +572,9 @@ namespace EnGl
             }
 
             template<ECSComponent Cs>
-            bool Has(Entity id)
+            bool Has(Entity id) const
             {
-                return m_ComponentStorage.Has<Cs>(id, m_Signatures[id]);
+                return m_ComponentStorage.Has<Cs>(m_Signatures[id]);
             }
 
             void Remove(Entity id)
@@ -419,10 +584,16 @@ namespace EnGl
                 m_ComponentStorage.Remove(id, m_Signatures[id]);
                 m_DeadIds.push(id);
                 m_Entities[id] = false;
+                Size--;
+            }
+
+            u32 Count() const
+            {
+                return Size;
             }
 
             template<ECSComponent... Cs>
-            u32 CountAll()
+            u32 CountAll() const
             {
                 return m_ComponentStorage.CountAll<Cs...>();
             }
@@ -447,7 +618,7 @@ namespace EnGl
 
                 Iterator end()
                 {
-                    return Iterator(Manager, Signature, Manager->m_Entities.size());
+                    return Iterator(Manager, Signature, static_cast<Entity>(Manager->m_Entities.size()));
                 }
 
                 void SkipInvalid()
@@ -464,6 +635,7 @@ namespace EnGl
                 Iterator& operator++()
                 {
                     Curr++;
+                    SkipInvalid();
                     return *this;
                 }
 
@@ -529,6 +701,7 @@ namespace EnGl
                 return static_cast<Entity>(m_Entities.size());
             }
 
+            u32 Size = 0;
             std::queue<Entity> m_DeadIds;
             std::vector<bool> m_Entities{false};
             std::vector<std::string> m_Names{"default"};

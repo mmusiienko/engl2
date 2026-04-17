@@ -4,18 +4,28 @@
 #include "../../ecs/GameContext.h"
 #include "../../Printer.h"
 #include "../../ui/ImGuiEntry.h"
+#include "../../core/Global.h"
+
 
 namespace EnGl
 {
 	namespace Material
 	{
+		struct PlaceholderTextures
+		{
+			inline static AssetHandle<Texture2D> Roughness;
+			inline static AssetHandle<Texture2D> Normals;
+			inline static AssetHandle<Texture2D> Metallic;
+			inline static AssetHandle<Texture2D> AO;
+			inline static AssetHandle<Texture2D> ARM;
+			inline static AssetHandle<Texture2D> Opacity;
+		};
+
 		struct Base
 		{
 			virtual bool SetCommonUniforms(const GameContext& context)
 			{
-				auto [shader, gen] = AssetManager::GetAsset(m_ShaderHandle);
-
-				m_Shader = shader;
+				m_Shader = AssetManager::GetAsset(m_ShaderHandle).Asset;
 
 				if (m_Shader)
 				{
@@ -25,24 +35,26 @@ namespace EnGl
 				return m_Shader != nullptr;
 			};
 
-			virtual void SetUniforms() const {};
+			virtual void SetUniforms(Shader* shader) const {};
 
-			void SetModel(const glm::mat4& model, const glm::mat3x4& normal) const
+			void SetModel(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
 			{
-				m_Shader->SetUniform("uModel", model);
-				m_Shader->SetUniform("uNormal", normal);
+				shader->SetUniform("uModel", model);
+				shader->SetUniform("uNormal", normal);
 			}
 
 			inline AssetHandle<Shader> Get() const { return m_ShaderHandle; }
+
 			void Set(const std::filesystem::path& path) { m_ShaderHandle = AssetManager::Load<Shader>(path); }
-			virtual const std::string& Name() const = 0;
 
 			virtual void Editor() {}
+
+			virtual ~Base() = default;
 		protected:
 			Base(const std::filesystem::path& path) : m_ShaderHandle(AssetManager::Load<Shader>(path)) {}
 
-			Shader* m_Shader = nullptr;
-			AssetHandle<Shader> m_ShaderHandle;
+			AssetHandle<Shader> m_ShaderHandle{};
+			mutable Shader* m_Shader = nullptr;
 		};
 
 		struct Unlit : public Base
@@ -75,12 +87,17 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
-				m_Shader->SetUniform("uColor", Color);
+				shader->SetUniform("uColor", Color);
 			}
 
-			const std::string& Name() const override { return "Unlit"; };
+			void Editor() override
+			{
+				ImGui::Separator();
+				ImGui::Text("Unlit material");
+				ImGui::ColorEdit4("Color", glm::value_ptr(Color));
+			}
 		};
 
 		struct UnlitTextured : public Base
@@ -106,16 +123,14 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
 				auto [texture, gen] = AssetManager::GetAsset(TextureHandle);
 				if (texture)
 				{
-					m_Shader->SetUniform("uTexture", *texture, 0);
+					shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
-
-			const std::string& Name() const override { return "UnlitTextured"; };
 		};
 
 		struct Lit : public Base
@@ -146,12 +161,17 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
-				m_Shader->SetUniform("uColor", Color);
+				shader->SetUniform("uColor", Color);
 			}
 
-			const std::string& Name() const override { return "Lit"; };
+			void Editor() override
+			{
+				ImGui::Separator();
+				ImGui::Text("Lit material");
+				ImGui::ColorEdit4("Color", glm::value_ptr(Color));
+			}
 		};
 
 		struct PBR : public Base
@@ -192,12 +212,12 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
-				m_Shader->SetUniform("uMaterial.Albedo", Albedo);
-				m_Shader->SetUniform("uMaterial.Metallic", Metallic);
-				m_Shader->SetUniform("uMaterial.Roughness", Roughness);
-				m_Shader->SetUniform("uMaterial.AO", AO);
+				shader->SetUniform("uMaterial.Albedo", Albedo);
+				shader->SetUniform("uMaterial.Metallic", Metallic);
+				shader->SetUniform("uMaterial.Roughness", Roughness);
+				shader->SetUniform("uMaterial.AO", AO);
 			}
 
 			void Editor() override
@@ -209,8 +229,6 @@ namespace EnGl
 				ImGui::InputFloat("Roughness", &Roughness);
 				ImGui::InputFloat("Ambient", &AO);
 			}
-
-			const std::string& Name() const override { return "PBR"; };
 		};
 
 		struct PBRTextured : public Base
@@ -219,6 +237,7 @@ namespace EnGl
 			AssetHandle<Texture2D> MetallicHandle{};
 			AssetHandle<Texture2D> RoughnessHandle{};
 			AssetHandle<Texture2D> AOHandle{};
+			AssetHandle<Texture2D> NormalsHandle{};
 
 			PBRTextured(bool isInstanced = false) :
 				Base(!isInstanced ?
@@ -241,29 +260,87 @@ namespace EnGl
 				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
+				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				if (shadowMap)
+				{
+					m_Shader->SetUniform("uShadowMap", *shadowMap, 5);
+					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				}
+
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
-				auto [albedo, g0] = AssetManager::GetAsset(AlbedoHandle);
-				auto [metallic, g1] = AssetManager::GetAsset(MetallicHandle);
-				auto [roughness, g2] = AssetManager::GetAsset(RoughnessHandle);
-				auto [ao, g3] = AssetManager::GetAsset(AOHandle);
+				auto albedo = AssetManager::GetAsset(AlbedoHandle).Asset;
+				auto metallic = AssetManager::GetAsset(MetallicHandle).Asset;
+				auto roughness = AssetManager::GetAsset(RoughnessHandle).Asset;
+				auto ao = AssetManager::GetAsset(AOHandle).Asset;
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
 				
-				if (albedo && roughness && metallic)
+				ao = ao ? ao : AssetManager::GetAsset(PlaceholderTextures::AO).Asset;
+				metallic = metallic ? metallic : AssetManager::GetAsset(PlaceholderTextures::Metallic).Asset;
+				roughness = roughness ? roughness : AssetManager::GetAsset(PlaceholderTextures::Roughness).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+
+				if (albedo)
 				{
-					m_Shader->SetUniform("uMaterial.Albedo", *albedo, 0);
-					m_Shader->SetUniform("uMaterial.Metallic", *metallic, 1);
-					m_Shader->SetUniform("uMaterial.Roughness", *roughness, 2);
-					if (ao)
-					{
-						m_Shader->SetUniform("uMaterial.AO", *ao, 3);
-					}
+					shader->SetUniform("uMaterial.Albedo", *albedo, 0);
+					shader->SetUniform("uMaterial.Metallic", *metallic, 1);
+					shader->SetUniform("uMaterial.Roughness", *roughness, 2);
+					shader->SetUniform("uMaterial.AO", *ao, 3);
+					shader->SetUniform("uMaterial.Normals", *normals , 4);
 				}
 			}
+		};
 
-			const std::string& Name() const override { return "PBRTextured"; };
+		struct PBRTexturedARM : public Base
+		{
+			AssetHandle<Texture2D> AlbedoHandle{};
+			AssetHandle<Texture2D> ARMHandle{};
+			AssetHandle<Texture2D> NormalsHandle{};
+
+			PBRTexturedARM(bool isInstanced = false) :
+				Base(!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "PBRARM" :
+					AssetManager::GRAPHICS_SHADER_DIR / "PBRARM"
+				)
+			{}
+
+			bool SetCommonUniforms(const GameContext& context) override
+			{
+				bool ok = Base::SetCommonUniforms(context);
+				if (!ok)
+				{
+					return ok;
+				}
+
+				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uPointLights", context.PointLights);
+
+				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				if (shadowMap)
+				{
+					m_Shader->SetUniform("uShadowMap", *shadowMap, 4);
+					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				}
+
+				return ok;
+			}
+
+			void SetUniforms(Shader* shader) const override
+			{
+				auto albedo = AssetManager::GetAsset(AlbedoHandle).Asset;
+				auto arm = AssetManager::GetAsset(ARMHandle).Asset;
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+
+				shader->SetUniform("uMaterial.Albedo", *albedo, 0);
+				shader->SetUniform("uMaterial.ARM", *arm, 1);
+				shader->SetUniform("uMaterial.Normals", *normals, 2);
+			}
 		};
 
 		struct LitTextured : public Base
@@ -295,24 +372,22 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
 				auto [texture, gen] = AssetManager::GetAsset(TextureHandle);
 				if (texture)
 				{
-					m_Shader->SetUniform("uTexture", *texture, 0);
+					shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
-
-			const std::string& Name() const override { return "LitTextured"; };
 		};
 
 		struct ScreenSpaceTextured : public Base
 		{
 			AssetHandle<Texture2D> TextureHandle;
 
-			ScreenSpaceTextured(AssetHandle<Texture2D> texture, bool isInstanced = false)
-				: TextureHandle(texture), Base(
+			ScreenSpaceTextured(bool isInstanced = false)
+				: Base(
 					!isInstanced ?
 					AssetManager::GRAPHICS_SHADER_DIR / "ScreenSpaceTextured" :
 					AssetManager::GRAPHICS_SHADER_DIR / "ScreenSpaceTexturedInstanced"
@@ -320,29 +395,56 @@ namespace EnGl
 			{
 			}
 
-			void SetUniforms() const
+			void SetUniforms(Shader* shader) const
 			{
 				auto [texture, gen] = AssetManager::GetAsset(TextureHandle);
 				if (texture)
 				{
-					m_Shader->SetUniform("uTexture", *texture, 0);
+					shader->SetUniform("uTexture", *texture, 0);
+				}
+			}
+		};
+
+		struct MainQuad : public Base
+		{
+			AssetHandle<Texture2D> TextureHandle;
+
+			MainQuad(bool isInstanced = false)
+				: Base(
+					!isInstanced ?
+					AssetManager::GRAPHICS_SHADER_DIR / "MainQuad" :
+					AssetManager::GRAPHICS_SHADER_DIR / "MainQuad"
+				)
+			{}
+
+			void SetUniforms(Shader* shader) const
+			{
+				auto [texture, gen] = AssetManager::GetAsset(TextureHandle);
+				if (texture)
+				{
+					shader->SetUniform("uTexture", *texture, 0);
 				}
 			}
 
 			bool SetCommonUniforms(const GameContext& context) override
 			{
 				bool ok = Base::SetCommonUniforms(context);
-				auto [sky, g1] = AssetManager::GetAsset(context.SkyTexture);
-				if (ok && sky)
+				auto sky = AssetManager::GetAsset(context.SkyTexture).Asset;
+				auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+				auto skyDepth = AssetManager::GetAsset(context.SkyDepthTexture).Asset;
+
+				if (ok && depth && skyDepth)
 				{
 					m_Shader->SetUniform("uSkyTexture", *sky, 1);
+					m_Shader->SetUniform("uDepth", *depth, 2);
+					m_Shader->SetUniform("uSkyDepth", *skyDepth, 3);
 				}
 
+				m_Shader->SetUniform("uNear", context.Camera.Get().Near);
+				m_Shader->SetUniform("uFar", context.Camera.Get().Far);
 
 				return ok;
 			}
-
-			const std::string& Name() const override { return "ScreenSpaceTextured"; };
 		};
 
 		struct Phong : public Base
@@ -378,19 +480,17 @@ namespace EnGl
 				return ok;
 			}
 
-			void SetUniforms() const override
+			void SetUniforms(Shader* shader) const override
 			{
 				auto [textureD, gen1] = AssetManager::GetAsset(DiffuseHandle);
 				auto [textureS, gen2] = AssetManager::GetAsset(SpecularHandle);
 				if (textureD && textureS)
 				{
-					m_Shader->SetUniform("uMaterial.Diffuse", *textureD, 0);
-					m_Shader->SetUniform("uMaterial.Specular", *textureS, 1);
-					m_Shader->SetUniform("uMaterial.Shininess", Shininess);
+					shader->SetUniform("uMaterial.Diffuse", *textureD, 0);
+					shader->SetUniform("uMaterial.Specular", *textureS, 1);
+					shader->SetUniform("uMaterial.Shininess", Shininess);
 				}
 			}
-
-			const std::string& Name() const override { return "Phong"; };
 		};
 
 		struct CoordinatePlane : public Base
@@ -408,8 +508,6 @@ namespace EnGl
 
 				return ok;
 			}
-
-			const std::string& Name() const override { return "CoordinatePlane"; };
 		};
 
 		struct CubemapObj : public Base
@@ -433,8 +531,6 @@ namespace EnGl
 
 				return ok;
 			}
-
-			const std::string& Name() const override { return "Cubemap"; };
 		};
 	}
 }

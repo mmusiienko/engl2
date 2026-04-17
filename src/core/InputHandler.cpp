@@ -72,7 +72,7 @@ namespace EnGl
 	void InputHandler::KeyboardEvent(GLFWwindow* window)
 	{
 
-		for (size_t i = 0; i < MAX_KEYS; i++)
+		for (u32 i = 0; i < MAX_KEYS; i++)
 		{
 			if (glfwGetKey(window, i) == GLFW_PRESS)
 				State.KeysHeld[i] = true;
@@ -81,7 +81,7 @@ namespace EnGl
 
 	void InputHandler::MouseEvent(GLFWwindow* window)
 	{
-		for (size_t i = 0; i < MAX_MOUSE_BUTTONS; i++)
+		for (u32 i = 0; i < MAX_MOUSE_BUTTONS; i++)
 		{
 			if (glfwGetMouseButton(window, i) == GLFW_PRESS)
 				State.MouseBHeld[i] = true;
