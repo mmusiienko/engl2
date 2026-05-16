@@ -16,6 +16,7 @@
 #include "ecs/systems/Systems.h"
 #include "ecs/systems/WaterSystem.h"
 #include "ecs/systems/CloudSystem.h"
+#include "ecs/systems/TerrainSystem.h"
 
 #include "ui/Ui.h"
 
@@ -41,7 +42,7 @@ namespace EnGl
 				w, h,
 				Texture::CreationInfoFromData{
 					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT24,
+					.GpuFormat = GL_DEPTH_COMPONENT32F,
 					.DataType = GL_FLOAT
 				}
 			}
@@ -92,12 +93,10 @@ namespace EnGl
 		{
 			mov.Speed = 1000.0f;
 			transform.Position = { 0.0f, 0.0f, 0.0f };
-			transform.Rotation =
-				glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
 
 			cam.Aspect = 16.0f / 9.0f;
 			cam.FovDegree = 45.0f;
-			cam.NearPlane = 0.1f;
+			cam.NearPlane = 10.0f;
 			cam.FarPlane = 50000.0f;
 		}, "Camera1");
 
@@ -184,19 +183,20 @@ namespace EnGl
 			gun->GetSubmesh(0).Material = AssetManager::PutScope<Material::Base>(std::move(mat));
 		}
 
-		AssetImporter<Cubemap>::Params cparams{ AssetManager::TEXTURE_DIR / "skybox" / "1.png" };
+		//AssetImporter<Cubemap>::Params cparams{ AssetManager::TEXTURE_DIR / "skybox" / "2.png" };
 
-//		AssetImporter<Cubemap>::Params cparams
-//		{
-//		{
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "right.png",
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "left.png",
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "top.png",
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "bottom.png",
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "front.png",
-//			AssetManager::TEXTURE_DIR / "skybox" / "cosmos" / "back.png"
-//		}
-//		};
+		AssetImporter<Cubemap>::Params cparams
+		{
+		{
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "r.png",
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "l.png",
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "t.png",
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "d.png",
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "b.png",
+			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "f.png"
+		}
+		};
+		cparams.Flip[3] = true;
 
 		auto cubemapHadle = AssetManager::Load<Cubemap>(cparams);
 		auto cubemapMat = AssetManager::PutScope<Material::Base>(make_scope<Material::CubemapObj>(cubemapHadle));
@@ -256,8 +256,7 @@ namespace EnGl
 		auto pbrmathandle1 = AssetManager::PutScope<Material::Base>(std::move(pbrmat1));
 		auto pbrmathandle2 = AssetManager::PutScope<Material::Base>(std::move(pbrmat2));
 		auto pbrmathandle3 = AssetManager::PutScope<Material::Base>(std::move(pbrmat3));
-		spdlog::info(pbrmathandle1.Id);
-		spdlog::info(pbrmathandle2.Id);
+		
 		/*auto e1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::SphereCollider, Component::PhysicalMomentum>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::SphereCollider& col, Component::PhysicalMomentum& m, auto&...) -> void
 			{
@@ -317,7 +316,7 @@ namespace EnGl
 			[=](Component::Transform& transform, Component::DirectionalLight& l) -> void
 			{
 				transform.Rotation = glm::angleAxis(glm::radians(45.0f), Constants::FORWARD) * glm::angleAxis(glm::radians(-90.0f), Constants::UP);
-				l.Color = glm::vec3{1.0f};
+				l.Color = glm::vec3{253.0f / 255.0f, 183.0f / 255.0f, 72.0f / 255.0f};
 			}, "dirLight"
 		);
 
@@ -333,6 +332,8 @@ namespace EnGl
 		World().eSystem<GameContext>()
 			.Add<System::Input>()
 			.Add<System::Movement>()
+			.Add<System::ConstantRotation>()
+			.Add<System::FollowSnap>()
 			.Add<System::ModelMatrix>()
 			.Add<System::ViewMatrix>()
 			.Add<System::ProjectionMatrix>()
@@ -344,6 +345,7 @@ namespace EnGl
 			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
 			.Add<System::RenderToFramebuffer>()
+			//.Add<TerrainSystem>()
 			.Add<CloudSystem>()
 			.Add<System::RenderToDefaultFramebuffer>()
 			.Add<System::Cleanup>()
@@ -398,8 +400,6 @@ namespace EnGl
 			ui.Present();
 
 			glfwSwapBuffers(m_Window);
-			m_Framebuffer->Swap();
-
 			InputHandler::ResetState();
 		}
 	}

@@ -155,7 +155,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				return ok;
@@ -199,7 +199,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
@@ -257,7 +257,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
@@ -317,7 +317,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
@@ -366,7 +366,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				return ok;
@@ -431,15 +431,21 @@ namespace EnGl
 				bool ok = Base::SetCommonUniforms(context);
 				auto sky = AssetManager::GetAsset(context.SkyTexture).Asset;
 				auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
-				auto skyDepth = AssetManager::GetAsset(context.SkyDepthTexture).Asset;
+				
+				if (!ok) return ok;
 
-				if (ok && depth && skyDepth)
+				if (depth)
 				{
-					m_Shader->SetUniform("uSkyTexture", *sky, 1);
-					m_Shader->SetUniform("uDepth", *depth, 2);
-					m_Shader->SetUniform("uSkyDepth", *skyDepth, 3);
+					m_Shader->SetUniform("uDepth", *depth, 1);
 				}
 
+				if (sky)
+				{
+					m_Shader->SetUniform("uSkyTexture", *sky, 2);
+				}
+
+
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uNear", context.Camera.Get().Near);
 				m_Shader->SetUniform("uFar", context.Camera.Get().Far);
 
@@ -474,7 +480,7 @@ namespace EnGl
 
 				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
 				return ok;

@@ -71,7 +71,7 @@ namespace EnGl
 
 	void UiComponents::Noise2DView(Noise2DWrapper& noise)
 	{
-		ImGui::Text("Noise 3D Parameters");
+		ImGui::Text("Noise 2D Parameters");
 
 		auto tex = AssetManager::GetAsset(noise.Texture).Asset;
 
@@ -104,7 +104,10 @@ namespace EnGl
 		Texture2DView(noise.Texture);
 
 		if (changed)
+		{
 			noise.Fill();
+			tex->GenerateMips();
+		}
 	}
 
 	void UiComponents::Texture2DView(AssetHandle<Texture2D> texA)

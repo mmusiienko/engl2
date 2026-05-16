@@ -21,23 +21,26 @@ void main()
     if (gl_InvocationID == 0) 
     {
         vec3 center = (vPos[0] + vPos[1] + vPos[2] + vPos[3]) * 0.25;
-        float dist = length(uCameraPos - center);
-        int lod = 1;
+        float dist = length(uCameraPos.xz - center.xz);
+        int lod = 0;
         
-        if (dist < 1000)
+        if (dist < 4000)
         {
             lod = 4;
-        } else if (dist < 2000)
+        } else if (dist < 8000)
         {
             lod = 3;
-        } else if (dist < 4000)
+        } else if (dist < 16000)
         {
             lod = 2;
+        } else if (dist < 50000)
+        {
+            lod = 1;
         }
 
         tcLod = lod;
 
-        float subDiv = 4.0 * lod;
+        float subDiv = lod != 0 ?  4.0 * lod : 1;
 
         gl_TessLevelInner[0] = subDiv;
         gl_TessLevelInner[1] = subDiv;

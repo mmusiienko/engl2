@@ -126,6 +126,19 @@ namespace EnGl
 			Entity E2 = 0;
 			f32 MaxLength = 1.0f;
 		};
+
+		struct FollowSnap
+		{
+			f32 Snap = 1.0f;
+			Entity Follow = 0u;
+			glm::vec3 PosOffset{};
+			glm::bvec3 PosUnlock{ true };
+		};
+
+		struct ConstantRotation
+		{
+			glm::vec3 Velocity{};
+		};
 	}
 	
 	using EcsImpl = Ecs
@@ -143,6 +156,8 @@ namespace EnGl
 		Component::SphereCollider,
 		Component::PhysicalMomentum,
 		Component::LengthConstraint,
-		Component::MaxLengthConstraint
+		Component::MaxLengthConstraint,
+		Component::FollowSnap,
+		Component::ConstantRotation
 	>;
 }

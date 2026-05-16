@@ -5,38 +5,32 @@
 
 namespace EnGl
 {
-	const std::vector<glm::vec2> CloudSystem::CrossOffset4x4 
-	{
-			glm::vec2{0,0},
-			glm::vec2{2,2},
-			glm::vec2{2,0},
-			glm::vec2{0,2},
-			glm::vec2{1,1},
-			glm::vec2{3,3},
-			glm::vec2{3,1},
-			glm::vec2{1,3},
-			glm::vec2{1,0},
-			glm::vec2{3,2},
-			glm::vec2{3,0},
-			glm::vec2{1,2},
-			glm::vec2{0,1},
-			glm::vec2{2,3},
-			glm::vec2{2,1},
-			glm::vec2{0,3}
-	};
-
 	void CloudSystem::Init(EcsImpl::EntityManager& manager)
 	{
+		m_SkyTextureLowResA = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
+			.CpuFormat = GL_RGBA,
+			.GpuFormat = GL_RGBA32F,
+			.Common = {.MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
+		});
+
+		m_SkyTextureLowResB = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
+			.CpuFormat = GL_RGBA,
+			.GpuFormat = GL_RGBA32F,
+			.Common = {.MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
+		});
+
 		m_SkyTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{ 
 			.CpuFormat = GL_RGBA,
 			.GpuFormat = GL_RGBA32F,
-			.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
+			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
 		});
-		m_SkyDepth = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
-			.CpuFormat = GL_RED,
-			.GpuFormat = GL_R32F,
-			.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
+
+		m_HistoryTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
+			.CpuFormat = GL_RGBA,
+			.GpuFormat = GL_RGBA32F,
+			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
 		});
+
 		m_TransmittanceLUT = AssetManager::Put<Texture2D>(
 			static_cast<u32>(m_AtmosphereParams.TransmittanceLUTRes.x),
 			static_cast<u32>(m_AtmosphereParams.TransmittanceLUTRes.y),
@@ -44,7 +38,7 @@ namespace EnGl
 			Texture::CreationInfoFromData{
 				.CpuFormat = GL_RED,
 				.GpuFormat = GL_R32F,
-				.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
+				.Common = {.MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
 		});
 
 		
@@ -89,69 +83,108 @@ namespace EnGl
 		);
 	}
 
-	void CloudSystem::Run(EcsImpl::EntityManager& manager, GameContext& context)
+	CloudSystem::CloudTextures CloudSystem::GetTextures(GameContext& context)
 	{
+		auto texLowResA = AssetManager::GetAsset(m_SkyTextureLowResA).Asset;
 		auto tex = AssetManager::GetAsset(m_SkyTexture).Asset;
-		auto depthTex = AssetManager::GetAsset(m_SkyDepth).Asset;
-
-		if (!tex || !depthTex)
-		{
-			spdlog::error("Texture for sky is not loaded.");
-			return;
-		}
+		auto history = AssetManager::GetAsset(m_HistoryTexture).Asset;
+		auto texLowResB = AssetManager::GetAsset(m_SkyTextureLowResB).Asset;
 
 		if (context.Framebuffer.MainFramebuffer->Resolution() != m_Res)
 		{
 			m_Res = context.Framebuffer.MainFramebuffer->Resolution();
+			texLowResA->Properties().w = m_Res.x / m_Params.ResScale;
+			texLowResA->Properties().h = m_Res.y / m_Params.ResScale;
+			texLowResA->Update();
+
+			texLowResB->Properties().w = m_Res.x / m_Params.ResScale;
+			texLowResB->Properties().h = m_Res.y / m_Params.ResScale;
+			texLowResB->Update();
+
 			tex->Properties().w = m_Res.x;
 			tex->Properties().h = m_Res.y;
 			tex->Update();
 
-			depthTex->Properties().w = m_Res.x;
-			depthTex->Properties().h = m_Res.y;
-			depthTex->Update();
+			history->Properties().w = m_Res.x;
+			history->Properties().h = m_Res.y;
+			history->Update();
 		}
 
-		auto [shader, g] = AssetManager::GetAsset(m_Shader);
+		return { .LowResA = texLowResA, .LowResB = texLowResB  , .Sky = tex, .History = history };
+	}
+
+	void CloudSystem::Run(EcsImpl::EntityManager& manager, GameContext& context)
+	{
+		std::swap(m_SkyTexture, m_HistoryTexture);
+
+		auto textures = GetTextures(context);
+		
+		if (!textures.History || !textures.LowResA || !textures.LowResB || !textures.Sky) return;
+
+		m_CurrentRenderOffsetIdx++;
+		m_CurrentRenderOffsetIdx %= static_cast<u32>(m_Params.ResScale * m_Params.ResScale);
+
+		DispatchLowRes(context, textures);
+
+		DispatchUpsample(context, textures);
+
+		//DispatchBlur(context, textures);
+
+		//std::swap(m_SkyTexture, m_HistoryTexture);
+
+		DispatchEdge(context, textures);
+
+		DispatchFullRes(context, textures);
+
+		//std::swap(m_SkyTexture, m_HistoryTexture);
+
+		//DispatchBlur(context, textures);
+
+		context.SkyTexture = m_SkyTexture;
+		context.SkyTextureLowRes = m_SkyTextureLowResA;
+	}
+
+	void CloudSystem::DispatchLowRes(GameContext& context, CloudTextures& textures)
+	{
+		auto shader = AssetManager::GetAsset(m_LowResShader).Asset;
+		auto tex1 = AssetManager::GetAsset(m_Params.Shape.Texture).Asset;
+		auto tex2 = AssetManager::GetAsset(m_Params.Detail.Texture).Asset;
+		auto tex3 = AssetManager::GetAsset(m_Params.Weather.Texture).Asset;
+
+		if (!tex1 || !tex2 || !tex3)
+		{
+			spdlog::error("Shape textures for sky are not loaded.");
+			return;
+		}
+
 		if (!shader)
 		{
 			spdlog::error("Shader for sky is not loaded.");
 			return;
 		}
 
+		auto& cam = context.Camera.Get();
+
 		shader->Use();
-		shader->BindWriteTexture(*tex, 0);
-		shader->BindWriteTexture(*depthTex, 1);
-		auto cam = context.Camera.Get();
+		shader->BindWriteTexture(*textures.LowResA, 0);
+		shader->BindWriteTexture(*textures.LowResB, 1);
 
-		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffset[m_CurrentRenderOffsetIdx]);
+		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
 
-		m_CurrentRenderOffsetIdx++;
-		m_CurrentRenderOffsetIdx %= m_CurrentRenderOffset.size();
-
-		shader->SetUniform("uInvProjection", cam.InverseProjection);
-		shader->SetUniform("uInvView", cam.InverseView);
+		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
 		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uCameraDelta", cam.Delta);
+		shader->SetUniform("uCameraForward", cam.Forward);
 		shader->SetUniform("uNear", cam.Near);
 		shader->SetUniform("uFar", cam.Far);
-		shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
-		shader->SetUniform("uDirectionalLight", context.DirLight);
+		shader->SetUniform("uResolution", m_Res);
+		shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 		shader->SetUniform("uTime", static_cast<f32>(context.Time));
 
 		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
-		auto color = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Color()[0]).Asset;
-		if (depth && color)
+		if (depth)
 		{
 			shader->SetUniform("uDepth", *depth, 2);
-		}
-
-		auto tex1 = AssetManager::GetAsset(m_Params.Shape.Texture).Asset;
-		auto tex2 = AssetManager::GetAsset(m_Params.Detail.Texture).Asset;
-		auto tex3 = AssetManager::GetAsset(m_Params.Weather.Texture).Asset;
-		if (!tex1 || !tex2 || !tex3)
-		{
-			spdlog::error("Shape textures for sky are not loaded.");
-			return;
 		}
 
 		shader->SetUniform("uShape", *tex1, 3);
@@ -167,7 +200,240 @@ namespace EnGl
 		shader->SetUniform("uNumSteps", m_Params.NumRaySteps);
 		shader->SetUniform("uNumStepsLight", m_Params.NumRayStepsLight);
 
-		shader->SetUniform("uSkySpan", m_Params.SkySpan);
+		shader->SetUniform("uSkyHeightMin", m_Params.SkyHeightMin);
+		shader->SetUniform("uSkyHeightMax", m_Params.SkyHeightMax);
+		shader->SetUniform("uPlanetRadius", m_Params.PlanetRadius);
+
+		shader->SetUniform("uSpeed", m_Params.Speed);
+		shader->SetUniform("uDirection", m_Params.Direction);
+
+		shader->SetUniform("uDarknessThreshold", m_Params.DarknessThreshold);
+		shader->SetUniform("uLightAbsorptionSun", m_Params.LightAbsorptionSun);
+		shader->SetUniform("uLightAbsorptionCloud", m_Params.LightAbsorptionCloud);
+		shader->SetUniform("uPhaseVal", m_Params.PhaseVal);
+
+		shader->SetUniform("uAnvil", m_Params.Anvil);
+		shader->SetUniform("uCubemap", *context.Cubemap, 6);
+
+		shader->SetUniform("uShapeBottomCut", m_Params.ShapeBottomCut);
+		shader->SetUniform("uDensityBottomCut", m_Params.DensityBottomCut);
+		shader->SetUniform("uDensityTopCut", m_Params.DensityTopCut);
+
+		shader->SetUniform("uBeer", m_Params.Beer);
+		shader->SetUniform("uInScatter", m_Params.InScatter);
+		shader->SetUniform("uOutScatter", m_Params.OutScatter);
+		shader->SetUniform("uInOutCoefficient", m_Params.InOutCoefficient);
+		shader->SetUniform("uSilverLine", m_Params.SilverLine);
+		shader->SetUniform("uSilverLineExp", m_Params.SilverLineExp);
+		shader->SetUniform("uAmbient", m_Params.Ambient);
+
+		shader->SetUniform("uExtinctionColor", m_Params.ExtinctionColor);
+
+		shader->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / m_Params.ResScale / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / m_Params.ResScale / 16.0f))
+			}
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+	}
+
+	void CloudSystem::DispatchUpsample(GameContext& context, CloudTextures& textures)
+	{
+		auto shader = AssetManager::GetAsset(m_UpsampleShader).Asset;
+
+		if (!shader)
+		{
+			spdlog::error("Shader for sky is not loaded.");
+			return;
+		}
+		
+		auto& cam = context.Camera.Get();
+
+		shader->Use();
+		shader->BindWriteTexture(*textures.Sky, 0);
+
+		shader->SetUniform("uLowResA", *textures.LowResA, 1);
+		shader->SetUniform("uLowResB", *textures.LowResB, 2);
+		shader->SetUniform("uHistory", *textures.History, 3);
+
+		shader->SetUniform("uNear", cam.Near);
+		shader->SetUniform("uFar", cam.Far);
+
+		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+		if (depth)
+		{
+			shader->SetUniform("uDepth", *depth, 4);
+		}
+		shader->SetUniform("uCameraForward", cam.Forward);
+		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
+		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
+		shader->SetUniform("uViewProjectionLastFrame", cam.ViewProjectionLastFrame);
+		shader->SetUniform("uResolution", m_Res);
+		shader->SetUniform("uResScale", m_Params.ResScale);
+		shader->SetUniform("uViewProjectionLastFrame", cam.ViewProjectionLastFrame);
+
+
+		shader->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
+			}
+			, GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+	}
+
+	void CloudSystem::DispatchDepthNeighborFill(GameContext& context, CloudTextures& textures)
+	{
+		auto shader = AssetManager::GetAsset(m_DepthNeighborShader).Asset;
+
+		if (!shader)
+		{
+			spdlog::error("Shader for sky is not loaded.");
+			return;
+		}
+
+		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+		if (!depth)
+			return;
+
+		auto& cam = context.Camera.Get();
+
+		shader->Use();
+
+		shader->BindWriteTexture(*textures.LowResB, 0);
+		shader->SetUniform("uDepth", *depth, 1);
+		shader->SetUniform("uResScale", m_Params.ResScale);
+		shader->SetUniform("uResolution", m_Res);
+		shader->SetUniform("uNear", cam.Near);
+		shader->SetUniform("uFar", cam.Far);
+
+		shader->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / m_Params.ResScale / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / m_Params.ResScale / 16.0f))
+			}
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+	}
+
+	void CloudSystem::DispatchBlur(GameContext& context, CloudTextures& textures)
+	{
+		auto shader = AssetManager::GetAsset(m_BlurShader).Asset;
+
+		if (!shader)
+		{
+			spdlog::error("Shader for sky is not loaded.");
+			return;
+		}
+
+		shader->Use();
+
+		shader->BindReadTexture(*textures.Sky, 0);
+		shader->BindWriteTexture(*textures.History, 1);
+
+		shader->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
+			}
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+	}
+
+	void CloudSystem::DispatchEdge(GameContext& context, CloudTextures& textures)
+	{
+		auto shader = AssetManager::GetAsset(m_EdgeShader).Asset;
+
+		if (!shader)
+		{
+			spdlog::error("Shader for sky is not loaded.");
+			return;
+		}
+
+		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+		if (!depth)
+			return;
+
+		auto& cam = context.Camera.Get();
+
+		shader->Use();
+
+		shader->BindReadTexture(*textures.Sky, 0);
+		shader->BindWriteTexture(*textures.History, 1);
+		shader->SetUniform("uDepth", *depth, 2);
+		shader->SetUniform("uResScale", m_Params.ResScale);
+		shader->SetUniform("uResolution", m_Res);
+		shader->SetUniform("uNear", cam.Near);
+		shader->SetUniform("uFar", cam.Far);
+
+		shader->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
+			}
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+	}
+
+	void CloudSystem::DispatchFullRes(GameContext & context, CloudTextures & textures)
+	{
+		auto shader = AssetManager::GetAsset(m_FullResShader).Asset;
+		auto tex1 = AssetManager::GetAsset(m_Params.Shape.Texture).Asset;
+		auto tex2 = AssetManager::GetAsset(m_Params.Detail.Texture).Asset;
+		auto tex3 = AssetManager::GetAsset(m_Params.Weather.Texture).Asset;
+
+		if (!tex1 || !tex2 || !tex3)
+		{
+			spdlog::error("Shape textures for sky are not loaded.");
+			return;
+		}
+
+		if (!shader)
+		{
+			spdlog::error("Shader for sky is not loaded.");
+			return;
+		}
+
+		auto& cam = context.Camera.Get();
+
+		shader->Use();
+		shader->BindReadTexture(*textures.History, 0);
+		shader->BindWriteTexture(*textures.Sky, 1);
+
+		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
+
+		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
+		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uCameraDelta", cam.Delta);
+		shader->SetUniform("uCameraForward", cam.Forward);
+		shader->SetUniform("uNear", cam.Near);
+		shader->SetUniform("uFar", cam.Far);
+		shader->SetUniform("uResolution", m_Res);
+		shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+		shader->SetUniform("uTime", static_cast<f32>(context.Time));
+		shader->SetUniform("uPlanetRadius", m_Params.PlanetRadius);
+
+		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+		if (depth)
+		{
+			shader->SetUniform("uDepth", *depth, 2);
+		}
+
+		shader->SetUniform("uShape", *tex1, 3);
+		shader->SetUniform("uDetail", *tex2, 4);
+		shader->SetUniform("uWeather", *tex3, 5);
+		shader->SetUniform("uResScale", m_Params.ResScale);
+		shader->SetUniform("uCloudScale", m_Params.CloudScale);
+		shader->SetUniform("uDetailScale", m_Params.DetailScale);
+		shader->SetUniform("uWeatherScale", m_Params.WeatherMapScale);
+		shader->SetUniform("uGlobalCoverage", m_Params.GlobalCoverage);
+		shader->SetUniform("uGlobalOpacity", m_Params.GlobalOpacity);
+
+		shader->SetUniform("uNumSteps", m_Params.NumRaySteps);
+		shader->SetUniform("uNumStepsLight", m_Params.NumRayStepsLight);
+
 		shader->SetUniform("uSkyHeightMin", m_Params.SkyHeightMin);
 		shader->SetUniform("uSkyHeightMax", m_Params.SkyHeightMax);
 
@@ -182,22 +448,68 @@ namespace EnGl
 		shader->SetUniform("uAnvil", m_Params.Anvil);
 		shader->SetUniform("uCubemap", *context.Cubemap, 6);
 
+		shader->SetUniform("uShapeBottomCut", m_Params.ShapeBottomCut);
+		shader->SetUniform("uDensityBottomCut", m_Params.DensityBottomCut);
+		shader->SetUniform("uDensityTopCut", m_Params.DensityTopCut);
+
+		shader->SetUniform("uBeer", m_Params.Beer);
+		shader->SetUniform("uInScatter", m_Params.InScatter);
+		shader->SetUniform("uOutScatter", m_Params.OutScatter);
+		shader->SetUniform("uInOutCoefficient", m_Params.InOutCoefficient);
+		shader->SetUniform("uSilverLine", m_Params.SilverLine);
+		shader->SetUniform("uSilverLineExp", m_Params.SilverLineExp);
+		shader->SetUniform("uAmbient", m_Params.Ambient);
+
+		shader->SetUniform("uExtinctionColor", m_Params.ExtinctionColor);
+
 		shader->DispatchWait(
 			{
-				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / m_Params.ResScale / 16.0f)),
-				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / m_Params.ResScale / 16.0f))
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
 			}
 			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 		);
-		tex->GenerateMips();
-		context.SkyTexture = m_SkyTexture;
-		context.SkyDepthTexture = m_SkyDepth;
 	}
 
 	void CloudSystem::Editor(EcsImpl::EntityManager& manager, GameContext& context)
 	{
 		ImGui::SeparatorText("Cloud system");
-		UiComponents::Texture2DView(m_TransmittanceLUT);
+
+		PresetSelect(manager, context);
+
+		auto& dirLight = manager.Get<Component::DirectionalLight>(context.DirLight.Id);
+		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.Get().Entity);
+
+		ImGui::SeparatorText("Skybox shape");
+		ImGui::InputFloat("SkyHeightMin", &m_Params.SkyHeightMin);
+		ImGui::InputFloat("SkyHeightMax", &m_Params.SkyHeightMax);
+		ImGui::SliderFloat("PlanetRadius", &m_Params.PlanetRadius, 400000.0f, 6000000.0f);
+		cam.Dirty |= ImGui::InputFloat("CameraFar", &cam.FarPlane);
+
+		ImGui::SeparatorText("Color");
+		ImGui::SliderFloat("Ambient", &m_Params.Ambient, 0.0f, 1.0f);
+		ImGui::ColorEdit3("DirLightColor", glm::value_ptr(dirLight.Color));
+		ImGui::ColorEdit3("Extinction", glm::value_ptr(m_Params.ExtinctionColor));
+
+		ImGui::InputFloat("Anvil", &m_Params.Anvil, 0.0f, 1.0f);
+		ImGui::SliderFloat("GlobalCoverage", &m_Params.GlobalCoverage, 0.0f, 1.0f);
+		ImGui::SliderFloat("GlobalOpacity", &m_Params.GlobalOpacity, 0.0f, 1.0f);
+		ImGui::SliderFloat("CloudScale", &m_Params.CloudScale, 0.00001f, 1.0f);
+		ImGui::SliderFloat("DetailScale", &m_Params.DetailScale, 0.00001f, 1.0f);
+		ImGui::SliderFloat("WeatherScale", &m_Params.WeatherMapScale, 0.00001f, 3.0f);
+
+		UiComponents::InputUInt("NumSteps", &m_Params.NumRaySteps);
+		UiComponents::InputUInt("NumStepsLight", &m_Params.NumRayStepsLight);
+		
+		ImGui::InputFloat("Speed", &m_Params.Speed);
+		ImGui::InputFloat3("Direction", glm::value_ptr(m_Params.Direction));
+
+		ImGui::SliderFloat("Beer", &m_Params.Beer, 0.0f, 10.0f);
+		ImGui::SliderFloat("InScatter", &m_Params.InScatter, 0.0f, 1.0f);
+		ImGui::SliderFloat("OutScatter", &m_Params.OutScatter, 0.0f, 1.0f);
+		ImGui::SliderFloat("InOutCoefficient", &m_Params.InOutCoefficient, 0.0f, 1.0f);
+		ImGui::SliderFloat("SilverLineIntensity", &m_Params.SilverLine, 0.0f, 20.0f);
+		ImGui::SliderFloat("SilverLineExp", &m_Params.SilverLineExp, 0.0f, 20.0f);
 
 		ImGui::PushID(0);
 		UiComponents::Noise3DView(m_Params.Shape);
@@ -206,27 +518,28 @@ namespace EnGl
 		UiComponents::Noise3DView(m_Params.Detail);
 		ImGui::PopID();
 		UiComponents::Noise2DView(m_Params.Weather);
-		ImGui::SliderFloat("GlobalCoverage", &m_Params.GlobalCoverage, 0.0f, 1.0f);
-		ImGui::SliderFloat("GlobalOpacity", &m_Params.GlobalOpacity, 0.0f, 1.0f);
-		ImGui::SliderFloat("CloudScale", &m_Params.CloudScale, 0.001f, 10.0f);
-		ImGui::SliderFloat("DetailScale", &m_Params.DetailScale, 0.001f, 10.0f);
-		ImGui::SliderFloat("WeatherScale", &m_Params.WeatherMapScale, 0.001f, 10.0f);
 
-		UiComponents::InputUInt("NumSteps", &m_Params.NumRaySteps);
-		UiComponents::InputUInt("NumStepsLight", &m_Params.NumRayStepsLight);
+		UiComponents::Texture2DView(m_TransmittanceLUT);
+	}
 
-		ImGui::InputFloat("SkySpan", &m_Params.SkySpan);
-		ImGui::InputFloat("SkyHeightMin", &m_Params.SkyHeightMin);
-		ImGui::InputFloat("SkyHeightMax", &m_Params.SkyHeightMax);
+	void CloudSystem::PresetSelect(EcsImpl::EntityManager& manager, GameContext& context)
+	{
+		auto& dirLight = manager.Get<Component::DirectionalLight>(context.DirLight.Id);
+		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.Get().Entity);
 
-		ImGui::InputFloat("Speed", &m_Params.Speed);
-		ImGui::InputFloat3("Direction", glm::value_ptr(m_Params.Direction));
+		for (auto& [presetName, preset] : m_Presets)
+		{
+			if (ImGui::Selectable(presetName.c_str()))
+			{
+				m_Params = preset.CloudParams;
+				dirLight.Color = preset.DirLightColor;
+				cam.FarPlane = preset.CameraFar;
+				cam.Dirty = true;
 
-		ImGui::InputFloat("DarknessThreshold", &m_Params.DarknessThreshold);
-		ImGui::InputFloat("LightAbsorptionSun", &m_Params.LightAbsorptionSun);
-		ImGui::InputFloat("LightAbsorptionCloud", &m_Params.LightAbsorptionCloud);
-		ImGui::InputFloat("PhaseVal", &m_Params.PhaseVal);
-
-		ImGui::SliderFloat("Anvil", &m_Params.Anvil, 0.0f, 1.0f);
+				m_Params.Shape.Fill();
+				m_Params.Detail.Fill();
+				m_Params.Weather.Fill();
+			}
+		}
 	}
 }

@@ -87,6 +87,7 @@ void main()
     }
 
     float val = total / maxVal;
+    val = clamp(val + 0.5, 0.0, 1.0);
     vec4 prevVal = imageLoad(Fractal, ipos);
     prevVal[uChannel] = val;
 	imageStore(Fractal, ipos, prevVal);

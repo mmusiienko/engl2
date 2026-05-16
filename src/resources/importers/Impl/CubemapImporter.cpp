@@ -21,11 +21,11 @@ namespace EnGl
 			std::vector<FileSystem::RaiiImageData> data;
 			data.reserve(6);
 
-			for (const auto& entry : params.Faces)
+			for (const auto& [entry, flip] : std::views::zip(params.Faces, params.Flip))
 			{
 				i32 width, height, nr_channels;
 
-				auto imgData = FileSystem::ReadImage(entry, &width, &height, &nr_channels, 0);
+				auto imgData = FileSystem::ReadImage(entry, &width, &height, &nr_channels, 0, flip);
 				facesRaw.emplace_back(imgData.Data, width, height, nr_channels);
 				data.push_back(std::move(imgData));
 			}

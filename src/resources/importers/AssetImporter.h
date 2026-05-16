@@ -71,6 +71,7 @@ namespace EnGl
 	{
 		std::filesystem::path Path;
 		std::vector<std::filesystem::path> Faces;
+		std::vector<bool> Flip{false, false, false, false, false, false};
 		auto operator<=>(const Params&) const = default;
 		Params(std::filesystem::path path) : Path(std::move(path)) {}
 		Params(std::vector<std::filesystem::path> faces) : Faces(std::move(faces)) { assert(Faces.size() == 6); }

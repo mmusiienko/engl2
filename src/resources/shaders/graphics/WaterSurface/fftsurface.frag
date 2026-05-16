@@ -59,7 +59,7 @@ uniform UniformPointLight       uPointLights[MAX_LIGHTS];
 uniform UniformDirectionalLight uDirectionalLight;
 uniform sampler2D               uShadowMap;
 
-uniform Material material = Material(vec3(0.01, 0.05, 0.07) , 0.0, 0.08, 1.0);
+uniform Material material = Material(vec3(0.01, 0.05, 0.07) * 2 , 0.0, 0.08, 1.0);
 
 float linDepth(float depth)
 {    
@@ -174,7 +174,7 @@ void main()
     }
 
     vec3 normal = normalize(vec3(-totalSlope.x, 1.0, -totalSlope.y));
-
+    
     vec3  foamDetail = texture(uFoamDetail, vFragPos.xz * 0.0002).rgb;
     float depth      = texture(uDepth, gl_FragCoord.xy / vec2(uResolution)).r;
 
@@ -199,7 +199,7 @@ void main()
     vec3 color = AMBIENT * albedo * material.AO + L0;
 
     vec3 reflFresnel     = FresnelSchlick(NdotV, F0_WATER);
-    vec3 reflectDir      = reflect(-V, normal);
+    vec3 reflectDir      = reflect(-V, -normal);
     vec3 reflectionColor = texture(uCubemap, reflectDir).rgb;
 
     color += shadow * reflectionColor * (0.15 * reflFresnel);
@@ -208,5 +208,5 @@ void main()
 
     color = mix(color, color + foamDetail, shadow * totalFoam);
 
-    FragColor = vec4(color, 1);
+    FragColor = vec4(color, 1-  0.003 * dot(reflectDir, normal));
 }

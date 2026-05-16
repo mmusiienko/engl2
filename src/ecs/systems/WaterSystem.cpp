@@ -1,4 +1,4 @@
-#include "WaterSystem.h"
+#include "ecs/systems/WaterSystem.h"
 
 #include "algorithm/compute/noise/Gaussian.h"
 #include "renderer/base/Model.h"
@@ -187,7 +187,7 @@ namespace EnGl
 			m_Shader->SetUniform("uFar", cam.Far);
 			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
 			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
-			m_Shader->SetUniform("uDirectionalLight", context.DirLight);
+			m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 			m_Shader->SetUniform("uPointLights", context.PointLights);
 
 			if (context.Cubemap)
@@ -242,15 +242,15 @@ namespace EnGl
 	void WaterSystem::Init(EcsImpl::EntityManager& manager)
 	{
 		m_WaterSurface = manager.Create<
-			Component::Transform, Component::ModelMatrix, Component::RenderedModel
+			Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::FollowSnap
 		>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::FollowSnap& follow) -> void
 			{
 				auto mat = AssetManager::PutScope<Material::Base>(make_scope<WaterSurface>(*this));
-				model.Model = StaticModel::QuadTesselated(mat, 200, 200);
+				model.Model = StaticModel::QuadTesselated(mat, m_Resolution, m_Resolution);
 				model.Layer = Component::RenderLayer::TT;
 				transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-				transform.Scale = glm::vec3{9000.0f};
+				follow.PosUnlock = { true, false, true };
 			}, "WaterSurface"
 		);
 	}
@@ -327,6 +327,18 @@ namespace EnGl
 
 	void WaterSystem::Run(EcsImpl::EntityManager& manager, GameContext& context)
 	{
+		auto [transform, follow] = manager.Get<Component::Transform, Component::FollowSnap>(m_WaterSurface);
+		transform.Scale.x = context.Camera.Get().Far * 2.0f;
+		transform.Scale.y = context.Camera.Get().Far * 2.0f;
+		transform.Dirty = true;
+
+		follow.PosOffset.z = -transform.Scale.y / 2.0f;
+		follow.PosOffset.x = -transform.Scale.x / 2.0f;
+
+		follow.Follow = context.Camera.Get().Entity;
+
+		follow.Snap = transform.Scale.x / m_Resolution;
+
 		for (auto& cascade : m_Cascades)
 			cascade.CheckParametersChange();
 

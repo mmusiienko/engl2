@@ -1,7 +1,8 @@
 #pragma once
-#include "./Systems.h"
-#include "../../algorithm/compute/FFT.h"
 #include <vector>
+
+#include "ecs/systems/Systems.h"
+#include "algorithm/compute/FFT.h"
 
 
 namespace EnGl
@@ -156,6 +157,7 @@ namespace EnGl
 	private:
 		std::vector<Cascade> GenCascades();
 		Entity m_WaterSurface = 0;
+		u32 m_Resolution = 500u;
 
 		void CombineResults(f32 dt);
 	};

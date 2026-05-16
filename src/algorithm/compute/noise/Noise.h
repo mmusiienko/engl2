@@ -29,6 +29,11 @@ namespace EnGl
 			Fill(shaderHandle, textureA, params);
 		}
 
+		static void Const(AssetHandle<Texture2D> textureA, const NoiseParams& params)
+		{
+			static const AssetHandle<ComputeShader> shaderHandle = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "ConstFill");
+			Fill(shaderHandle, textureA, params);
+		}
 	private:
 		static void Fill(AssetHandle<ComputeShader> shaderA, AssetHandle<Texture2D> textureA, const NoiseParams& params)
 		{

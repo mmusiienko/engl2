@@ -35,6 +35,7 @@
     <ClInclude Include="ecs\GameContext.h" />
     <ClInclude Include="ecs\systems\FractalSystem.h" />
     <ClInclude Include="ecs\systems\Systems.h" />
+    <ClInclude Include="ecs\systems\TerrainSystem.h" />
     <ClInclude Include="ecs\systems\WaterSystem.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
@@ -79,6 +80,7 @@
     <ClCompile Include="ecs\systems\CloudSystem.cpp" />
     <ClCompile Include="ecs\systems\CloudSystem.h" />
     <ClCompile Include="ecs\systems\FractalSystem.cpp" />
+    <ClCompile Include="ecs\systems\TerrainSystem.cpp" />
     <ClCompile Include="ecs\systems\WaterSystem.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />

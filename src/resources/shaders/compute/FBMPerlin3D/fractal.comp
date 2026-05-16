@@ -79,7 +79,7 @@ float perlin3d(ivec3 pos, uint seed, uint NCells)
 	float lerp6 = mix(lerp3, lerp4, fade(uvw.y));
 
 	float val = mix(lerp5, lerp6, fade(uvw.z));
-	return clamp(val * 2.0 + 0.5, 0.0, 1.0);
+	return clamp(val + 0.5, 0.0, 1.0);
 }
 
 void main() 

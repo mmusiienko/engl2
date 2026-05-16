@@ -43,6 +43,9 @@ namespace EnGl
 
 						model.Dirty = true;
 					}
+
+					transform.Dirty = false;
+					transform.OnlyPosDirty = false;
 				}
 			}
 
@@ -83,6 +86,43 @@ namespace EnGl
 					transform.Position += context.DeltaTime * velocity.Speed * velocity.NormalizedDirection;
 					transform.OnlyPosDirty = true;
 				}
+			}
+		};
+
+		class ConstantRotation : public SystemImpl
+		{
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto query = manager.Query<Component::Transform, Component::ConstantRotation>();
+
+				for (auto [e, transform, rot] : query)
+				{
+					transform.Rotation *= glm::angleAxis(rot.Velocity.x * context.DeltaTime, Constants::FORWARD);
+					transform.Rotation *= glm::angleAxis(rot.Velocity.y * context.DeltaTime, Constants::UP);
+					transform.Rotation *= glm::angleAxis(rot.Velocity.z * context.DeltaTime, Constants::RIGHT);
+
+					transform.Dirty = true;
+				}
+			}
+		};
+
+		class FollowSnap : public SystemImpl
+		{
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto query = manager.Query<Component::Transform, Component::FollowSnap>();
+
+				for (auto [e, transform, follow] : query)
+				{
+					Entity toFollow = follow.Follow;
+
+					if (manager.Has<Component::Transform>(toFollow))
+					{
+						const auto& toFollowTransform = manager.Get<Component::Transform>(toFollow);
+						transform.Position = glm::floor(toFollowTransform.Position * glm::vec3{ follow.PosUnlock } / glm::vec3{ follow.Snap }) * glm::vec3{ follow.Snap } + follow.PosOffset;
+					}
+				}
+
 			}
 		};
 
@@ -146,6 +186,8 @@ namespace EnGl
 				}
 
 				movement.SetDirection(transform.Rotation * direction);
+
+				context.Camera.Get().Delta = movement.NormalizedDirection * context.DeltaTime * movement.Speed;
 			}
 		};
 
@@ -214,6 +256,13 @@ namespace EnGl
 						Component::Transform
 					>(camera.Entity);
 
+					camera.InverseViewLastFrame = camera.InverseView;
+					camera.InverseProjectionLastFrame = camera.InverseProjection;
+					camera.InverseViewProjectionLastFrame = camera.InverseViewProjection;
+					camera.ViewProjectionLastFrame = camera.ViewProjection;
+					camera.ViewLastFrame = camera.View ? *camera.View : camera.ViewLastFrame;
+					camera.ProjectionLastFrame = camera.View ? *camera.Projection : camera.ProjectionLastFrame;
+
 					camera.Position = &transform.Position;
 					camera.Forward = transform.Rotation * Constants::FORWARD;
 					camera.View = &view.CachedView;
@@ -222,6 +271,7 @@ namespace EnGl
 					camera.InverseProjection = glm::inverse(proj.CachedProjection);
 					camera.ViewProjection = proj.CachedProjection * view.CachedView;
 					camera.InverseViewProjection = glm::inverse(camera.ViewProjection);
+					
 
 					if (manager.Has<Component::PerspectiveProjection>(camera.Entity))
 					{
@@ -249,7 +299,7 @@ namespace EnGl
 				for (auto [e, t, d] : queryD)
 				{
 					auto dir = -glm::normalize(t.Rotation * Constants::FORWARD);
-					context.DirLight = { .Direction = dir, .Color = d.Color };
+					context.DirLight = { .Data = {.Direction = dir, .Color = d.Color}, .Id = e };
 					auto dirCamera = context.Camera.GetDirShadowCamera().Entity;
 					auto& dirCamTransform = manager.Get<Component::Transform>(dirCamera);
 
@@ -605,18 +655,10 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				auto queryTransform = manager.Query<Component::Transform>();
 				auto queryModelMatrix = manager.Query<Component::ModelMatrix>();
-				for (auto [e, transform] : queryTransform)
-				{
-					transform.Dirty = false;
-					transform.OnlyPosDirty = false;
-				}
 
 				for (auto [e, model] : queryModelMatrix)
-				{
 					model.Dirty = false;
-				}
 
 				for (u32 i = 0; i < Component::RenderLayer::Count; i++)
 				{

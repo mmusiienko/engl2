@@ -133,7 +133,7 @@ namespace EnGl
 			{
 				f32 u = static_cast<f32>(x) / w;
 				f32 v = static_cast<f32>(y) / h;
-				vertices.push_back({ {2.0f * u - 1.0f, 2.0f * v - 1.0f, 0.0f}, {}, {u,v}, {}, {} });
+				vertices.push_back({ {u, v, 0.0f}, {}, {u,v}, {}, {} });
 			}
 		}
 
