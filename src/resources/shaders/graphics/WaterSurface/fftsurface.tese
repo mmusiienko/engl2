@@ -46,8 +46,7 @@ void main()
         vec2 uv = worldPos.xz / uCascades[i].L * uCascades[i].Tiling;
         vec3 val = texture(uCascades[i].Displacement, uv).rgb;
 
-        val.xz *= uCascades[i].InvTiling;
-        displacement += val;
+        displacement += val * uCascades[i].InvTiling;
     }
     worldPos += vec4(displacement, 0.0);
 

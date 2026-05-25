@@ -85,7 +85,7 @@ vec3 DirectionalLight(UniformDirectionalLight light, vec3 V, vec3 F0mat,
     vec3 kD      = (vec3(1.0) - fresnel) * (1.0 - material.Metallic);
     vec3 specular = (ndf * G * fresnel) / (4.0 * NDotV * NDotL + 0.0001);
 
-    return (kD * albedo / PI + specular) * light.Color * NDotL;
+    return 10 * (kD * albedo / PI + specular) * light.Color * NDotL;
 }  
 
 vec3 PointLight(UniformPointLight light, vec3 V, vec3 F0mat, vec3 N, vec3 albedo)
@@ -142,6 +142,7 @@ float sampleHeight(vec2 pos)
         texture(uTerrainInfo, pos * uScale.w * baseScale).a
     ) - vec4(0.5);
     float h = dot(heightSample, uHeightWeights);
+    
     return h;
 }
 
@@ -194,7 +195,7 @@ vec3 getColorAngle(float angle)
 }
 
 vec3 computeNormal(vec2 pos) {
-    float eps = uResolution / 16.0;
+    float eps = uResolution /16;
     float hL = sampleHeight(vPos + vec2(-eps, 0));
     float hR = sampleHeight(vPos + vec2(eps, 0));
     float hD = sampleHeight(vPos + vec2(0, -eps));
@@ -226,5 +227,5 @@ void main()
 
     vec3 color = AMBIENT * albedo * material.AO + L0;
 
-    FragColor = vec4(color, 1);
+    FragColor = vec4(color * 0.1, 1);
 }

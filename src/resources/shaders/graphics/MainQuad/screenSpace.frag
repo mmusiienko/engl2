@@ -28,7 +28,7 @@ vec3 applyFog( vec3  col,
 {
     if (t == uFar) return col;
     float fogAmount = 1.0 - exp(-t/1e4);
-    vec3  fogColor  = vec3(0.5,0.6,0.7);
+    vec3  fogColor  = uDirectionalLight.Color * 0.2;
     return mix( col, fogColor, fogAmount * 0.1 );
 }
 

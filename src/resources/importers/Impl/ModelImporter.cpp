@@ -89,6 +89,7 @@ namespace EnGl
 		std::vector<Mesh::Index> indices;
 		
 		bool hasNormals = aMesh->HasNormals();
+		bool hasTangentsAndBitangents = aMesh->HasTangentsAndBitangents();
 		bool hasTextureCoords = aMesh->HasTextureCoords(0);
 		for (size_t i = 0; i < aMesh->mNumVertices; i++)
 		{
@@ -102,8 +103,11 @@ namespace EnGl
 			if (hasNormals)
 			{
 				vnorm = ToVec3(aMesh->mNormals[i]);
-				tangent = ToVec3(aMesh->mTangents[i]);
-				bitangent = ToVec3(aMesh->mBitangents[i]);
+				if (hasTangentsAndBitangents)
+				{
+					tangent = ToVec3(aMesh->mTangents[i]);
+					bitangent = ToVec3(aMesh->mBitangents[i]);
+				}
 			}
 
 			if (hasTextureCoords)
@@ -164,7 +168,6 @@ namespace EnGl
 		std::optional<AssetHandle<Texture2D>> aoOpt = TryGetTexture(mat, aiTextureType_AMBIENT_OCCLUSION, modelDirName, flipTextures);
 		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(mat, aiTextureType_BASE_COLOR, modelDirName, flipTextures, true);
 		std::optional<AssetHandle<Texture2D>> normalsOpt = TryGetTexture(mat, aiTextureType_NORMALS, modelDirName, flipTextures);
-
 		if (baseColorOpt.has_value() && metalnessOpt.has_value() && roughnessOpt.has_value())
 		{
 			auto roughnessHandle = roughnessOpt.value();

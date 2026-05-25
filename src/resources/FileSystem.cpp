@@ -40,6 +40,7 @@ namespace EnGl
 	FileSystem::RaiiImageData FileSystem::ReadImage(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels, bool flip)
 	{
 		stbi_set_flip_vertically_on_load(flip);
+		
 		unsigned char* data = stbi_load(path.string().c_str(), width, height, nrChannels, reqChannels);
 
 		if (*width <= 0 || *height <= 0 || !data)

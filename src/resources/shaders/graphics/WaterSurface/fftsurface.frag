@@ -59,12 +59,11 @@ uniform UniformPointLight       uPointLights[MAX_LIGHTS];
 uniform UniformDirectionalLight uDirectionalLight;
 uniform sampler2D               uShadowMap;
 
-uniform Material material = Material(vec3(0.01, 0.05, 0.07) * 2 , 0.0, 0.08, 1.0);
+uniform Material material = Material(vec3(0.01, 0.05, 0.1) * 2 , 0, 0.1, 1.0);
 
 float linDepth(float depth)
 {    
-    float z = depth * 2.0 - 1.0;
-    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+    return uNear / depth;
 }
 
 float DistributionGGX(float NDotH, float roughness)
@@ -169,8 +168,13 @@ void main()
     {
         vec2 uv    = vPos / uCascades[i].L * uCascades[i].Tiling;
         vec4 ninfo = texture(uCascades[i].Normal, uv);
-        totalSlope += ninfo.rg;
-        totalFoam  += ninfo.a;
+
+        if (i < vLod)
+        {
+            totalSlope += ninfo.rg;
+        }
+        const float foamMaxDist = 30000.0;
+        totalFoam  += ninfo.a * max(foamMaxDist -  length(vPos - uCameraPos.xz), 0.0) / foamMaxDist;
     }
 
     vec3 normal = normalize(vec3(-totalSlope.x, 1.0, -totalSlope.y));
@@ -179,8 +183,9 @@ void main()
     float depth      = texture(uDepth, gl_FragCoord.xy / vec2(uResolution)).r;
 
     totalFoam += clamp(
-        5.0 * max(foamDetail.r - max(linDepth(depth) - linDepth(gl_FragCoord.z) - 5.0, 0.0), 0.0),
-        0.0, 1.0) * 0.3;
+        2.0 * max(foamDetail.r - max(linDepth(depth) - linDepth(gl_FragCoord.z) - 0.1, 0.0), 0.0),
+        0.0, 1.0) * 0.5;
+
 
     vec3  V     = normalize(uCameraPos - vFragPos);
     float NdotV = max(dot(normal, V), 0.0);
@@ -190,7 +195,7 @@ void main()
     vec3 F0mix = mix(F0_WATER, albedo, material.Metallic);
 
     vec3 L0 = vec3(0.0);
-    float shadow = (1 - Shadow());
+    float shadow = 1;
     L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, normal, albedo, totalFoam);
 
     for (uint i = 0u; i < MAX_LIGHTS; i++)
@@ -208,5 +213,5 @@ void main()
 
     color = mix(color, color + foamDetail, shadow * totalFoam);
 
-    FragColor = vec4(color, 1-  0.003 * dot(reflectDir, normal));
+    FragColor = vec4(color, 1 - 0.01 *dot(reflectDir, normal));
 }

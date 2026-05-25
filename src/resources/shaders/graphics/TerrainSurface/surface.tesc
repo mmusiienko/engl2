@@ -16,10 +16,10 @@ out patch int tcLod;
 
 float tessLevel(float dist)
 {
-    if (dist < 4000)  return 16.0;
-    if (dist < 8000)  return 12.0;
-    if (dist < 16000) return 8.0;
-    return 4.0;
+    if (dist < 50)  return 64.0;
+    if (dist < 200)  return 16.0;
+    if (dist < 5000) return 4.0;
+    return 1.0;
 }
 
 void main()
@@ -28,20 +28,20 @@ void main()
 
     if (gl_InvocationID == 0) 
     {
-        // Edge midpoints
-        vec3 e0mid = (vPos[0] + vPos[3]) * 0.5; // left edge
-        vec3 e1mid = (vPos[0] + vPos[1]) * 0.5; // bottom edge
-        vec3 e2mid = (vPos[1] + vPos[2]) * 0.5; // right edge
-        vec3 e3mid = (vPos[2] + vPos[3]) * 0.5; // top edge
+        vec3 e0mid = (vPos[0] + vPos[3]) * 0.5; 
+        vec3 e1mid = (vPos[0] + vPos[1]) * 0.5;
+        vec3 e2mid = (vPos[1] + vPos[2]) * 0.5;
+        vec3 e3mid = (vPos[2] + vPos[3]) * 0.5;
         vec3 center = (vPos[0] + vPos[1] + vPos[2] + vPos[3]) * 0.25;
 
         gl_TessLevelOuter[0] = tessLevel(length(uCameraPos.xz - e0mid.xz));
         gl_TessLevelOuter[1] = tessLevel(length(uCameraPos.xz - e1mid.xz));
         gl_TessLevelOuter[2] = tessLevel(length(uCameraPos.xz - e2mid.xz));
         gl_TessLevelOuter[3] = tessLevel(length(uCameraPos.xz - e3mid.xz));
-
+        
         float inner = max(max(gl_TessLevelOuter[0], gl_TessLevelOuter[1]),
                           max(gl_TessLevelOuter[2], gl_TessLevelOuter[3]));
+        tcLod = int(inner);
         gl_TessLevelInner[0] = inner;
         gl_TessLevelInner[1] = inner;
     }

@@ -14,39 +14,35 @@ out vec3 tcPos[];
 uniform vec3 uCameraPos;
 out patch int tcLod;
 
+
+float tessLevel(float dist)
+{
+    if (dist < 50)  return 64.0;
+    if (dist < 200)  return 16.0;
+    if (dist < 5000) return 4.0;
+    return 1.0;
+}
+
 void main()
 {
 	tcPos[gl_InvocationID] = vPos[gl_InvocationID];
 
     if (gl_InvocationID == 0) 
     {
+        vec3 e0mid = (vPos[0] + vPos[3]) * 0.5; 
+        vec3 e1mid = (vPos[0] + vPos[1]) * 0.5;
+        vec3 e2mid = (vPos[1] + vPos[2]) * 0.5;
+        vec3 e3mid = (vPos[2] + vPos[3]) * 0.5;
         vec3 center = (vPos[0] + vPos[1] + vPos[2] + vPos[3]) * 0.25;
-        float dist = length(uCameraPos.xz - center.xz);
-        int lod = 0;
-        
-        if (dist < 4000)
-        {
-            lod = 4;
-        } else if (dist < 8000)
-        {
-            lod = 3;
-        } else if (dist < 16000)
-        {
-            lod = 2;
-        } else if (dist < 50000)
-        {
-            lod = 1;
-        }
 
-        tcLod = lod;
-
-        float subDiv = lod != 0 ?  4.0 * lod : 1;
-
-        gl_TessLevelInner[0] = subDiv;
-        gl_TessLevelInner[1] = subDiv;
-        gl_TessLevelOuter[0] = subDiv;
-        gl_TessLevelOuter[1] = subDiv;
-        gl_TessLevelOuter[2] = subDiv;
-        gl_TessLevelOuter[3] = subDiv;
+        gl_TessLevelOuter[0] = tessLevel(length(uCameraPos.xz - e0mid.xz));
+        gl_TessLevelOuter[1] = tessLevel(length(uCameraPos.xz - e1mid.xz));
+        gl_TessLevelOuter[2] = tessLevel(length(uCameraPos.xz - e2mid.xz));
+        gl_TessLevelOuter[3] = tessLevel(length(uCameraPos.xz - e3mid.xz));
+        float inner = max(max(gl_TessLevelOuter[0], gl_TessLevelOuter[1]),
+                          max(gl_TessLevelOuter[2], gl_TessLevelOuter[3]));
+        tcLod = int(log2(inner) / 2.0) + 1;
+        gl_TessLevelInner[0] = inner;
+        gl_TessLevelInner[1] = inner;
     }
 }

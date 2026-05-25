@@ -75,6 +75,7 @@ namespace EnGl
 		auto operator<=>(const Params&) const = default;
 		Params(std::filesystem::path path) : Path(std::move(path)) {}
 		Params(std::vector<std::filesystem::path> faces) : Faces(std::move(faces)) { assert(Faces.size() == 6); }
+		Params(std::vector<std::filesystem::path> faces, std::vector<bool> flip) : Faces(std::move(faces)), Flip(std::move(flip)) { assert(Faces.size() == 6); assert(Flip.size() == 6);}
 
 	private:
 		bool SingleFile = true;

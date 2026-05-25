@@ -35,12 +35,12 @@ namespace EnGl
 			f32 WindSpeed = 15.0f;
 			f32 WindAngleDegree = 45.0f;
 			
-			f32 Swell = 0.5f;
+			f32 Swell = 0.514f;
 			f32 Fetch = 1000.0f * 1000.0f * 100.0f;
 			f32 Depth = 500.0f;
 
-			f32 FoamAdd = 0.764f;
-			f32 FoamDecay = 0.055f;
+			f32 FoamAdd = 0.558f;
+			f32 FoamDecay = 0.034f;
 
 			bool DimensionChanged = false;
 		};
@@ -50,29 +50,29 @@ namespace EnGl
 			{
 				.L = 3282.0f,
 
-				.Lambda = 1.0f,
+				.Lambda = 2.0f,
 
 				.TimeScale = 2.0f,
 
 				.LowCutoff = 0.0f,
-				.HighCutoff = 0.05f,
+				.HighCutoff = 1.0f,
 
-				.Tiling = 1.0f
+				.Tiling = 33.0f
 			},
 			{
-				.L = 655.0f,
+				.L = 1000.0f,
 
-				.Lambda = 1.0f,
+				.Lambda = 1.2f,
 
 				.TimeScale = 2.0f,
 
-				.LowCutoff = 0.05f,
+				.LowCutoff = 0.0f,
 				.HighCutoff = 1.0f,
 
-				.Tiling = 1.0f
+				.Tiling = 51.0f
 			},
 			{
-				.L = 237.0f,
+				.L = 300.0f,
 
 				.Lambda = 1.0f,
 
@@ -81,10 +81,10 @@ namespace EnGl
 				.LowCutoff = 1.0f,
 				.HighCutoff = 2.0f,
 
-				.Tiling = 1.0f
+				.Tiling = 77.0f
 			},
 			{
-				.L = 71.0f,
+				.L = 77.0f,
 
 				.Lambda = 1.0f,
 
@@ -93,7 +93,7 @@ namespace EnGl
 				.LowCutoff = 2.0f,
 				.HighCutoff = 4.0f,
 
-				.Tiling = 1.0f
+				.Tiling = 103.0f
 			}
 		};
 

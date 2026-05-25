@@ -1,0 +1,47 @@
+#version 460 core
+
+layout(local_size_x=16, local_size_y=16) in;
+
+layout(binding=0, rgba32f) uniform readonly image2D Source;
+layout(binding=1, rgba32f) uniform writeonly image2D Dest;
+
+const int weights[5] = int[](
+    16,
+    12,
+    8,
+    4,
+    1
+);
+
+void main()
+{
+    ivec2 pos  = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(Source);
+
+    vec4 color = vec4(0.0);
+    int totalWeight = 0;
+
+    if (imageLoad(Source, pos).a == 0.0)
+       return;
+
+    for (int i = -4; i < 5; i++)
+    {
+        ivec2 samplePos = pos + ivec2(0, i);
+
+        if (samplePos.y >= size.y && samplePos.y >= 0)
+            continue;
+
+        vec4 s = imageLoad(Source, samplePos);
+
+        if (s.a == 0.0)
+            continue;
+
+        color += s * weights[abs(i)];
+        totalWeight += weights[abs(i)];
+    }
+
+    if (totalWeight > 0)
+        color /= float(totalWeight);
+
+    imageStore(Dest, pos, color);
+}

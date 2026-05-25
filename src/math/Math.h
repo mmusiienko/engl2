@@ -7,7 +7,6 @@
 
 #include "core/Core.h"
 
-
 namespace EnGl
 {
 	namespace Math

@@ -27,9 +27,9 @@ float sampleHeight(vec2 pos)
         texture(uTerrainInfo, pos * uScale.w * baseScale).a
     ) - vec4(0.5);
     float h = dot(heightSample, uHeightWeights);
-    return h ;
+   
+    return h;
 }
-
 out float vHeight;
 
 void main()

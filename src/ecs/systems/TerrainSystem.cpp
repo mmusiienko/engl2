@@ -28,18 +28,21 @@ namespace EnGl
 			m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 			m_Shader->SetUniform("uPointLights", context.PointLights);
 
-			if (context.Cubemap)
+			auto cubemap = AssetManager::GetAsset(context.Cubemap.Asset).Asset;
+
+			if (cubemap)
 			{
-				m_Shader->SetUniform("uCubemap", *context.Cubemap, 0);
+				m_Shader->SetUniform("uCubemap", *cubemap, 0);
 			}
 
-			auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+			//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+			//if (shadowMap)
+			//{
+			//	m_Shader->SetUniform("uShadowMap", *shadowMap, 1);
+			//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+			//}
+
 			auto terrainInfo = AssetManager::GetAsset(m_TerrainSystem.m_Props.TerrainInfo.Texture).Asset;
-			if (shadowMap)
-			{
-				m_Shader->SetUniform("uShadowMap", *shadowMap, 1);
-				m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-			}
 
 			if (terrainInfo)
 			{
@@ -65,9 +68,9 @@ namespace EnGl
 
 		follow.Follow = context.Camera.Get().Entity;
 
-		follow.Snap = transform.Scale.x / m_Props.TerrainResolution;
-
 		m_Props.Resolution = transform.Scale.x / m_Props.TerrainResolution;
+
+		follow.Snap = m_Props.Resolution;
 	}
 
 

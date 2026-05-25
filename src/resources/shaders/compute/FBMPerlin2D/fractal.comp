@@ -39,13 +39,13 @@ float fade(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
 
 float perlin(ivec2 pos, uint seed, uint NCells)
 {
-	vec2 dimensions = vec2(imageSize(Fractal)) / float(uNCells);
+	vec2 dimensions = vec2(imageSize(Fractal)) / float(NCells);
 	ivec2 cell = ivec2(floor(vec2(pos) / dimensions));
 
-	vec2 grad1 = getGradient(ivec2(cell.x, cell.y), uSeed, uNCells);
-	vec2 grad2 = getGradient(ivec2(cell.x + 1, cell.y), uSeed, uNCells);
-	vec2 grad3 = getGradient(ivec2(cell.x, cell.y + 1), uSeed, uNCells);
-	vec2 grad4 = getGradient(ivec2(cell.x + 1, cell.y + 1), uSeed, uNCells);
+	vec2 grad1 = getGradient(ivec2(cell.x, cell.y), seed, NCells);
+	vec2 grad2 = getGradient(ivec2(cell.x + 1, cell.y), seed, NCells);
+	vec2 grad3 = getGradient(ivec2(cell.x, cell.y + 1), seed, NCells);
+	vec2 grad4 = getGradient(ivec2(cell.x + 1, cell.y + 1), seed, NCells);
 
 	vec2 cornerPos = vec2(cell.x * dimensions.x, cell.y * dimensions.y);
 
@@ -74,9 +74,9 @@ void main()
     uint freq = 1;
     float amplitude = 1.0;
     float maxVal = 0.0;
-	float gain =exp2(-.85);;
+	float gain = exp2(-.85);;
 
-    for (int i = 0; i < uOctaves; i++) {
+    for (uint i = 0; i < uOctaves; i++) {
         float val = perlin(ipos, uSeed + i, uNCells * freq);
 
 		total += val * amplitude;

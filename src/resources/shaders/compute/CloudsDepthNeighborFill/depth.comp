@@ -30,7 +30,7 @@ void main()
 	{
 		for (uint j = 0; j < uResScale; j++)
 		{
-			float d = linDepth(texelFetch(uDepth, lowResPixel + ivec2(i, j), 0).r);
+			float d = texelFetch(uDepth, lowResPixel + ivec2(i, j), 0).r;
 			tileMinDepth = min(tileMinDepth, d);
 			tileMaxDepth = max(tileMaxDepth, d);
 		}

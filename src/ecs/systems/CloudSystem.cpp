@@ -130,13 +130,9 @@ namespace EnGl
 
 		//DispatchBlur(context, textures);
 
-		//std::swap(m_SkyTexture, m_HistoryTexture);
-
 		DispatchEdge(context, textures);
 
 		DispatchFullRes(context, textures);
-
-		//std::swap(m_SkyTexture, m_HistoryTexture);
 
 		//DispatchBlur(context, textures);
 
@@ -207,13 +203,14 @@ namespace EnGl
 		shader->SetUniform("uSpeed", m_Params.Speed);
 		shader->SetUniform("uDirection", m_Params.Direction);
 
-		shader->SetUniform("uDarknessThreshold", m_Params.DarknessThreshold);
-		shader->SetUniform("uLightAbsorptionSun", m_Params.LightAbsorptionSun);
-		shader->SetUniform("uLightAbsorptionCloud", m_Params.LightAbsorptionCloud);
-		shader->SetUniform("uPhaseVal", m_Params.PhaseVal);
-
 		shader->SetUniform("uAnvil", m_Params.Anvil);
-		shader->SetUniform("uCubemap", *context.Cubemap, 6);
+
+		auto cubemap = AssetManager::GetAsset(context.Cubemap.Asset).Asset;
+
+		if (cubemap)
+		{
+			shader->SetUniform("uCubemap", *cubemap, 6);
+		}
 
 		shader->SetUniform("uShapeBottomCut", m_Params.ShapeBottomCut);
 		shader->SetUniform("uDensityBottomCut", m_Params.DensityBottomCut);
@@ -226,6 +223,7 @@ namespace EnGl
 		shader->SetUniform("uSilverLine", m_Params.SilverLine);
 		shader->SetUniform("uSilverLineExp", m_Params.SilverLineExp);
 		shader->SetUniform("uAmbient", m_Params.Ambient);
+		shader->SetUniform("uOutScatterAmbient", m_Params.OutScatterAmbient);
 
 		shader->SetUniform("uExtinctionColor", m_Params.ExtinctionColor);
 
@@ -320,20 +318,34 @@ namespace EnGl
 
 	void CloudSystem::DispatchBlur(GameContext& context, CloudTextures& textures)
 	{
-		auto shader = AssetManager::GetAsset(m_BlurShader).Asset;
+		auto shaderV = AssetManager::GetAsset(m_BlurShaderV).Asset;
+		auto shaderH = AssetManager::GetAsset(m_BlurShaderH).Asset;
 
-		if (!shader)
+		if (!shaderV || !shaderH)
 		{
 			spdlog::error("Shader for sky is not loaded.");
 			return;
 		}
 
-		shader->Use();
+		shaderV->Use();
 
-		shader->BindReadTexture(*textures.Sky, 0);
-		shader->BindWriteTexture(*textures.History, 1);
+		shaderV->BindReadTexture(*textures.Sky, 0);
+		shaderV->BindWriteTexture(*textures.History, 1);
 
-		shader->DispatchWait(
+		shaderV->DispatchWait(
+			{
+				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
+				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
+			}
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+		);
+
+		shaderH->Use();
+
+		shaderH->BindReadTexture(*textures.History, 0);
+		shaderH->BindWriteTexture(*textures.Sky, 1);
+
+		shaderH->DispatchWait(
 			{
 				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
 				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
@@ -440,13 +452,14 @@ namespace EnGl
 		shader->SetUniform("uSpeed", m_Params.Speed);
 		shader->SetUniform("uDirection", m_Params.Direction);
 
-		shader->SetUniform("uDarknessThreshold", m_Params.DarknessThreshold);
-		shader->SetUniform("uLightAbsorptionSun", m_Params.LightAbsorptionSun);
-		shader->SetUniform("uLightAbsorptionCloud", m_Params.LightAbsorptionCloud);
-		shader->SetUniform("uPhaseVal", m_Params.PhaseVal);
-
 		shader->SetUniform("uAnvil", m_Params.Anvil);
-		shader->SetUniform("uCubemap", *context.Cubemap, 6);
+
+		auto cubemap = AssetManager::GetAsset(context.Cubemap.Asset).Asset;
+
+		if (cubemap)
+		{
+			shader->SetUniform("uCubemap", *cubemap, 6);
+		}
 
 		shader->SetUniform("uShapeBottomCut", m_Params.ShapeBottomCut);
 		shader->SetUniform("uDensityBottomCut", m_Params.DensityBottomCut);
@@ -461,6 +474,7 @@ namespace EnGl
 		shader->SetUniform("uAmbient", m_Params.Ambient);
 
 		shader->SetUniform("uExtinctionColor", m_Params.ExtinctionColor);
+		shader->SetUniform("uOutScatterAmbient", m_Params.OutScatterAmbient);
 
 		shader->DispatchWait(
 			{
@@ -511,6 +525,8 @@ namespace EnGl
 		ImGui::SliderFloat("SilverLineIntensity", &m_Params.SilverLine, 0.0f, 20.0f);
 		ImGui::SliderFloat("SilverLineExp", &m_Params.SilverLineExp, 0.0f, 20.0f);
 
+		ImGui::SliderFloat("OutScatterAmbient", &m_Params.OutScatterAmbient, 0.0f, 10.0f);
+
 		ImGui::PushID(0);
 		UiComponents::Noise3DView(m_Params.Shape);
 		ImGui::PopID();
@@ -539,6 +555,9 @@ namespace EnGl
 				m_Params.Shape.Fill();
 				m_Params.Detail.Fill();
 				m_Params.Weather.Fill();
+
+				context.Cubemap.Asset = AssetManager::Load<Cubemap>(preset.Cubemap);
+				context.Cubemap.Dirty = true;
 			}
 		}
 	}

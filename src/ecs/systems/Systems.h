@@ -216,12 +216,18 @@ namespace EnGl
 				{
 					if (persp.Dirty)
 					{
-						proj.CachedProjection = glm::perspective(
-							glm::radians(persp.FovDegree),
-							persp.Aspect,
-							persp.NearPlane,
-							persp.FarPlane
-						);
+						float f = 1.0f / tan(glm::radians(persp.FovDegree) * 0.5f);
+
+						glm::mat4 projection{0.0f};
+
+
+						projection[0][0] = f / persp.Aspect;
+						projection[1][1] = f;
+						projection[2][3] = -1.0f;
+						projection[3][2] = persp.NearPlane;
+
+						proj.CachedProjection = projection;
+
 						persp.Dirty = false;
 					}
 				}
@@ -289,6 +295,123 @@ namespace EnGl
 			}
 		};
 
+		class UpdateCubemap : public SystemImpl
+		{
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				if (!context.Cubemap.Dirty) return;
+
+				auto& modelC = manager.Get<Component::RenderedModel>(context.Cubemap.Id);
+				auto model = AssetManager::GetAsset(modelC.Model).Asset;
+				if (!model) return;
+
+				auto mat = AssetManager::GetAsset(model->GetSubmesh(modelC.MeshIdx).Material).Asset;
+				if (!mat) return;
+
+				auto cubemapMat = dynamic_cast<Material::CubemapObj*>(mat);
+				if (!cubemapMat) return;
+
+				cubemapMat->CubemapHandle = context.Cubemap.Asset;
+				context.Cubemap.Dirty = false;
+			}
+		};
+
+		class CascadedShadowMaps : public SystemImpl
+		{
+			static constexpr std::array<glm::vec2, 4> ndcFrustrumCoords
+			{
+				glm::vec2{-1.0f, -1.0f},
+				glm::vec2{-1.0f, 1.0f},
+				glm::vec2{1.0f, 1.0f},
+				glm::vec2{1.0f, -1.0f}
+			};
+
+			static std::array<glm::vec3, 8> GetTransformedCorners(GameContext& context, f32 z1, f32 z2)
+			{
+				std::array<glm::vec3, 8> res;
+				u32 i = 0;
+
+				for (u32 z = 0; z <= 1; z++)
+				{
+					for (const auto& corner : ndcFrustrumCoords)
+					{
+						auto transformedVec = context.Camera.Get().InverseViewProjection * glm::vec4{ corner.x ,corner.y, z1 * (1 - z) + z2 * z, 1.0f };
+						res[i] = transformedVec / transformedVec.w;
+						i++;
+					}
+				}
+
+				return res;
+			}
+
+			glm::vec3 FindCenter(const std::array<glm::vec3, 8>& frustrumCorners, const glm::vec3& lightDir, f32 resolution)
+			{
+				glm::vec3 center{};
+				for (const auto& corner : frustrumCorners)
+				{
+					center += corner;
+				}
+				center *= 0.125f;
+
+				glm::mat4 lookat = glm::lookAt(
+					glm::vec3{0.0f},
+					lightDir,
+					Constants::UP
+				);
+				 
+				lookat = glm::scale(glm::mat4{ 1.0f }, glm::vec3{ resolution }) * lookat;
+				glm::mat4 lookatInv = glm::inverse(lookat);
+
+				glm::vec4 lightSpaceCenter = lookat * glm::vec4{center, 1.0f};
+				lightSpaceCenter.x = glm::floor(lightSpaceCenter.x);
+				lightSpaceCenter.y = glm::floor(lightSpaceCenter.y);
+				center = glm::vec3{ lookatInv * lightSpaceCenter };
+
+				return center;
+			}
+
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto& cam = context.Camera.Get();
+				
+				f32 z1 = -1.0f;
+
+				for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
+				{
+					if (cam.Entity == context.Renderer.CascadedShadowMap.CascadeCamera[i]) continue;
+
+					f32 z2 = context.Renderer.CascadedShadowMap.DepthSplit[i];
+
+					auto corners = GetTransformedCorners(context, z1, z2);
+
+					f32 radius = glm::length(corners[6] - corners[0]) * 0.5f;
+
+					f32 resolution = context.Renderer.CascadedShadowMap.TextureSize[i] / radius * 0.5f;
+
+					auto center = FindCenter(corners, context.DirLight.Data.Direction, resolution);
+
+					Entity cam = context.Renderer.CascadedShadowMap.CascadeCamera[i];
+
+					auto [camTransform, view, proj] = manager.Get<Component::Transform, Component::ViewMatrix, Component::OrthogonalProjection>(cam);
+
+					camTransform.Rotation = context.DirLight.Rotation;
+					camTransform.Position = center + context.DirLight.Data.Direction * radius * 2.0f;
+					camTransform.Dirty = true;
+					
+					proj.Dirty = true;
+					proj.Left = -radius;
+					proj.Right = radius;
+					proj.Bottom = -radius;
+					proj.Top = radius;
+					proj.NearPlane = -radius * 6.0f;
+					proj.FarPlane = radius * 6.0f;
+
+					z1 = z2;
+				}
+
+			}
+		};
+
 		class CollectLights : public SystemImpl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
@@ -299,22 +422,21 @@ namespace EnGl
 				for (auto [e, t, d] : queryD)
 				{
 					auto dir = -glm::normalize(t.Rotation * Constants::FORWARD);
-					context.DirLight = { .Data = {.Direction = dir, .Color = d.Color}, .Id = e };
-					auto dirCamera = context.Camera.GetDirShadowCamera().Entity;
-					auto& dirCamTransform = manager.Get<Component::Transform>(dirCamera);
+					context.DirLight = { .Data = {.Direction = dir, .Color = d.Color}, .Rotation = t.Rotation, .Id = e };
 
-					dirCamTransform.Rotation = t.Rotation;
-					dirCamTransform.Dirty = true;
+					//auto dirCamera = context.Camera.GetDirShadowCamera().Entity;
+					//auto& dirCamTransform = manager.Get<Component::Transform>(dirCamera);
 
-					auto camera = context.Camera.Get().Entity;
-					if (camera != dirCamera)
-					{
-						const auto& camTransform = manager.Get<Component::Transform>(camera);
+					//dirCamTransform.Rotation = t.Rotation;
+					//dirCamTransform.Dirty = true;
 
-						dirCamTransform.Position = camTransform.Position + dir * m_DirLightCameraDist;
-					}
-					
-					break;
+					//auto camera = context.Camera.Get().Entity;
+					//if (camera != dirCamera)
+					//{
+					//	const auto& camTransform = manager.Get<Component::Transform>(camera);
+
+					//	dirCamTransform.Position = camTransform.Position + dir * m_DirLightCameraDist;
+					//}
 				}
 
 				size_t i = 0;
@@ -564,29 +686,49 @@ namespace EnGl
 				);
 			}
 
+			void RenderShadows(EcsImpl::EntityManager& manager, GameContext& context)
+			{
+				context.Renderer.MaterialOverride = m_Unlit;
+
+				u32 prevCamera = context.Camera.CameraIdx;
+				for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
+				{
+					context.Renderer.CascadedShadowMap.DirShadowFramebuffer[i]->Bind();
+					glClear(GL_DEPTH_BUFFER_BIT);
+					glDrawBuffer(GL_NONE);
+					glReadBuffer(GL_NONE);
+					u32 j = 0;
+					for (const auto& camera : context.Camera.Cameras)
+					{
+						if (camera.Entity == context.Renderer.CascadedShadowMap.CascadeCamera[i])
+						{
+							context.Camera.CameraIdx = j;
+							break;
+						}
+						j++;
+					}
+					RenderLayer(context, Component::RenderLayer::OQ);
+				}
+				context.Camera.CameraIdx = prevCamera;
+				context.Renderer.MaterialOverride = {};
+			}
+
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
 				glPolygonMode(GL_FRONT_AND_BACK, context.Debug.DrawMode);
 				glDisable(GL_BLEND);
 				glEnable(GL_DEPTH_TEST);
 
-				context.Framebuffer.DirShadowFramebuffer->Bind();
-				glClear(GL_DEPTH_BUFFER_BIT);
-				glDrawBuffer(GL_NONE);
-				glReadBuffer(GL_NONE);
-				context.Renderer.MaterialOverride = m_Unlit;
-				std::swap(context.Camera.CameraIdx, context.Camera.DirShadowCameraIdx);
-				RenderLayer(context, Component::RenderLayer::OQ);
-				std::swap(context.Camera.CameraIdx, context.Camera.DirShadowCameraIdx);
-				context.Renderer.MaterialOverride = {};
+				RenderShadows(manager, context);
 
 				context.Framebuffer.MainFramebuffer->Bind();
 				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+				glDepthFunc(GL_GREATER);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				RenderLayer(context, Component::RenderLayer::OQ);
-
+				
 				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_LEQUAL);
+				glDepthFunc(GL_GEQUAL);
 				glDepthMask(GL_FALSE);
 				glCullFace(GL_FRONT);
 

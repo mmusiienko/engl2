@@ -78,6 +78,12 @@ namespace EnGl
 		glfwWindowHint(GLFW_SAMPLES, 4);
 		glEnable(GL_MULTISAMPLE);
 
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_GREATER);
+		glClearDepth(0.0f);
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+		glDepthRange(0.0, 1.0);
+
 		glfwSwapInterval(0);
 
 		glfwSetWindowUserPointer(m_Window, this);
@@ -85,43 +91,19 @@ namespace EnGl
 		Entity camera = World().eEntity().Create<
 			Component::Transform,
 			Component::Velocity,
-			Component::ModelMatrix,
 			Component::ViewMatrix,
 			Component::ProjectionMatrix,
 			Component::PerspectiveProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::PerspectiveProjection& cam)
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::PerspectiveProjection& cam)
 		{
-			mov.Speed = 1000.0f;
+			mov.Speed = 10.0f;
 			transform.Position = { 0.0f, 0.0f, 0.0f };
 
 			cam.Aspect = 16.0f / 9.0f;
 			cam.FovDegree = 45.0f;
-			cam.NearPlane = 10.0f;
-			cam.FarPlane = 50000.0f;
-		}, "Camera1");
-
-		Entity camera2 = World().eEntity().Create<
-			Component::Transform,
-			Component::Velocity,
-			Component::ModelMatrix,
-			Component::ViewMatrix,
-			Component::ProjectionMatrix,
-			Component::OrthogonalProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::OrthogonalProjection& cam)
-		{
 			cam.NearPlane = 0.1f;
-			cam.FarPlane = 5000.0f;
-
-			cam.Bottom = -1000.0f;
-			cam.Right = 1000.0f;
-			cam.Left = -1000.0f;
-			cam.Top = 1000.0f;
-
-			mov.Speed = 100.0f;
-			transform.Position = { 0.0f, 100.0f, 0.0f };
-			transform.Rotation =
-				glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-		}, "Camera2");
+			cam.FarPlane = 1000.0f;
+		}, "Camera1");
 
 		auto colorTexHandle = m_Framebuffer->Color()[0];
 		auto depthTexHandle = m_Framebuffer->Depth();
@@ -163,27 +145,8 @@ namespace EnGl
 //		});
 
 
-		AssetImporter<Model>::Params bparams{ AssetManager::MODEL_DIR / "blob" / "source" / "flesh_blob.fbx"};
-		auto blobHandle = AssetManager::Load<Model>(bparams);
-		//AssetImporter<Model>::Params SPONZAPARAMS{ AssetManager::MODEL_DIR / "sponza_pbr" / "sponza.gltf" };
-		//auto sponzahandle = AssetManager::Load<Model>(SPONZAPARAMS);
-//
-		AssetImporter<Model>::Params gunParams{ AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "Cerberus_LP.FBX"};
-		auto gunHandle = AssetManager::Load<Model>(gunParams);
-//
-		auto gun = AssetManager::GetAsset(gunHandle).Asset;
-		if (gun)
-		{
-			scope<Material::PBRTextured> mat = make_scope<Material::PBRTextured>();
-			mat->AlbedoHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures" / "Cerberus_A.tga");
-			mat->MetallicHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures" / "Cerberus_M.tga");
-			mat->RoughnessHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures" / "Cerberus_R.tga");
-			mat->AOHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures" / "Raw" / "Cerberus_AO.tga");
-			mat->NormalsHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures"  / "Cerberus_N.tga");
-			gun->GetSubmesh(0).Material = AssetManager::PutScope<Material::Base>(std::move(mat));
-		}
-
-		//AssetImporter<Cubemap>::Params cparams{ AssetManager::TEXTURE_DIR / "skybox" / "2.png" };
+		AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "floating-castle" / "source" / "Mineways2Skfb.obj"};
+		auto towerHandle = AssetManager::Load<Model>(towerParams);
 
 		AssetImporter<Cubemap>::Params cparams
 		{
@@ -194,9 +157,8 @@ namespace EnGl
 			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "d.png",
 			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "b.png",
 			AssetManager::TEXTURE_DIR / "skybox" / "bluesky" / "f.png"
-		}
+		}, {false, false, false, true, false, false}
 		};
-		cparams.Flip[3] = true;
 
 		auto cubemapHadle = AssetManager::Load<Cubemap>(cparams);
 		auto cubemapMat = AssetManager::PutScope<Material::Base>(make_scope<Material::CubemapObj>(cubemapHadle));
@@ -204,7 +166,7 @@ namespace EnGl
 
 		Ui ui{ m_Window };
 
-		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+		auto cubemapEntity = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
 				model.Model = cubemapModelHandle;
@@ -213,16 +175,14 @@ namespace EnGl
 			}, "Cubemap"
 		);
 
-//		World().eEntity().Create<Component::Transform, Component::Movement, Component::ModelMatrix, Component::RenderedModel>(
-//			[=](Component::Transform& transform, Component::Movement& mov, auto&, Component::RenderedModel& model, auto&...) -> void
-//			{
-//				mov.SetDirection({ 1.0f, 0.0, 1.0f });
-//				mov.Velocity = 10.0f;
-//				transform.Position = { 0.0f, 0.0f, 0.0f };
-//				model.Model = shipHandle;
-//				model.MeshIdx = -1;
-//			}, "Ship"
-//		);
+		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+			{
+				transform.Position = { 0.0f, 0.0f, 0.0f };
+				model.Model = towerHandle;
+				model.MeshIdx = -1;
+			}, "Tower"
+		);
 
 		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
@@ -233,86 +193,8 @@ namespace EnGl
 				model.MeshIdx = 0;
 			}, "CoordinatePlane"
 		);
-		scope<Material::PBR> pbrmat1 = make_scope<Material::PBR>();
-		pbrmat1->Albedo = glm::vec3{ 1.0f, 0.0f, 0.0f };
-		pbrmat1->Metallic = 1.0f;
-		pbrmat1->Roughness = 0.4f;
-		pbrmat1->AO = 0.1f;
-		scope<Material::PBR> pbrmat2 = make_scope<Material::PBR>();
-		pbrmat2->Albedo = glm::vec3{ 0.0f, 0.0f, 1.0f };
-		pbrmat2->Metallic = 0.0f;
-		pbrmat2->Roughness = 1.0f;
-		pbrmat2->AO = 0.1f;
-		scope<Material::PBR> pbrmat3 = make_scope<Material::PBR>();
-		pbrmat3->Albedo = { 0.0f, 0.8f, 0.0f };
-		pbrmat3->Metallic = 0.0f;
-		pbrmat3->Roughness = 0.5f;
-		pbrmat3->AO = 0.1f;
-//		scope<Material::PBRTextured> pbrmat = make_scope<Material::PBRTextured>();
-//		pbrmat->AlbedoHandle = AssetManager::Load<Texture2D>(AssetManager::TEXTURE_DIR / "pbr" / "rustediron1-alt2-bl" / "rustediron2_basecolor.png");
-//		pbrmat->MetallicHandle = AssetManager::Load<Texture2D>(AssetManager::TEXTURE_DIR / "pbr" / "rustediron1-alt2-bl" / "rustediron2_metallic.png");
-//		pbrmat->RoughnessHandle = AssetManager::Load<Texture2D>(AssetManager::TEXTURE_DIR / "pbr" / "rustediron1-alt2-bl" / "rustediron2_roughness.png");
-		//mat->AOHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "Cerberus_by_Andrew_Maximov" / "textures" / "Raw" / "Cerberus_AO.tga");
-		auto pbrmathandle1 = AssetManager::PutScope<Material::Base>(std::move(pbrmat1));
-		auto pbrmathandle2 = AssetManager::PutScope<Material::Base>(std::move(pbrmat2));
-		auto pbrmathandle3 = AssetManager::PutScope<Material::Base>(std::move(pbrmat3));
-		
-		/*auto e1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::SphereCollider, Component::PhysicalMomentum>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::SphereCollider& col, Component::PhysicalMomentum& m, auto&...) -> void
-			{
-				transform.Position = { 0.0f, 200.0f, 100.0f * sqrt(2) / 2};
-				transform.Scale = glm::vec3{10.0f};
 
-				model.Model = StaticModel::Sphere(pbrmathandle1);
-				col.Radius = 10.0f;
-				m.InverseMass = 1.0f;
-			}, "sphere"
-		);
-
-		auto e2 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::SphereCollider, Component::PhysicalMomentum>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::SphereCollider& col, Component::PhysicalMomentum& m, auto&...) -> void
-			{
-				transform.Position = { 50.0f, 200.0f, 0.0f };
-				transform.Scale = glm::vec3{ 10.0f };
-
-				model.Model = StaticModel::Sphere(pbrmathandle2);
-				col.Radius = 10.0f;
-				m.InverseMass = 0.0f;
-			}, "holder"
-		);
-
-		auto e3 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::SphereCollider, Component::PhysicalMomentum>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::SphereCollider& col, Component::PhysicalMomentum& m, auto&...) -> void
-			{
-				transform.Position = { -50.0f, 200.0f, 0.0f };
-				transform.Scale = glm::vec3{ 10.0f };
-
-				model.Model = StaticModel::Sphere(pbrmathandle2);
-				col.Radius = 10.0f;
-				m.InverseMass = 0.0f;
-			}, "holder2"
-		);
-
-		World().eEntity().Create<Component::LengthConstraint>(
-			[=](Component::LengthConstraint& constraint) -> void
-			{
-				constraint.E1 = e1;
-				constraint.E2 = e2;
-				constraint.Length = 100.0f;
-			}, "constraint"
-		);
-
-		World().eEntity().Create<Component::LengthConstraint>(
-			[=](Component::LengthConstraint& constraint) -> void
-			{
-				constraint.E1 = e1;
-				constraint.E2 = e3;
-				constraint.Length = 100.0f;
-			}, "constraint2"
-		);*/
-
-
-		World().eEntity().Create<Component::Transform, Component::DirectionalLight>(
+		auto dirLight = World().eEntity().Create<Component::Transform, Component::DirectionalLight>(
 			[=](Component::Transform& transform, Component::DirectionalLight& l) -> void
 			{
 				transform.Rotation = glm::angleAxis(glm::radians(45.0f), Constants::FORWARD) * glm::angleAxis(glm::radians(-90.0f), Constants::UP);
@@ -329,6 +211,140 @@ namespace EnGl
 			}, "pointLight"
 		);
 
+		GameContext context{};
+		f64 timeLastFrame = 0.0f;
+		
+		context.Cubemap.Asset = cubemapHadle;
+		context.Cubemap.Id = cubemapEntity;
+		auto [depth, g1] = m_Framebuffer->Depth();
+		context.Framebuffer.DepthTextureOpaque = AssetManager::Put(Texture2D{ depth });
+
+		Framebuffer::CreationInfo dinfo0;
+		dinfo0.DepthAttachment = AssetManager::Put<Texture2D>(
+			Texture2D{
+				context.Renderer.CascadedShadowMap.TextureSize[0], context.Renderer.CascadedShadowMap.TextureSize[0],
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_DEPTH_COMPONENT,
+					.GpuFormat = GL_DEPTH_COMPONENT24,
+					.DataType = GL_FLOAT,
+					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
+				}
+			}
+		);
+		Framebuffer dirShadowFramebuffer0{dinfo0};
+		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[0] = &dirShadowFramebuffer0;
+
+		Framebuffer::CreationInfo dinfo1;
+		dinfo1.DepthAttachment = AssetManager::Put<Texture2D>(
+			Texture2D{
+				context.Renderer.CascadedShadowMap.TextureSize[1], context.Renderer.CascadedShadowMap.TextureSize[1],
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_DEPTH_COMPONENT,
+					.GpuFormat = GL_DEPTH_COMPONENT24,
+					.DataType = GL_FLOAT,
+					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
+				}
+			}
+		);
+		Framebuffer dirShadowFramebuffer1{ dinfo1 };
+		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[1] = &dirShadowFramebuffer1;
+
+		Framebuffer::CreationInfo dinfo2;
+		dinfo2.DepthAttachment = AssetManager::Put<Texture2D>(
+			Texture2D{
+				context.Renderer.CascadedShadowMap.TextureSize[2], context.Renderer.CascadedShadowMap.TextureSize[2],
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_DEPTH_COMPONENT,
+					.GpuFormat = GL_DEPTH_COMPONENT24,
+					.DataType = GL_FLOAT,
+					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
+				}
+			}
+		);
+		Framebuffer dirShadowFramebuffer2{ dinfo2 };
+		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[2] = &dirShadowFramebuffer2;
+
+
+		Entity camera0 = World().eEntity().Create<
+			Component::Transform,
+			Component::Velocity,
+			Component::ViewMatrix,
+			Component::ProjectionMatrix,
+			Component::OrthogonalProjection
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
+			{
+				cam.NearPlane = 0.1f;
+				cam.FarPlane = 5000.0f;
+
+				cam.Bottom = -1000.0f;
+				cam.Right = 1000.0f;
+				cam.Left = -1000.0f;
+				cam.Top = 1000.0f;
+
+				mov.Speed = 100.0f;
+				transform.Position = { 0.0f, 100.0f, 0.0f };
+				transform.Rotation =
+					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+			}, "Camera0");
+
+		Entity camera1 = World().eEntity().Create<
+			Component::Transform,
+			Component::Velocity,
+			Component::ViewMatrix,
+			Component::ProjectionMatrix,
+			Component::OrthogonalProjection
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
+			{
+				cam.NearPlane = 0.1f;
+				cam.FarPlane = 5000.0f;
+
+				cam.Bottom = -1000.0f;
+				cam.Right = 1000.0f;
+				cam.Left = -1000.0f;
+				cam.Top = 1000.0f;
+
+				mov.Speed = 100.0f;
+				transform.Position = { 0.0f, 100.0f, 0.0f };
+				transform.Rotation =
+					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+			}, "Camera1");
+
+
+		Entity camera2 = World().eEntity().Create<
+			Component::Transform,
+			Component::Velocity,
+			Component::ViewMatrix,
+			Component::ProjectionMatrix,
+			Component::OrthogonalProjection
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
+			{
+				cam.NearPlane = 0.1f;
+				cam.FarPlane = 5000.0f;
+
+				cam.Bottom = -1000.0f;
+				cam.Right = 1000.0f;
+				cam.Left = -1000.0f;
+				cam.Top = 1000.0f;
+
+				mov.Speed = 100.0f;
+				transform.Position = { 0.0f, 100.0f, 0.0f };
+				transform.Rotation =
+					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+			}, "Camera2");
+
+		context.Renderer.CascadedShadowMap.CascadeCamera[0] = camera0;
+		context.Renderer.CascadedShadowMap.CascadeCamera[1] = camera1;
+		context.Renderer.CascadedShadowMap.CascadeCamera[2] = camera2;
+
+		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
+		context.DirLight.Id = dirLight;
+
+		context.Camera.Cameras.push_back({ .Entity = camera, .CanRotate = true });
+		context.Camera.Cameras.push_back({ .Entity = camera0 });
+		context.Camera.Cameras.push_back({ .Entity = camera1 });
+		context.Camera.Cameras.push_back({ .Entity = camera2 });
+
+
 		World().eSystem<GameContext>()
 			.Add<System::Input>()
 			.Add<System::Movement>()
@@ -341,43 +357,17 @@ namespace EnGl
 			.Add<System::CollisionDetection>()
 			.Add<System::Gravity>()
 			.Add<System::CollectLights>()
+			.Add<System::CascadedShadowMaps>()
 			.Add<WaterSystem>()
 			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
 			.Add<System::RenderToFramebuffer>()
-			//.Add<TerrainSystem>()
+			.Add<TerrainSystem>()
 			.Add<CloudSystem>()
+			.Add<System::UpdateCubemap>()
 			.Add<System::RenderToDefaultFramebuffer>()
 			.Add<System::Cleanup>()
 			.Init();
-
-		GameContext context{};
-		f64 timeLastFrame = 0.0f;
-		context.Camera.Cameras.push_back({ .Entity = camera, .CanRotate = true });
-		context.Camera.Cameras.push_back({ .Entity = camera2 });
-		auto [cubemap, g0] = AssetManager::GetAsset(cubemapHadle);
-		context.Cubemap = cubemap;
-		auto [depth, g1] = m_Framebuffer->Depth();
-		context.Framebuffer.DepthTextureOpaque = AssetManager::Put(Texture2D{ depth });
-		m_Framebuffer->DoubleBuffer();
-		Framebuffer::CreationInfo dinfo;
-		dinfo.DepthAttachment = AssetManager::Put<Texture2D>(
-			Texture2D{
-				1024, 1024,
-				Texture::CreationInfoFromData{
-					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT24,
-					.DataType = GL_FLOAT,
-					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
-				}
-			}
-		);
-
-		Framebuffer dirShadowFramebuffer{dinfo};
-		context.Camera.DirShadowCameraIdx = 1;
-
-		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
-		context.Framebuffer.DirShadowFramebuffer = &dirShadowFramebuffer;
 
 		while (!glfwWindowShouldClose(m_Window))
 		{

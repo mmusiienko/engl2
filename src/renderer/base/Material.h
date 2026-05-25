@@ -202,12 +202,12 @@ namespace EnGl
 				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
-				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				if (shadowMap)
-				{
-					m_Shader->SetUniform("uShadowMap", *shadowMap, 0);
-					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				}
+				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				//if (shadowMap)
+				//{
+				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 0);
+				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				//}
 
 				return ok;
 			}
@@ -260,12 +260,12 @@ namespace EnGl
 				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
-				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				if (shadowMap)
-				{
-					m_Shader->SetUniform("uShadowMap", *shadowMap, 5);
-					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				}
+				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				//if (shadowMap)
+				//{
+				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 5);
+				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				//}
 
 				return ok;
 			}
@@ -320,12 +320,12 @@ namespace EnGl
 				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 				m_Shader->SetUniform("uPointLights", context.PointLights);
 
-				auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				if (shadowMap)
-				{
-					m_Shader->SetUniform("uShadowMap", *shadowMap, 4);
-					m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				}
+				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+				//if (shadowMap)
+				//{
+				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 4);
+				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+				//}
 
 				return ok;
 			}

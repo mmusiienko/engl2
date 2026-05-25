@@ -190,9 +190,12 @@ namespace EnGl
 			m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
 			m_Shader->SetUniform("uPointLights", context.PointLights);
 
-			if (context.Cubemap)
+
+			auto cubemap = AssetManager::GetAsset(context.Cubemap.Asset).Asset;
+
+			if (cubemap)
 			{
-				m_Shader->SetUniform("uCubemap", *context.Cubemap, 0);
+				m_Shader->SetUniform("uCubemap", *cubemap, 0);
 			}
 
 			auto foam = AssetManager::GetAsset(m_FoamTex).Asset;
@@ -203,12 +206,12 @@ namespace EnGl
 				m_Shader->SetUniform("uDepth", *depth, 2);
 			}
 
-			auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-			if (shadowMap)
-			{
-				m_Shader->SetUniform("uShadowMap", *shadowMap, 3);
-				m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-			}
+			//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
+			//if (shadowMap)
+			//{
+			//	m_Shader->SetUniform("uShadowMap", *shadowMap, 3);
+			//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
+			//}
 
 			for (u32 i = 0; i < WaterSystem::NCascades; i++)
 			{
@@ -228,7 +231,7 @@ namespace EnGl
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].N", m_WaterSystem.m_Cascades[i].m_CommonData.N);
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].L", m_WaterSystem.m_Cascades[i].m_SpectrumData.L);
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Tiling", m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1 / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
+				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1.0f / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamScale", m_WaterSystem.m_Cascades[i].m_CommonData.FoamAdd);
 				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamFlatSubtract", m_WaterSystem.m_Cascades[i].m_CommonData.FoamDecay);
 			}

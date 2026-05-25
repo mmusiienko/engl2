@@ -21,12 +21,12 @@ const float Gy[9] = float[9](
 
 float linDepth(float depth)
 {
-    float z = depth * 2.0 - 1.0;
-    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+    return uNear / depth;
 }
 
 uniform float uResScale = 4.0;
 uniform uvec2 uResolution = uvec2(1920u, 1080u);
+const float thershold = 0.1;
 
 void main()
 {
@@ -35,6 +35,8 @@ void main()
 
     float accumx = float(0.0);
     float accumy = float(0.0);
+    float accumdx = float(0.0);
+    float accumdy = float(0.0);
 
     for (int i = -1; i <= 1; i++)
     {
@@ -44,13 +46,20 @@ void main()
 
             ivec2 samplePos = clamp(pos + ivec2(i, j) * int(uResScale), ivec2(0), size - 1);
             vec4 s = imageLoad(Source, samplePos);
+            float sd = min(linDepth(texelFetch(uDepth, samplePos, 0).r), 1e9) / 1e9;
 
             accumx += Gx[ki] * s.a;
             accumy += Gy[ki] * s.a;
+
+            accumdx += Gx[ki] * sd;
+            accumdy += Gy[ki] * sd;
         }
     }
 
     float grad = sqrt(accumx * accumx + accumy * accumy);
-
-    imageStore(Dest, pos, vec4(grad));
+    float gradd = sqrt(accumdx * accumdx + accumdy * accumdy);
+    float val1 = grad > thershold && gradd > thershold ? 1 : 0;
+    float val2 = grad > thershold ? 1 : 0;
+    //imageStore(Dest, pos, vec4(grad > thershold && gradd > thershold));
+    imageStore(Dest, pos, vec4(val1));
 }

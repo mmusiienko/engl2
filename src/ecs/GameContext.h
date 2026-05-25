@@ -42,13 +42,10 @@ namespace EnGl
 			};
 
 			std::vector<Camera> Cameras;
-			size_t CameraIdx = 0;
-			size_t DirShadowCameraIdx = 0;
+			u32 CameraIdx = 0;
 
 			inline Camera& Get() { return Cameras[CameraIdx]; }
-			inline Camera& GetDirShadowCamera() { return Cameras[DirShadowCameraIdx]; }
 			inline const Camera& Get() const { return Cameras[CameraIdx]; }
-			inline const Camera& GetDirShadowCamera() const { return Cameras[DirShadowCameraIdx]; }
 		};
 
 		struct InstancedMaterialMapKey
@@ -99,6 +96,17 @@ namespace EnGl
 			std::array<MaterialMap, Component::RenderLayerNumber> PerMaterial;
 			std::array<InstancedMaterialMap, Component::RenderLayerNumber> PerInstancedMaterial;
 			AssetHandle<Material::Base> MaterialOverride;
+			struct CascadedShadowMapInfo
+			{
+
+
+				static constexpr u32 NShadowMapCascades = 3u;
+
+				Entity CascadeCamera[NShadowMapCascades];
+				Framebuffer* DirShadowFramebuffer[NShadowMapCascades];
+				u32 TextureSize[NShadowMapCascades]{ 2048u, 2048u, 4096u };
+				f32 DepthSplit[NShadowMapCascades]{ 0.883f, 0.994f, 1.0f };
+			} CascadedShadowMap;
 		};
 
 		f64 Time = 0.0f;
@@ -114,12 +122,16 @@ namespace EnGl
 		{
 			AssetHandle<Texture2D> DepthTextureOpaque{};
 			Framebuffer* MainFramebuffer = nullptr;
-			Framebuffer* DirShadowFramebuffer = nullptr;
 		};
 
 		FramebufferInfo Framebuffer;
 
-		Cubemap* Cubemap = nullptr;
+		struct CubemapInfo
+		{
+			AssetHandle<Cubemap> Asset{};
+			Entity Id;
+			bool Dirty = false;
+		} Cubemap;
 
 		struct DebugInfo
 		{
@@ -141,6 +153,7 @@ namespace EnGl
 		struct DirLightContext
 		{
 			Shader::UniformDirectionalLight Data;
+			glm::quat Rotation;
 			Entity Id = 0;
 		} DirLight;
 

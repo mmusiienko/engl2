@@ -12,5 +12,5 @@ void main()
     vTexCoords = aPos;
 
     vec4 pos = uProjection * uView * vec4(aPos, 1.0);
-    gl_Position = pos.xyww;
+    gl_Position = vec4(pos.xy, 0.0, pos.w);
 }  
