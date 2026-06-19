@@ -36,8 +36,29 @@ namespace EnGl
 		stbi_image_free(data);
 	}
 
+	FileSystem::RaiiImageData FileSystem::ReadImageFromMemory(
+		const std::string& name,
+		unsigned char* embeddedData, 
+		i32 embeddedLength, 
+		i32* width, i32* height, i32* nrChannels, 
+		i32 reqChannels, bool flip
+	)
+	{
+		stbi_set_flip_vertically_on_load(flip);
 
-	FileSystem::RaiiImageData FileSystem::ReadImage(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels, bool flip)
+		unsigned char* data = stbi_load_from_memory(embeddedData, embeddedLength, width, height, nrChannels, reqChannels);
+
+		if (*width <= 0 || *height <= 0 || !data)
+		{
+			const char* reason = stbi_failure_reason();
+			spdlog::error("Failed to load {}: {}", name, reason ? reason : "unknown error");
+			throw std::runtime_error("Failed to load texture");
+		}
+
+		return data;
+	}
+
+	FileSystem::RaiiImageData FileSystem::ReadImage(const std::filesystem::path& path, i32* width, i32* height, i32* nrChannels, i32 reqChannels, bool flip)
 	{
 		stbi_set_flip_vertically_on_load(flip);
 		

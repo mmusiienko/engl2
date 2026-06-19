@@ -31,6 +31,7 @@ namespace EnGl
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		//ImGuizmo::BeginFrame();
 
 		Frame(context, manager, registry);
 

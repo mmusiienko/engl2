@@ -14,11 +14,9 @@ namespace EnGl
     template<typename T>
     concept ECSComponent =
         std::is_default_constructible_v<T> &&
-        std::is_copy_constructible_v<T> &&
-        std::is_copy_assignable_v<T> &&
         std::is_move_constructible_v<T> &&
-        std::is_move_assignable_v<T> &&
-        std::is_trivially_destructible_v<T>;
+        std::is_move_assignable_v<T>
+    ;
 
     using Entity = u32;
 
@@ -507,6 +505,12 @@ namespace EnGl
         public:
 
             template<ECSComponent... Cs>
+            CSignature GetSignature()
+            {
+                return m_ComponentStorage.GetSignature<Cs...>();
+            }
+
+            template<ECSComponent... Cs>
             Entity Create(std::string name = "Entity")
             {
                 Entity id = NextId();
@@ -606,26 +610,32 @@ namespace EnGl
 
             struct Iterator
             {
-                Iterator(EntityManager* manager, const CSignature& signature, Entity c = 0) : Manager(manager), Signature(signature), Curr(c)
+                Iterator(EntityManager* manager, const CSignature& signature, const CSignature& excludeSignature = {}, Entity c = 0) : Manager(manager), Signature(signature), ExcludeSignature(signature), Curr(c)
                 {
                     SkipInvalid();
                 }
 
+                Iterator Exclude(const CSignature& excludeSignature)
+                {
+                    return Iterator{ Manager, Signature, excludeSignature, Curr };
+                }
+
                 Iterator begin()
                 {
-                    return Iterator(Manager, Signature, 0);
+                    return Iterator(Manager, Signature, ExcludeSignature, 0);
                 }
 
                 Iterator end()
                 {
-                    return Iterator(Manager, Signature, static_cast<Entity>(Manager->m_Entities.size()));
+                    return Iterator(Manager, Signature, ExcludeSignature, static_cast<Entity>(Manager->m_Entities.size()));
                 }
 
                 void SkipInvalid()
                 {
                     while (
                         Curr < Manager->m_Entities.size() && !Manager->m_Entities[Curr] &&
-                        ((Signature & Manager->m_Signatures[Curr]) == Signature)
+                        ((Signature & Manager->m_Signatures[Curr]) == Signature) &&
+                        (Signature & ExcludeSignature).none()
                         )
                     {
                         Curr++;
@@ -648,7 +658,7 @@ namespace EnGl
 
                 bool operator==(const Iterator& other) const
                 {
-                    return Curr == other.Curr && Signature == other.Signature;
+                    return Curr == other.Curr && Signature == other.Signature && ExcludeSignature == other.ExcludeSignature;
                 }
 
                 bool operator!=(const Iterator& other) const
@@ -662,6 +672,7 @@ namespace EnGl
                 }
 
                 const CSignature& Signature;
+                const CSignature& ExcludeSignature;
                 EntityManager* Manager = nullptr;
             private:
                 Entity Curr = 0;

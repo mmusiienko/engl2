@@ -28,20 +28,35 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				auto query = manager.Query<Component::Transform, Component::ModelMatrix>();
+				auto query1 = manager.Query<Component::Transform, Component::LocalModelMatrix>();
 
-				for (auto [e, transform, model] : query)
+				for (auto [e, transform, model] : query1)
 				{
 					if (transform.Dirty)
 					{
 						UpdateModelMatrix(model.CachedModel, transform);
-
 						model.Dirty = true;
 					} else if (transform.OnlyPosDirty)
 					{
 						UpdateModelOnlyPos(model.CachedModel, transform.Position);
-
 						model.Dirty = true;
+					}
+
+					transform.Dirty = false;
+					transform.OnlyPosDirty = false;
+				}
+
+				auto query2 = manager.Query<Component::Transform, Component::ModelMatrix>().Exclude<Component::LocalModelMatrix>();
+
+				for (auto [e, transform, model] : query2)
+				{
+					if (transform.Dirty)
+					{
+						UpdateModelMatrix(model.CachedModel, transform);
+					}
+					else if (transform.OnlyPosDirty)
+					{
+						UpdateModelOnlyPos(model.CachedModel, transform.Position);
 					}
 
 					transform.Dirty = false;
@@ -64,6 +79,62 @@ namespace EnGl
 				original[3][0] = pos.x;
 				original[3][1] = pos.y;
 				original[3][2] = pos.z;
+			}
+		};
+
+		class SceneGraph : public SystemImpl
+		{
+			void CollapseMatrices(EcsImpl::EntityManager& manager, Entity e, glm::mat4& currentMatrix, bool dirty)
+			{
+				auto [m, lm] = manager.Get<Component::ModelMatrix, Component::LocalModelMatrix>(e);;
+				dirty |= lm.Dirty;
+
+				if (dirty)
+				{
+					m.CachedModel = currentMatrix * lm.CachedModel;
+				}
+
+				lm.Dirty = false;
+
+				if (!manager.Has<Component::Children>(e))
+					return;
+
+				auto& c = manager.Get<Component::Children>(e);
+				for (auto& child : c.Children)
+				{
+					glm::mat4 mat = m.CachedModel;
+					CollapseMatrices(manager, child, mat, dirty);
+				}
+			}
+
+			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
+			{
+				auto query = manager.Query<Component::ModelMatrix, Component::LocalModelMatrix, Component::Children>().Exclude<Component::Parent>();
+
+				for (auto [e, m, lm, c] : query)
+				{
+					if (lm.Dirty)
+					{
+						m.CachedModel = lm.CachedModel;
+					}
+
+					for (auto& child : c.Children)
+					{
+						glm::mat4 id = m.CachedModel;
+						CollapseMatrices(manager, child, id, lm.Dirty);
+					}
+
+					lm.Dirty = false;
+				}
+
+				auto query2 = manager.Query<Component::ModelMatrix, Component::LocalModelMatrix>().Exclude<Component::Children, Component::Parent>();
+
+				for (auto [e, m, lm] : query2)
+				{
+					if (lm.Dirty)
+						m.CachedModel = lm.CachedModel;
+					lm.Dirty = false;
+				}
 			}
 		};
 
@@ -97,10 +168,9 @@ namespace EnGl
 
 				for (auto [e, transform, rot] : query)
 				{
-					transform.Rotation *= glm::angleAxis(rot.Velocity.x * context.DeltaTime, Constants::FORWARD);
-					transform.Rotation *= glm::angleAxis(rot.Velocity.y * context.DeltaTime, Constants::UP);
-					transform.Rotation *= glm::angleAxis(rot.Velocity.z * context.DeltaTime, Constants::RIGHT);
-
+					transform.Rotation *= glm::normalize(glm::angleAxis(rot.Velocity.x * context.DeltaTime, Constants::RIGHT));
+					transform.Rotation *= glm::normalize(glm::angleAxis(rot.Velocity.y * context.DeltaTime, Constants::UP));
+					transform.Rotation *= glm::normalize(glm::angleAxis(rot.Velocity.z * context.DeltaTime, Constants::FORWARD));
 					transform.Dirty = true;
 				}
 			}
@@ -126,25 +196,11 @@ namespace EnGl
 			}
 		};
 
-		class CameraIntersectWorld : public SystemImpl
-		{
-			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
-			{
-				auto query = manager.Query<Component::Transform, Component::Velocity>();
-
-				for (auto [e, transform, velocity] : query)
-				{
-					transform.Position += context.DeltaTime * velocity.Speed * velocity.NormalizedDirection;
-					transform.OnlyPosDirty = true;
-				}
-			}
-		};
-
 		class Input : public SystemImpl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				auto [transform, movement] = manager.Get<Component::Transform, Component::Velocity>(context.Camera.Get().Entity);
+				auto [transform, movement] = manager.Get<Component::Transform, Component::Velocity>(context.Camera.GetEntity());
 				glm::vec3 direction{};
 				if (InputHandler::State.KeysHeld[GLFW_KEY_W])
 					direction.z -= 1;
@@ -195,12 +251,11 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				auto query = manager.Query<Component::Transform, Component::ViewMatrix>();
+				auto query = manager.Query<Component::ModelMatrix, Component::ViewMatrix>();
 
-				for (auto [e, transform, view] : query)
+				for (auto [e, m, view] : query)
 				{
-					view.CachedView = glm::mat4_cast(glm::conjugate(transform.Rotation)) *
-						glm::translate(glm::mat4(1.0f), -transform.Position);
+					view.CachedView = glm::inverse(m.CachedModel);
 				}
 			}
 		};
@@ -236,14 +291,18 @@ namespace EnGl
 				{
 					if (ortho.Dirty)
 					{
-						proj.CachedProjection = glm::ortho(
-							ortho.Left,
-							ortho.Right,
-							ortho.Bottom,
-							ortho.Top,
-							ortho.NearPlane,
-							ortho.FarPlane
-						);
+						glm::mat4 mat{1.0f};
+
+						mat[0][0] = 2.0f / (ortho.Right - ortho.Left);
+						mat[1][1] = 2.0f / (ortho.Top - ortho.Bottom);
+						mat[2][2] = 1.0f / (ortho.NearPlane - ortho.FarPlane);
+
+						//mat[3][0] = -(ortho.Right + ortho.Left) / (ortho.Right - ortho.Left);
+						//mat[3][1] = -(ortho.Top + ortho.Bottom) / (ortho.Top - ortho.Bottom);
+						//mat[3][2] = ortho.NearPlane / (ortho.NearPlane - ortho.FarPlane);
+					
+						proj.CachedProjection = mat;
+
 						ortho.Dirty = false;
 					}
 				}
@@ -254,40 +313,42 @@ namespace EnGl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
-				for (auto& camera : context.Camera.Cameras)
+				for (auto& [e, camera] : context.Camera.Cameras)
 				{
-					auto [view, proj, transform] = manager.Get<
+					auto [view, proj, m] = manager.Get<
 						Component::ViewMatrix,
 						Component::ProjectionMatrix,
-						Component::Transform
-					>(camera.Entity);
+						Component::ModelMatrix
+					>(e);
 
 					camera.InverseViewLastFrame = camera.InverseView;
 					camera.InverseProjectionLastFrame = camera.InverseProjection;
 					camera.InverseViewProjectionLastFrame = camera.InverseViewProjection;
 					camera.ViewProjectionLastFrame = camera.ViewProjection;
-					camera.ViewLastFrame = camera.View ? *camera.View : camera.ViewLastFrame;
-					camera.ProjectionLastFrame = camera.View ? *camera.Projection : camera.ProjectionLastFrame;
+					camera.ViewLastFrame = camera.View;
+					camera.ProjectionLastFrame = camera.Projection;
 
-					camera.Position = &transform.Position;
-					camera.Forward = transform.Rotation * Constants::FORWARD;
-					camera.View = &view.CachedView;
+					camera.Position = m.CachedModel[3];
+					camera.Forward = -glm::normalize(m.CachedModel[2]);
+					camera.View = view.CachedView;
 					camera.InverseView = glm::inverse(view.CachedView);
-					camera.Projection = &proj.CachedProjection;
+					camera.Projection = proj.CachedProjection;
 					camera.InverseProjection = glm::inverse(proj.CachedProjection);
 					camera.ViewProjection = proj.CachedProjection * view.CachedView;
 					camera.InverseViewProjection = glm::inverse(camera.ViewProjection);
 					
 
-					if (manager.Has<Component::PerspectiveProjection>(camera.Entity))
+					if (manager.Has<Component::PerspectiveProjection>(e))
 					{
-						auto persp = manager.Get<Component::PerspectiveProjection>(camera.Entity);
+						auto persp = manager.Get<Component::PerspectiveProjection>(e);
 						camera.Near = persp.NearPlane;
 						camera.Far = persp.FarPlane;
+						camera.Fov = glm::radians(persp.FovDegree);
+						camera.Aspect = persp.Aspect;
 					}
-					else if (manager.Has<Component::OrthogonalProjection>(camera.Entity))
+					else if (manager.Has<Component::OrthogonalProjection>(e))
 					{
-						auto persp = manager.Get<Component::OrthogonalProjection>(camera.Entity);
+						auto persp = manager.Get<Component::OrthogonalProjection>(e);
 						camera.Near = persp.NearPlane;
 						camera.Far = persp.FarPlane;
 					}
@@ -316,102 +377,6 @@ namespace EnGl
 			}
 		};
 
-		class CascadedShadowMaps : public SystemImpl
-		{
-			static constexpr std::array<glm::vec2, 4> ndcFrustrumCoords
-			{
-				glm::vec2{-1.0f, -1.0f},
-				glm::vec2{-1.0f, 1.0f},
-				glm::vec2{1.0f, 1.0f},
-				glm::vec2{1.0f, -1.0f}
-			};
-
-			static std::array<glm::vec3, 8> GetTransformedCorners(GameContext& context, f32 z1, f32 z2)
-			{
-				std::array<glm::vec3, 8> res;
-				u32 i = 0;
-
-				for (u32 z = 0; z <= 1; z++)
-				{
-					for (const auto& corner : ndcFrustrumCoords)
-					{
-						auto transformedVec = context.Camera.Get().InverseViewProjection * glm::vec4{ corner.x ,corner.y, z1 * (1 - z) + z2 * z, 1.0f };
-						res[i] = transformedVec / transformedVec.w;
-						i++;
-					}
-				}
-
-				return res;
-			}
-
-			glm::vec3 FindCenter(const std::array<glm::vec3, 8>& frustrumCorners, const glm::vec3& lightDir, f32 resolution)
-			{
-				glm::vec3 center{};
-				for (const auto& corner : frustrumCorners)
-				{
-					center += corner;
-				}
-				center *= 0.125f;
-
-				glm::mat4 lookat = glm::lookAt(
-					glm::vec3{0.0f},
-					lightDir,
-					Constants::UP
-				);
-				 
-				lookat = glm::scale(glm::mat4{ 1.0f }, glm::vec3{ resolution }) * lookat;
-				glm::mat4 lookatInv = glm::inverse(lookat);
-
-				glm::vec4 lightSpaceCenter = lookat * glm::vec4{center, 1.0f};
-				lightSpaceCenter.x = glm::floor(lightSpaceCenter.x);
-				lightSpaceCenter.y = glm::floor(lightSpaceCenter.y);
-				center = glm::vec3{ lookatInv * lightSpaceCenter };
-
-				return center;
-			}
-
-			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
-			{
-				auto& cam = context.Camera.Get();
-				
-				f32 z1 = -1.0f;
-
-				for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
-				{
-					if (cam.Entity == context.Renderer.CascadedShadowMap.CascadeCamera[i]) continue;
-
-					f32 z2 = context.Renderer.CascadedShadowMap.DepthSplit[i];
-
-					auto corners = GetTransformedCorners(context, z1, z2);
-
-					f32 radius = glm::length(corners[6] - corners[0]) * 0.5f;
-
-					f32 resolution = context.Renderer.CascadedShadowMap.TextureSize[i] / radius * 0.5f;
-
-					auto center = FindCenter(corners, context.DirLight.Data.Direction, resolution);
-
-					Entity cam = context.Renderer.CascadedShadowMap.CascadeCamera[i];
-
-					auto [camTransform, view, proj] = manager.Get<Component::Transform, Component::ViewMatrix, Component::OrthogonalProjection>(cam);
-
-					camTransform.Rotation = context.DirLight.Rotation;
-					camTransform.Position = center + context.DirLight.Data.Direction * radius * 2.0f;
-					camTransform.Dirty = true;
-					
-					proj.Dirty = true;
-					proj.Left = -radius;
-					proj.Right = radius;
-					proj.Bottom = -radius;
-					proj.Top = radius;
-					proj.NearPlane = -radius * 6.0f;
-					proj.FarPlane = radius * 6.0f;
-
-					z1 = z2;
-				}
-
-			}
-		};
-
 		class CollectLights : public SystemImpl
 		{
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
@@ -423,20 +388,7 @@ namespace EnGl
 				{
 					auto dir = -glm::normalize(t.Rotation * Constants::FORWARD);
 					context.DirLight = { .Data = {.Direction = dir, .Color = d.Color}, .Rotation = t.Rotation, .Id = e };
-
-					//auto dirCamera = context.Camera.GetDirShadowCamera().Entity;
-					//auto& dirCamTransform = manager.Get<Component::Transform>(dirCamera);
-
-					//dirCamTransform.Rotation = t.Rotation;
-					//dirCamTransform.Dirty = true;
-
-					//auto camera = context.Camera.Get().Entity;
-					//if (camera != dirCamera)
-					//{
-					//	const auto& camTransform = manager.Get<Component::Transform>(camera);
-
-					//	dirCamTransform.Position = camTransform.Position + dir * m_DirLightCameraDist;
-					//}
+					break;
 				}
 
 				size_t i = 0;
@@ -462,18 +414,18 @@ namespace EnGl
 			{ 
 				if (context.Debug.Draw.Enabled && context.Debug.Draw.Camera)
 				{
-					static const glm::vec4 tln{ -1.0f, 1.0f, -1.0f, 1.0f };
-					static const glm::vec4 bln{ -1.0f, -1.0f, -1.0f, 1.0f };
-					static const glm::vec4 trn{ 1.0f, 1.0f, -1.0f, 1.0f };
-					static const glm::vec4 brn{ 1.0f, -1.0f, -1.0f, 1.0f };
-					static f32 farDistDebug = 50.0f;
-					static f32 forwardDistDebug = farDistDebug * 2.0f;
+					static const glm::vec4 tln{ -1.0f, 1.0f, 1.0f, 1.0f };
+					static const glm::vec4 bln{ -1.0f, -1.0f, 1.0f, 1.0f };
+					static const glm::vec4 trn{ 1.0f, 1.0f, 1.0f, 1.0f };
+					static const glm::vec4 brn{ 1.0f, -1.0f, 1.0f, 1.0f };
+					static const f32 farDistDebug = 50.0f;
+					static const f32 forwardDistDebug = farDistDebug * 2.0f;
 
-					for (const auto& [idx, camera] : std::views::enumerate(context.Camera.Cameras))
+					for (const auto& [e, camera] : context.Camera.Cameras)
 					{
-						if (camera.Entity == context.Camera.Get().Entity) continue;
+						if (e == context.Camera.GetEntity()) continue;
 
-						context.Debug.DebugMeshes.Line(*camera.Position, *camera.Position + forwardDistDebug * camera.Forward, DebugMesh::DEFAULT_COLOR, 0.1f);
+						context.Debug.DebugMeshes.Line(camera.Position, camera.Position + forwardDistDebug * camera.Forward, DebugMesh::DEFAULT_COLOR, 0.1f);
 
 						auto nearPlaneTl = camera.InverseViewProjection * tln;
 						auto nearPlaneBl = camera.InverseViewProjection * bln;
@@ -511,10 +463,10 @@ namespace EnGl
 						fbr = fcenter + glm::normalize(fbr - fcenter) * fscale;
 
 						context.Debug.DebugMeshes.FrameQuad(fbl, ftl, ftr, fbr, DebugMesh::DEFAULT_COLOR, 0.1f);
-						context.Debug.DebugMeshes.Line(*camera.Position, ftl, DebugMesh::DEFAULT_COLOR, 0.1f);
-						context.Debug.DebugMeshes.Line(*camera.Position, ftr, DebugMesh::DEFAULT_COLOR, 0.1f);
-						context.Debug.DebugMeshes.Line(*camera.Position, fbl, DebugMesh::DEFAULT_COLOR, 0.1f);
-						context.Debug.DebugMeshes.Line(*camera.Position, fbr, DebugMesh::DEFAULT_COLOR, 0.1f);
+						context.Debug.DebugMeshes.Line(camera.Position, ftl, DebugMesh::DEFAULT_COLOR, 0.1f);
+						context.Debug.DebugMeshes.Line(camera.Position, ftr, DebugMesh::DEFAULT_COLOR, 0.1f);
+						context.Debug.DebugMeshes.Line(camera.Position, fbl, DebugMesh::DEFAULT_COLOR, 0.1f);
+						context.Debug.DebugMeshes.Line(camera.Position, fbr, DebugMesh::DEFAULT_COLOR, 0.1f);
 
 					}
 				}
@@ -540,17 +492,18 @@ namespace EnGl
 					{
 						for (u32 i = 0; i < model->TotalMeshes(); i++)
 						{
-							AddToMaterialMap(context, model, i, transform, modelComp.Layer);
+							AddToMaterialMap(e, context, model, i, transform, modelComp.Layer);
 						}
 					}
 					else
 					{
-						AddToMaterialMap(context, model, modelComp.MeshIdx, transform, modelComp.Layer);
+						AddToMaterialMap(e, context, model, modelComp.MeshIdx, transform, modelComp.Layer);
 					}
 				}
 			}
 
 			static void AddToMaterialMap(
+				Entity entity,
 				GameContext& context,
 				Model* model,
 				u32 idx,
@@ -595,41 +548,51 @@ namespace EnGl
 							{
 								.Model = modelMatrix.CachedModel,
 								.Normal = glm::transpose(glm::inverse(modelMatrix.CachedModel))
-							}
+							},
+							.Entity= entity
 						}
 					);
 				}
 			}
 		};
 
-		static void RenderLayer(GameContext& context, u32 layer)
+		static void RenderLayer(EcsImpl::EntityManager& manager, GameContext& context, u32 layer, bool isUnlit)
 		{
-			auto materialOverride = AssetManager::GetAsset(context.Renderer.MaterialOverride).Asset;
-			bool isMaterialOverridden = (materialOverride != nullptr);
 
 			for (auto& [key, value] : context.Renderer.PerMaterial[layer])
 			{
-				auto material = (isMaterialOverridden) ? materialOverride : AssetManager::GetAssetNoCheck(value.InstanceDatas[0].Material);
+				auto material = AssetManager::GetAsset(value.InstanceDatas[0].Material).Asset;
 
-				bool ok = material->SetCommonUniforms(context);
+				if (!material) continue;
 
-				if (!ok)
-				{
-					spdlog::error("Error setting material.");
-				}
+				auto shaderH = isUnlit ? material->GetUnlit() : material->Get();
+				auto shader = AssetManager::GetAsset(shaderH).Asset;
+				if (!shader) continue;
 
-				auto shaderH = material->Get();
-				auto shader = AssetManager::GetAssetNoCheck(shaderH);
-				
+				isUnlit ? material->SetCommonUniformsUnlit(shader, context) : material->SetCommonUniforms(shader, context);
 
 				for (auto& data : value.InstanceDatas)
 				{
 					auto mesh = AssetManager::GetAssetNoCheck(data.Mesh);
 
-					material = (isMaterialOverridden) ? materialOverride : AssetManager::GetAssetNoCheck(data.Material);
+					auto matInstance = AssetManager::GetAsset(data.Material).Asset;
 
-					material->SetModel(shader, data.Data.Model, data.Data.Normal);
-					material->SetUniforms(shader);
+					if (!matInstance) continue;
+
+					isUnlit ? matInstance->SetModelUnlit(shader, data.Data.Model, data.Data.Normal) : matInstance->SetModel(shader, data.Data.Model, data.Data.Normal);
+					isUnlit ? matInstance->SetUniformsUnlit(shader) : matInstance->SetUniforms(shader);
+
+					if (manager.Has<Component::AnimationData>(data.Entity))
+					{
+						auto ad = manager.Get<Component::AnimationData>(data.Entity);
+						auto skelInstance = AssetManager::GetAsset(ad.Skeleton).Asset;
+						if (!skelInstance) continue;
+
+						auto ssbo = AssetManager::GetAsset(skelInstance->BoneTransforms).Asset;
+						if (!ssbo) continue;
+						ssbo->Bind(0);
+					}
+
 					mesh->Draw();
 
 					if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
@@ -642,21 +605,20 @@ namespace EnGl
 				}
 			}
 
+			//TODO: support instancing
 			for (auto& [key, value] : context.Renderer.PerInstancedMaterial[layer])
 			{
-				auto mesh = AssetManager::GetAssetNoCheck(key.MeshHandle);
-				auto material = AssetManager::GetAssetNoCheck(key.MaterialHandle);
+				auto mesh = AssetManager::GetAsset(key.MeshHandle).Asset;
+				auto material = AssetManager::GetAsset(key.MaterialHandle).Asset;
 
-				bool ok = material->SetCommonUniforms(context);
-				if (!ok)
-				{
-					spdlog::error("Error setting material.");
-				}
+				if (!mesh || !material) continue;
 
 				auto shaderH = material->Get();
-				auto shader = AssetManager::GetAssetNoCheck(shaderH);
+				auto shader = AssetManager::GetAsset(shaderH).Asset;
 
+				if (!shader) continue;
 
+				material->SetCommonUniforms(shader, context);
 				mesh->UpdateInstanceBuffer(value.Data);
 
 				if (context.Debug.Draw.Enabled && context.Debug.Draw.AABB)
@@ -684,75 +646,153 @@ namespace EnGl
 				m_Unlit = AssetManager::PutScope<Material::Base>(
 					std::move(unlit)
 				);
+
+				m_ShadowCombined = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
+						.CpuFormat = GL_RGBA,
+						.GpuFormat = GL_RGBA32F,
+						.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
+				});
 			}
 
 			void RenderShadows(EcsImpl::EntityManager& manager, GameContext& context)
 			{
-				context.Renderer.MaterialOverride = m_Unlit;
+				glEnable(GL_DEPTH_CLAMP);
+				glClearDepth(0.0);
+				glDepthFunc(GL_GREATER);
+				glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+				glEnable(GL_POLYGON_OFFSET_FILL);
+				glPolygonOffset(context.Renderer.CascadedShadowMap.PolygonOffset.x, context.Renderer.CascadedShadowMap.PolygonOffset.y);
 
-				u32 prevCamera = context.Camera.CameraIdx;
+				Entity prevCamera = context.Camera.GetEntity();
 				for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
 				{
 					context.Renderer.CascadedShadowMap.DirShadowFramebuffer[i]->Bind();
+
 					glClear(GL_DEPTH_BUFFER_BIT);
 					glDrawBuffer(GL_NONE);
 					glReadBuffer(GL_NONE);
-					u32 j = 0;
-					for (const auto& camera : context.Camera.Cameras)
-					{
-						if (camera.Entity == context.Renderer.CascadedShadowMap.CascadeCamera[i])
-						{
-							context.Camera.CameraIdx = j;
-							break;
-						}
-						j++;
-					}
-					RenderLayer(context, Component::RenderLayer::OQ);
+					context.Camera.SetCamera(context.Renderer.CascadedShadowMap.CascadeCamera[i]);
+
+					RenderLayer(manager, context, Component::RenderLayer::OQ, true);
+
+					//glEnable(GL_BLEND);
+					//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					//RenderLayer(context, Component::RenderLayer::TT, true);
+					//glDisable(GL_BLEND);
 				}
-				context.Camera.CameraIdx = prevCamera;
-				context.Renderer.MaterialOverride = {};
+				context.Camera.SetCamera(prevCamera);
+
+				glDisable(GL_DEPTH_CLAMP);
+				glDisable(GL_POLYGON_OFFSET_FILL);
+
+				DispatchCSMCombine(manager, context);
+
+				context.Renderer.CascadedShadowMap.ShadowMap = m_ShadowCombined;
+			}
+
+			void DispatchCSMCombine(EcsImpl::EntityManager& manager, GameContext& context)
+			{
+				auto shader = AssetManager::GetAsset(m_Combine).Asset;
+				if (!shader) return;
+
+				auto texture = AssetManager::GetAsset(m_ShadowCombined).Asset;
+				if (!texture)
+				{
+					return;
+				}
+
+				if (context.Framebuffer.MainFramebuffer->Resolution() != m_Res)
+				{
+					m_Res = context.Framebuffer.MainFramebuffer->Resolution();
+					texture->Properties().w = m_Res.x;
+					texture->Properties().h = m_Res.y;
+					texture->Update();
+				}
+
+				shader->Use();
+
+				shader->SetUniform("uInvView", context.Camera.Get().InverseView);
+				shader->SetUniform("uInvProjection", context.Camera.Get().InverseProjection);
+				shader->SetUniform("uResolution", m_Res);
+
+				shader->BindWriteTexture(*texture, 0u);
+
+				auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
+
+				if (!depth)
+				{
+					spdlog::error("Depth is not loaded");
+					return;
+				}
+
+				shader->SetUniform("uDepth", *depth, 1u);
+				shader->SetUniform("uNear", context.Camera.Get().Near);
+
+				for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
+				{
+
+					auto fb = context.Renderer.CascadedShadowMap.DirShadowFramebuffer[i];
+					auto e = context.Renderer.CascadedShadowMap.CascadeCamera[i];
+					auto depth = AssetManager::GetAsset(fb->Depth()).Asset;
+
+					if (!depth) { spdlog::error("Shadow framebuffer depth is not loaded"); continue; }
+
+					auto [view, proj] = manager.Get<Component::ViewMatrix, Component::ProjectionMatrix>(e);
+
+					auto formatted = std::format("uCascades[{}].", i);
+					shader->SetUniform(formatted + "LightViewProjection", proj.CachedProjection * view.CachedView);
+					shader->SetUniform(formatted + "ShadowMap", *depth, 2u + i);
+					shader->SetUniform(formatted + "Split", context.Renderer.CascadedShadowMap.DepthSplit[i]);
+				}
+
+				shader->DispatchWait(
+					ComputeShader::ComputeInfo{.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)), .GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f)) },
+					GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
+				);
 			}
 
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
+				
 				glPolygonMode(GL_FRONT_AND_BACK, context.Debug.DrawMode);
 				glDisable(GL_BLEND);
+				glDepthFunc(GL_GREATER);
 				glEnable(GL_DEPTH_TEST);
+
+				context.Framebuffer.MainFramebuffer->Bind();
+				glClear(GL_DEPTH_BUFFER_BIT);
+				glClear(GL_COLOR_BUFFER_BIT);
+				glDrawBuffer(GL_NONE);
+				glReadBuffer(GL_NONE);
+				RenderLayer(manager, context, Component::RenderLayer::OQ, true);
+
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				RenderLayer(manager, context, Component::RenderLayer::TT, true);
+				glDisable(GL_BLEND);
 
 				RenderShadows(manager, context);
 
 				context.Framebuffer.MainFramebuffer->Bind();
-				glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-				glDepthFunc(GL_GREATER);
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-				RenderLayer(context, Component::RenderLayer::OQ);
+				glDepthFunc(GL_GEQUAL);
+				glDrawBuffer(GL_COLOR_ATTACHMENT0);
+				glReadBuffer(GL_COLOR_ATTACHMENT0);
+				RenderLayer(manager, context, Component::RenderLayer::OQ, false);
 				
 				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_GEQUAL);
 				glDepthMask(GL_FALSE);
 				glCullFace(GL_FRONT);
 
-				RenderLayer(context, Component::RenderLayer::CUBEMAP);
+				RenderLayer(manager, context, Component::RenderLayer::CUBEMAP, false);
 				glDepthMask(GL_TRUE);
 				glCullFace(GL_BACK);
 
-				//copy depth
-				auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
-				auto depthOpaque = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque).Asset;
-
-				if (!depth)
-					spdlog::error("Depth is not loaded");
-				if (!depthOpaque)
-					spdlog::error("Depth opaque is not loaded");
-				if (depth && depthOpaque)
-					*depthOpaque = *depth;
-
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				RenderLayer(context, Component::RenderLayer::TT);
+				RenderLayer(manager, context, Component::RenderLayer::TT, false);
 
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-				RenderLayer(context, Component::RenderLayer::OL);
+				RenderLayer(manager, context, Component::RenderLayer::OL, false);
 				glDisable(GL_BLEND);
 
 				if (context.Debug.Draw.Enabled)
@@ -768,6 +808,12 @@ namespace EnGl
 			}
 
 			AssetHandle<Shader> m_DebugShader = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "DebugLines");
+			AssetHandle<ComputeShader> m_Combine = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CSMCombine");
+
+			AssetHandle<Texture2D> m_ShadowCombined;
+
+			glm::uvec2 m_Res{ 0u };
+
 			AssetHandle<Material::Base> m_Unlit;
 		};
 
@@ -782,13 +828,13 @@ namespace EnGl
 
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-				RenderLayer(context, Component::RenderLayer::SCREEN_QUAD);
+				RenderLayer(manager, context, Component::RenderLayer::SCREEN_QUAD, false);
 
 				glPolygonMode(GL_FRONT_AND_BACK, context.Debug.DrawMode);
 
 				for (u32 i = Component::RenderLayer::SCREEN_QUAD + 1; i < Component::RenderLayer::Count; i++)
 				{
-					RenderLayer(context, i);
+					RenderLayer(manager, context, i, false);
 				}
 			}
 		};
@@ -798,9 +844,6 @@ namespace EnGl
 			void Run(EcsImpl::EntityManager& manager, GameContext& context) override
 			{
 				auto queryModelMatrix = manager.Query<Component::ModelMatrix>();
-
-				for (auto [e, model] : queryModelMatrix)
-					model.Dirty = false;
 
 				for (u32 i = 0; i < Component::RenderLayer::Count; i++)
 				{

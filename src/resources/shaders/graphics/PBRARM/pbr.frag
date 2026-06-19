@@ -40,6 +40,7 @@ uniform sampler2D uShadowMap;
 uniform Material uMaterial;
 
 uniform vec3 uCameraPos;
+uniform uvec2 uResolution;
 
 float DistributionGGX(float NDotH, float roughness)
 {
@@ -71,10 +72,10 @@ vec3 DirectionalLight(UniformDirectionalLight light, vec3 V, vec3 F0, vec3 N, fl
 	vec3 L = light.Direction;
 
 	vec3 H = normalize(V + L);
-	float NDotH = max(dot(N, H), 0.0);
-	float NDotV = max(dot(N, V), 0.0);
-	float NDotL = max(dot(N, L), 0.0);
-	float HDotV = max(dot(H, V), 0.0);
+	float NDotH = max(dot(N, H), 0.0001);
+	float NDotV = max(dot(N, V), 0.0001);
+	float NDotL = max(dot(N, L), 0.0001);
+	float HDotV = max(dot(H, V), 0.0001);
 
 	float ndf = DistributionGGX(NDotH, r);
 	float G = GeometrySmith(NDotV, NDotL, r);
@@ -111,27 +112,10 @@ const float GAUSSIAN_3X3[9] = float[9](
     1, 2, 1
 );
 
-float Shadow()
+float Shadow(vec3 normal, UniformDirectionalLight light)
 {
-	vec3 proj = (vShadowPos.xyz / vShadowPos.w) * 0.5 + 0.5;
-
-	if (proj.z > 1)
-		return 0.0;
-
-	vec2 texelSize = 1.0 / textureSize(uShadowMap, 0);
-	float shadow = 0.0;
-	float bias = 0.01;
-
-	for(int x = -1; x <= 1; ++x)
-	{
-		for(int y = -1; y <= 1; ++y)
-		{
-			float depthShadowMap = texture(uShadowMap, proj.xy + vec2(x, y) * texelSize).r; 
-			shadow += proj.z - bias > depthShadowMap ? GAUSSIAN_3X3[(x + 1) * 3 + (y + 1)] : 0.0;        
-		}    
-	}
-
-	return shadow / 16.0;
+    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    return s.r;
 }
 
 const vec3 F0 = vec3(0.04); 
@@ -144,7 +128,7 @@ void main()
 	vec3 V = normalize(uCameraPos - vFragPos);  
 	vec4 clr = texture(uMaterial.Albedo, vTexCoords).rgba;
 
-	if (clr.a < 0.5) discard;
+	//if (clr.a < 0.5) discard;
 
 	vec3 arm = texture(uMaterial.ARM, vTexCoords).rgb;
 	vec3 albedo = clr.rgb;
@@ -154,7 +138,10 @@ void main()
 
 	vec3 normal = normalize(vNormal);
 	vec3 tangent = normalize(vTangent);
+
 	vec3 bitangent = normalize(vBitangent);
+	tangent = normalize(tangent - dot(tangent, normal) * normal);
+    bitangent = cross(normal, tangent);
 	mat3 TBN = mat3(tangent, bitangent, normal);
 
 	vec3 normalMap = texture(uMaterial.Normals, vTexCoords).rgb * 2.0 - 1.0;
@@ -162,8 +149,8 @@ void main()
 	vec3 N = normalize(TBN * normalMap);
 
     vec3 F0mix = mix(F0, albedo, metallic);
-
-	L0 += (1.0 - Shadow()) *DirectionalLight(uDirectionalLight, V, F0mix, N, metallic, roughness, albedo );
+	float shadow = Shadow(normal, uDirectionalLight);
+	L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, N, metallic, roughness, albedo );
 
 	for (uint i = 0; i < MAX_LIGHTS; i++)
 	{
@@ -172,5 +159,5 @@ void main()
 	
 	vec3 color = AMBIENT * albedo * ao + L0;
 
-	FragColor = vec4(vNormal, 1.0);
+	FragColor = vec4(color, 1.0);
 }

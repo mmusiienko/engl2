@@ -3,6 +3,7 @@
 #include <vector>
 #include <filesystem>
 
+#include "core/Core.h"
 
 namespace EnGl
 {
@@ -13,7 +14,7 @@ namespace EnGl
 		{
 			unsigned char* Data;
 
-			RaiiImageData(unsigned char* data) : Data(data) {}
+			RaiiImageData(unsigned char* data = nullptr) : Data(data) {}
 			RaiiImageData(const RaiiImageData& other) = delete;
 			RaiiImageData(RaiiImageData&& other) noexcept : Data(other.Data)
 			{
@@ -30,7 +31,14 @@ namespace EnGl
 		};
 
 		static std::vector<char> ReadFile(const std::filesystem::path& path);
-		static RaiiImageData ReadImage(const std::filesystem::path& path, int* width, int* height, int* nrChannels, int reqChannels, bool flip = false);
+		static RaiiImageData ReadImageFromMemory(
+			const std::string& name,
+			unsigned char* embeddedData,
+			i32 embeddedLength,
+			i32* width, i32* height, i32* nrChannels,
+			i32 reqChannels, bool flip
+		);
+		static RaiiImageData ReadImage(const std::filesystem::path& path, i32* width, i32* height, i32* nrChannels, i32 reqChannels, bool flip = false);
 		static void FreeImage(unsigned char* data);
 	};
 }

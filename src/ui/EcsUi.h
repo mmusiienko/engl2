@@ -15,7 +15,7 @@ namespace EnGl
 		{
 			struct EntityPanelInfo
 			{
-				EcsImpl::CSignature FilterSignature;
+				EcsImpl::CSignature FilterSignature{ true };
 				Entity SelectedEntity;
 				bool IsEntitySelected = false;
 				u32 Page = 0;
@@ -167,14 +167,14 @@ namespace EnGl
 			AddComponentBtn(entity, manager);
 			RemoveEntityBtn(entity, manager);
 		}
-		
+
 		template<ECSComponent C>
 		void ComponentView(Entity entity, GameContext& context, EcsImpl::EntityManager& manager, u32& i)
 		{
 			ImGui::PushID(i);
 			ImGui::Separator();
 			ImGui::Text("%s Component", Name<C>().data());
-			View<C>(manager.Get<C>(entity), context, manager);
+			View<C>(manager.Get<C>(entity), context, manager, entity);
 			RemoveComponentBtn<C>(entity, manager);
 			ImGui::PopID();
 			i++;
@@ -221,7 +221,7 @@ namespace EnGl
 				manager.Add<C>(entity);
 			}
 		}
-			
+
 		void RemoveEntityBtn(Entity entity, EcsImpl::EntityManager& manager)
 		{
 			if (ImGui::Button("--- Remove Entity"))
@@ -272,7 +272,10 @@ namespace EnGl
 			Component::SphereCollider,
 			Component::PhysicalMomentum,
 			Component::LengthConstraint,
-			Component::MaxLengthConstraint
+			Component::MaxLengthConstraint,
+			Component::ConstantRotation,
+			Component::AnimationData,
+			Component::Children
 		> UI_SUPPORTED;
 
 		template<ECSComponent C> static const std::string_view Name() { return "Component"; }
@@ -290,19 +293,131 @@ namespace EnGl
 		template<> static const std::string_view Name<Component::PhysicalMomentum>() { return "Physical Momentum"; }
 		template<> static const std::string_view Name<Component::LengthConstraint>() { return "Length Constraint"; }
 		template<> static const std::string_view Name<Component::MaxLengthConstraint>() { return "Max Length Constraint"; }
+		template<> static const std::string_view Name<Component::ConstantRotation>() { return "Constant Rotation"; }
+		template<> static const std::string_view Name<Component::AnimationData>() { return "Animation Data"; }
+		template<> static const std::string_view Name<Component::Children>() { return "Children"; }
 
-		template<ECSComponent C> void View(C& component, GameContext& context, EcsImpl::EntityManager& manager) {}
+		template<ECSComponent C> void View(C& component, GameContext& context, EcsImpl::EntityManager& manager, Entity entity) {}
+
+		//void EditTransform(float* cameraView, float* cameraProjection, float* matrix)
+		//{
+		//	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::ROTATE);
+		//	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+		//	if (ImGui::IsKeyPressed(ImGuiKey_T))
+		//		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+		//	if (ImGui::IsKeyPressed(ImGuiKey_E))
+		//		mCurrentGizmoOperation = ImGuizmo::ROTATE;
+		//	if (ImGui::IsKeyPressed(ImGuiKey_R))
+		//		mCurrentGizmoOperation = ImGuizmo::SCALE;
+		//	if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+		//		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+		//	ImGui::SameLine();
+		//	if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+		//		mCurrentGizmoOperation = ImGuizmo::ROTATE;
+		//	ImGui::SameLine();
+		//	if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+		//		mCurrentGizmoOperation = ImGuizmo::SCALE;
+		//	float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+		//	ImGuizmo::DecomposeMatrixToComponents(matrix, matrixTranslation, matrixRotation, matrixScale);
+		//	ImGui::InputFloat3("Tr", matrixTranslation);
+		//	ImGui::InputFloat3("Rt", matrixRotation);
+		//	ImGui::InputFloat3("Sc", matrixScale);
+		//	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, matrix);
+
+		//	if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+		//	{
+		//		if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+		//			mCurrentGizmoMode = ImGuizmo::LOCAL;
+		//		ImGui::SameLine();
+		//		if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+		//			mCurrentGizmoMode = ImGuizmo::WORLD;
+		//	}
+		//	static bool useSnap(false);
+		//	if (ImGui::IsKeyPressed(ImGuiKey_S))
+		//		useSnap = !useSnap;
+		//	ImGui::Checkbox("##useSnap", &useSnap);
+		//	ImGui::SameLine();
+		//	glm::vec3 snap;
+
+		//	static const glm::vec3 SNAP{};
+		//	switch (mCurrentGizmoOperation)
+		//	{
+		//	case ImGuizmo::TRANSLATE:
+		//		snap.x = SNAP.x;
+		//		ImGui::InputFloat3("Snap", &snap.x);
+		//		break;
+		//	case ImGuizmo::ROTATE:
+		//		snap.y = SNAP.y;
+		//		ImGui::InputFloat("Angle Snap", &snap.y);
+		//		break;
+		//	case ImGuizmo::SCALE:
+		//		snap.z = SNAP.z;
+		//		ImGui::InputFloat("Scale Snap", &snap.z);
+		//		break;
+		//	default:
+		//		break;
+		//	}
+		//	ImGuiIO& io = ImGui::GetIO();
+		//	ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+		//	ImGuizmo::Manipulate(cameraView, cameraProjection, mCurrentGizmoOperation,
+		//		mCurrentGizmoMode, matrix, NULL, useSnap ? &snap.x : NULL);
+		//}
 
 		template<>
-		void View<Component::Transform>(Component::Transform& transform, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::Transform>(Component::Transform& transform, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
+			const f32 DIST = 10.0f;
+			auto [camTransform, model] = manager.Get<Component::Transform, Component::ModelMatrix>(context.Camera.GetEntity());
+
+			if (ImGui::Button("Jump to"))
+			{
+				if (!manager.Has<Component::LocalModelMatrix>(entity))
+				{
+					camTransform.Position = transform.Position - DIST * context.Camera.Get().Forward;
+				}
+				else if (manager.Has<Component::ModelMatrix>(entity))
+				{
+					camTransform.Position = glm::vec3{ manager.Get<Component::ModelMatrix>(entity).CachedModel[3] } - DIST * context.Camera.Get().Forward;
+				}
+			}
+
 			transform.Dirty |= ImGui::InputFloat3("Position", glm::value_ptr(transform.Position));
-			transform.Dirty |= ImGui::InputFloat4("Rotation", glm::value_ptr(transform.Rotation));
+			transform.Dirty |= ImGui::InputFloat4("RotationQuat", glm::value_ptr(transform.Rotation));
+
+			glm::vec3 euler = glm::eulerAngles(transform.Rotation);
+
+			euler = glm::degrees(euler);
+			euler = glm::mod(euler + 180.0f, 360.0f) - 180.0f;
+
+			bool changed = ImGui::DragFloat3("RotationEulerAngles", &euler.x, 0.1f);
+			transform.Dirty |= changed;
+
+			if (changed)
+			{
+				glm::vec3 rad = glm::radians(euler);
+				transform.Rotation = glm::quat(rad);
+			}
+
 			transform.Dirty |= ImGui::InputFloat3("Scale", glm::value_ptr(transform.Scale));
+
+			//EditTransform(
+			//	glm::value_ptr(context.Camera.Get().View),
+			//	glm::value_ptr(context.Camera.Get().Projection),
+			//	glm::value_ptr(model.CachedModel)
+			//);
+
+			//glm::vec3 euler = glm::degrees(glm::eulerAngles(transform.Rotation));
+			//ImGuizmo::DecomposeMatrixToComponents(
+			//	glm::value_ptr(model.CachedModel),
+			//	glm::value_ptr(transform.Position),
+			//	glm::value_ptr(euler),
+			//	glm::value_ptr(transform.Scale)
+			//);
+			//transform.Rotation = glm::quat(glm::radians(euler));
 		}
 
 		template<>
-		void View<Component::Velocity>(Component::Velocity& velocity, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::Velocity>(Component::Velocity& velocity, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::InputFloat("Speed", &velocity.Speed);
 		}
@@ -312,17 +427,12 @@ namespace EnGl
 			auto label = std::format("Select camera##SelectCamera");
 			if (ImGui::Button(label.c_str()))
 			{
-				auto it = std::find_if(
-					cameraInfo.Cameras.begin(), cameraInfo.Cameras.end(),
-					[=](auto& c) -> bool {return entity == c.Entity; }
-				);
-				if (it != cameraInfo.Cameras.end())
-					cameraInfo.CameraIdx = it - cameraInfo.Cameras.begin();
+				cameraInfo.SetCamera(entity);
 			}
 		}
 
 		template<>
-		void View<Component::PerspectiveProjection>(Component::PerspectiveProjection& persp, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::PerspectiveProjection>(Component::PerspectiveProjection& persp, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			SelectCameraBtn(m_State.EntityPanel.SelectedEntity, context.Camera);
 
@@ -333,7 +443,7 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::OrthogonalProjection>(Component::OrthogonalProjection& ortho, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::OrthogonalProjection>(Component::OrthogonalProjection& ortho, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			SelectCameraBtn(m_State.EntityPanel.SelectedEntity, context.Camera);
 
@@ -346,14 +456,14 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::PointLight>(Component::PointLight& point, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::PointLight>(Component::PointLight& point, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::ColorEdit3("Color", glm::value_ptr(point.Color));
 			ImGui::InputFloat("Intensity", &point.Intensity);
 		}
 
 		template<>
-		void View<Component::DirectionalLight>(Component::DirectionalLight& dir, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::DirectionalLight>(Component::DirectionalLight& dir, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::ColorEdit3("Color", glm::value_ptr(dir.Color));
 		}
@@ -399,7 +509,7 @@ namespace EnGl
 			ImGui::Text("Material");
 
 			material->Editor();
-			
+
 			ChangeAsset<Material::Base>(materialH);
 
 			if (ImGui::Button("+ New material"))
@@ -434,7 +544,7 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::RenderedModel>(Component::RenderedModel& modelC, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::RenderedModel>(Component::RenderedModel& modelC, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::Text("Layer %d", modelC.Layer);
 			ImGui::Text("MeshIdx %d", modelC.MeshIdx);
@@ -459,14 +569,14 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::SphereCollider>(Component::SphereCollider& collider, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::SphereCollider>(Component::SphereCollider& collider, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::InputFloat3("Offset", glm::value_ptr(collider.Offset));
 			ImGui::InputFloat("Radius", &collider.Radius);
 		}
 
 		template<>
-		void View<Component::PhysicalMomentum>(Component::PhysicalMomentum& momentum, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::PhysicalMomentum>(Component::PhysicalMomentum& momentum, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::InputFloat3("Velocity", glm::value_ptr(momentum.Velocity));
 			ImGui::InputFloat("Inverse mass", &momentum.InverseMass);
@@ -474,7 +584,7 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::LengthConstraint>(Component::LengthConstraint& constraint, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::LengthConstraint>(Component::LengthConstraint& constraint, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::InputFloat("Length", &constraint.Length);
 			UiComponents::InputUInt("E1", &constraint.E1);
@@ -482,11 +592,63 @@ namespace EnGl
 		}
 
 		template<>
-		void View<Component::MaxLengthConstraint>(Component::MaxLengthConstraint& constraint, GameContext& context, EcsImpl::EntityManager& manager)
+		void View<Component::MaxLengthConstraint>(Component::MaxLengthConstraint& constraint, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
 		{
 			ImGui::InputFloat("Max Length", &constraint.MaxLength);
 			UiComponents::InputUInt("E1", &constraint.E1);
 			UiComponents::InputUInt("E2", &constraint.E2);
+		}
+
+		template<>
+		void View<Component::ConstantRotation>(Component::ConstantRotation& rot, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
+		{
+			ImGui::InputFloat3("Velocity", glm::value_ptr(rot.Velocity));
+		}
+
+		template<>
+		void View<Component::AnimationData>(Component::AnimationData& data, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
+		{
+			ImGui::InputFloat("Elapsed", &data.Elapsed);
+			ImGui::SliderFloat("Speed", &data.Speed, 0.0f, 10.0f);
+
+			if (ImGui::Button("Loop"))
+			{
+				data.Behavior = Component::AnimationData::AnimationBehavior::LOOP;
+			}
+			if (ImGui::Button("Clamp"))
+			{
+				data.Behavior = Component::AnimationData::AnimationBehavior::CLAMP;
+			}
+		}
+
+		static void RecurseChildren(EcsImpl::EntityManager& manager, Entity entity)
+		{
+			ImGui::PushID(entity);
+
+			if (manager.Has<Component::Children>(entity))
+			{
+				bool open = ImGui::TreeNode(manager.GetName(entity).c_str());
+				if (open)
+				{
+					for (auto& child : manager.Get<Component::Children>(entity).Children)
+						RecurseChildren(manager, child);
+					ImGui::TreePop();
+				}
+			}
+			else
+			{
+				ImGui::TreeNodeEx(manager.GetName(entity).c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
+			}
+
+			ImGui::PopID();
+		}
+
+		template<>
+		void View<Component::Children>(Component::Children& data, GameContext& context, EcsImpl::EntityManager& manager, Entity entity)
+		{
+			ImGui::Separator();
+			ImGui::Text("Hierarchy");
+			RecurseChildren(manager, entity);
 		}
 	};
 }

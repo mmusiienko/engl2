@@ -3,7 +3,7 @@
 #include "ecs/systems/Systems.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	class JuliaFractalSystem : public SystemImpl
 	{

@@ -3,9 +3,10 @@
 #include "core/Constants.h"
 #include "resources/importers/AssetManager.h"
 #include "renderer/base/Model.h"
+#include "renderer/base/Animation.h"
+#include "renderer/base/Skeleton.h"
 
 #include "ecs/entity.h"
-
 
 namespace EnGl
 {
@@ -13,9 +14,9 @@ namespace EnGl
 	{
 		struct Transform
 		{
-			glm::vec3 Position = glm::vec3(0.0f);
-			glm::quat Rotation { 1.0f, 0.0f, 0.0f, 0.0f};
-			glm::vec3 Scale = glm::vec3(1.0f);
+			glm::vec3 Position = glm::vec3{ 0.0f };
+			glm::quat Rotation{ 1.0f, 0.0f, 0.0f, 0.0f };
+			glm::vec3 Scale = glm::vec3{ 1.0f };
 
 			bool Dirty = true;
 			bool OnlyPosDirty = true;
@@ -24,7 +25,6 @@ namespace EnGl
 		struct ModelMatrix
 		{
 			glm::mat4 CachedModel{};
-			bool Dirty = true;
 		};
 
 		struct OrthogonalProjection
@@ -49,18 +49,18 @@ namespace EnGl
 
 		struct ViewMatrix
 		{
-			glm::mat4 CachedView;
+			glm::mat4 CachedView{};
 		};
 
 		struct ProjectionMatrix
 		{
-			glm::mat4 CachedProjection;
+			glm::mat4 CachedProjection{};
 		};
 
 		struct Velocity
 		{
-			f32 Speed;
-			glm::vec3 NormalizedDirection;
+			f32 Speed = 0.0f;
+			glm::vec3 NormalizedDirection{};
 
 			void SetDirection(const glm::vec3& direction)
 			{
@@ -91,7 +91,7 @@ namespace EnGl
 
 		struct PointLight
 		{
-			glm::vec3 Color{1.0f};
+			glm::vec3 Color{ 1.0f };
 			float Intensity = 100.0f;
 		};
 
@@ -139,6 +139,41 @@ namespace EnGl
 		{
 			glm::vec3 Velocity{};
 		};
+
+		struct Children
+		{
+			std::vector<Entity> Children;
+		};
+
+		struct Parent
+		{
+			Entity Parent;
+		};
+
+		struct LocalModelMatrix
+		{
+			glm::mat4 CachedModel{};
+			bool Dirty = false;
+		};
+
+		
+
+		struct AnimationData
+		{
+			enum class AnimationBehavior : u32
+			{
+				LOOP,
+				CLAMP,
+				COUNT
+			};
+
+			AnimationBehavior Behavior = AnimationBehavior::CLAMP;
+
+			f32 Elapsed = 0.0f;
+			f32 Speed = 1.0f;
+			AssetHandle<AnimationInstance> Animation;
+			AssetHandle<SkeletonInstance> Skeleton;
+		};
 	}
 	
 	using EcsImpl = Ecs
@@ -158,6 +193,10 @@ namespace EnGl
 		Component::LengthConstraint,
 		Component::MaxLengthConstraint,
 		Component::FollowSnap,
-		Component::ConstantRotation
+		Component::ConstantRotation,
+		Component::Parent,
+		Component::Children,
+		Component::LocalModelMatrix,
+		Component::AnimationData
 	>;
 }

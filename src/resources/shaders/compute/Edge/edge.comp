@@ -1,7 +1,7 @@
 #version 460 core
 layout (local_size_x=16, local_size_y=16) in;
 layout (binding=0, rgba32f) uniform readonly image2D Source;
-layout (binding=1, rgba32f) uniform writeonly image2D Dest;
+layout (binding=1, r8) uniform writeonly image2D Dest;
 
 uniform sampler2D uDepth;
 uniform float uNear = 10.0;
@@ -46,7 +46,7 @@ void main()
 
             ivec2 samplePos = clamp(pos + ivec2(i, j) * int(uResScale), ivec2(0), size - 1);
             vec4 s = imageLoad(Source, samplePos);
-            float sd = min(linDepth(texelFetch(uDepth, samplePos, 0).r), 1e9) / 1e9;
+            float sd = min(linDepth(texelFetch(uDepth, samplePos, 0).r), 1e5) / 1e5;
 
             accumx += Gx[ki] * s.a;
             accumy += Gy[ki] * s.a;
@@ -58,8 +58,8 @@ void main()
 
     float grad = sqrt(accumx * accumx + accumy * accumy);
     float gradd = sqrt(accumdx * accumdx + accumdy * accumdy);
-    float val1 = grad > thershold && gradd > thershold ? 1 : 0;
-    float val2 = grad > thershold ? 1 : 0;
+    int val1 = grad > thershold && gradd > thershold ? 1 : 0;
+    int val2 = grad > thershold ? 1 : 0;
     //imageStore(Dest, pos, vec4(grad > thershold && gradd > thershold));
     imageStore(Dest, pos, vec4(val1));
 }

@@ -7,6 +7,8 @@ uniform uint uOctaves = 8;
 uniform uint uChannel = 0;
 uniform uint uNCells = 1;
 uniform uint uSeed = 133;
+uniform float uDarkThreshold = 0.0;
+
 
 uvec2 pcg2d(uvec2 v)
 {
@@ -88,6 +90,7 @@ void main()
 
     float val = total / maxVal;
     val = clamp(val + 0.5, 0.0, 1.0);
+    val = max(val - uDarkThreshold, 0.0);
     vec4 prevVal = imageLoad(Fractal, ipos);
     prevVal[uChannel] = val;
 	imageStore(Fractal, ipos, prevVal);

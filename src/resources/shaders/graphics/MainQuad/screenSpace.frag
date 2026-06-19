@@ -1,4 +1,4 @@
-#version 460
+#version 460 core
 
 in vec2 vTexCoords;
 out vec4 FragColor;
@@ -19,15 +19,14 @@ const float exposure = 1;
 
 float linDepth(float depth)
 {
-    float z = depth * 2.0 - 1.0;
-    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+    return uNear / depth;
 }
 
 vec3 applyFog( vec3  col, 
                float t )
 {
-    if (t == uFar) return col;
-    float fogAmount = 1.0 - exp(-t/1e4);
+    if (t > 1e6) return col;
+    float fogAmount = 1.0 - exp(-t/1e3);
     vec3  fogColor  = uDirectionalLight.Color * 0.2;
     return mix( col, fogColor, fogAmount * 0.1 );
 }

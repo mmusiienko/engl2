@@ -21,6 +21,8 @@ namespace EnGl
 			glm::vec2 TexCoord;
 			glm::vec3 Tangent;
 			glm::vec3 BiTangent;
+			glm::ivec4 BoneIds;
+			glm::vec4 BoneWeights;
 		};
 
 		struct AABB
@@ -36,6 +38,7 @@ namespace EnGl
 			bool HasNormals = false;
 			bool HasTextureCoords = false;
 			bool HasTangents = false;
+			bool HasBones = false;
 			AABB Aabb{};
 			u32 DrawType = GL_TRIANGLES;
 		};
@@ -71,6 +74,7 @@ namespace EnGl
 			std::swap(m_InstanceSize, other.m_InstanceSize);
 			std::swap(m_AABB, other.m_AABB);
 			std::swap(m_InstanceData, other.m_InstanceData);
+
 			return *this;
 		};
 
@@ -93,11 +97,12 @@ namespace EnGl
 	private:
 		u32 m_DrawType = GL_TRIANGLES;
 
-		u32 m_IndicesSize = 0;
-		u32 m_VBO = 0;
-		u32 m_EBO = 0;
+		u32 m_IndicesSize = 0u;
+		u32 m_VBO = 0u;
+		u32 m_EBO = 0u;
 		AABB m_AABB{};
-		SSBO m_InstanceData{ nullptr, 0 };
-		u32 m_InstanceSize = 0;
+		SSBO m_InstanceData{ nullptr, 0u };
+		u32 m_InstanceSize = 0u;
+		mutable bool m_BoneUpdated = false;
 	};
 }

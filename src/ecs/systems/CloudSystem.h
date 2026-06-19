@@ -4,7 +4,7 @@
 #include "algorithm/compute/noise/NoiseTexture.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	class CloudSystem : public SystemImpl
 	{
@@ -17,24 +17,12 @@ namespace EnGl
 		struct Params
 		{
 			f32 ResScale = 4.0f;
-
-			/*f32 CloudScale = 0.18f;
-			f32 DetailScale = 1.129f;
-			f32 WeatherMapScale = 1.791f;*/
-
-			/*f32 CloudScale = 0.18f;
-			f32 DetailScale = 1.129f;
-			f32 WeatherMapScale = 1.264f; */
 			
 			f32 CloudScale = 0.54f;
 			f32 DetailScale = 2.0f;
 			f32 WeatherMapScale = 4.1f;
 			
 			f32 PlanetRadius = 200000.0f;
-
-			/*f32 CloudScale = 0.162f;
-			f32 DetailScale = 1.147f;
-			f32 WeatherMapScale = 0.136f;*/
 
 			f32 SkyHeightMin = 1000.0f;
 			f32 SkyHeightMax = 3000.0f;
@@ -46,9 +34,6 @@ namespace EnGl
 			f32 Speed = 30.0f;
 
 			f32 Anvil = 0.5f;
-
-			/*f32 GlobalCoverage = 0.455f;
-			f32 GlobalOpacity = 0.01f; */
 			
 			f32 GlobalCoverage = 0.58f;
 			f32 GlobalOpacity = 0.005f;
@@ -100,7 +85,7 @@ namespace EnGl
 					//Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 0u, .Seed = 123u, .Octaves = 8u}, .Strategy = Noise2D::Perlin},
 					//Noise2DChannel{.Params = {.NChannel = 0u, .DarkThreshold = 1.0f}, .Strategy = Noise2D::Const},
 					Noise2DChannel{.Params = {.NChannel = 1u, .DarkThreshold = 1.0f}, .Strategy = Noise2D::Const},
-					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u}, .Strategy = Noise2D::Perlin},
+					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u, .DarkThreshold = -1.0f}, .Strategy = Noise2D::Perlin},
 					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 3u, .Seed = 13u, .Octaves = 1u}, .Strategy = Noise2D::Worley}
 				},
 				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
@@ -115,12 +100,10 @@ namespace EnGl
 
 		inline AssetHandle<Texture2D> Sky() const { return m_SkyTexture; }
 
-		Params m_Params;
 		AtmosphereParams m_AtmosphereParams;
 	private:
 		AssetHandle<ComputeShader> m_LowResShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsLowRes");
 		AssetHandle<ComputeShader> m_UpsampleShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsUpsample");
-		AssetHandle<ComputeShader> m_DepthNeighborShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsDepthNeighborFill");
 		AssetHandle<ComputeShader> m_BlurShaderV = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BlurV");
 		AssetHandle<ComputeShader> m_BlurShaderH = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BlurH");
 		AssetHandle<ComputeShader> m_EdgeShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "Edge");
@@ -129,6 +112,7 @@ namespace EnGl
 		AssetHandle<Texture2D> m_SkyTextureLowResB;
 		AssetHandle<Texture2D> m_SkyTexture;
 		AssetHandle<Texture2D> m_HistoryTexture;
+		AssetHandle<Texture2D> m_EdgeTexture;
 
 		AssetHandle<ComputeShader> m_TransmittanceLUTShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "TRANSMITTANCELUT");
 		AssetHandle<Texture2D> m_TransmittanceLUT;
@@ -140,13 +124,13 @@ namespace EnGl
 			Texture2D* LowResB = nullptr;
 			Texture2D* Sky = nullptr;
 			Texture2D* History = nullptr;
+			Texture2D* Edge = nullptr;
 		};
 
 		static const std::vector<glm::vec2> CrossOffset4x4;
 		CloudTextures GetTextures(GameContext& context);
 		void DispatchLowRes(GameContext& context, CloudTextures& texLowRes);
 		void DispatchUpsample(GameContext& context, CloudTextures& textures);
-		void DispatchDepthNeighborFill(GameContext& context, CloudTextures& textures);
 		void DispatchBlur(GameContext& context, CloudTextures& textures);
 		void DispatchEdge(GameContext& context, CloudTextures& textures);
 		void DispatchFullRes(GameContext& context, CloudTextures& textures);
@@ -163,7 +147,7 @@ namespace EnGl
 		};
 
 		Params m_DayLarge{ .GlobalOpacity = 0.010f, .OutScatterAmbient = 1.0f };
-		Params m_Night{ .CloudScale = 1.43f, .DetailScale = 10.0f,  .WeatherMapScale = 29.24f, .PlanetRadius = 52960.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.644f, .GlobalOpacity = 0.285f, .Beer = 0.579f, .InScatter = 0.293f, .OutScatter = 0.949f, .InOutCoefficient = 0.652f, .SilverLine = 4.674f, .SilverLineExp = 2.863f, .Ambient = 0.00009f, .ExtinctionColor = glm::vec3{7.0f / 255.0f, 10.0f / 255.0f, 30.0f / 255.0f} };
+		Params m_Night{ .CloudScale = 1.43f, .DetailScale = 10.0f,  .WeatherMapScale = 29.24f, .PlanetRadius = 52960.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.644f, .GlobalOpacity = 0.285f, .Beer = 4.0f, .InScatter = 0.293f, .OutScatter = 0.949f, .InOutCoefficient = 0.652f, .SilverLine = 4.674f, .SilverLineExp = 2.863f, .Ambient = 0.00009f, .ExtinctionColor = glm::vec3{7.0f / 255.0f, 10.0f / 255.0f, 30.0f / 255.0f} };
 		Params m_DaySmall{ .CloudScale = 1.63f, .DetailScale = 5.85f,  .WeatherMapScale = 28.77f, .PlanetRadius = 20000.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.644f, .GlobalOpacity = 0.01f, .OutScatterAmbient = 1.0f, .ExtinctionColor = glm::vec3{13.0f / 255.0f, 12.0f / 255.0f, 64.0f / 255.0f} };
 		Params m_DaySmallSunrise{ .CloudScale = 1.63f, .DetailScale = 5.85f,  .WeatherMapScale = 28.77f, .PlanetRadius = 20000.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.644f, .GlobalOpacity = 0.081f, .OutScatterAmbient = 1.0f, .SilverLine = 11.5f, .ExtinctionColor = glm::vec3{94.0f / 255.0f, 54.0f / 255.0f, 23.0f / 255.0f} };
 		Params m_DaySmallAlt{ .CloudScale = 0.51f, .DetailScale = 5.85f,  .WeatherMapScale = 28.77f, .PlanetRadius = 20000.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.327f, .GlobalOpacity = 0.019f, .OutScatterAmbient = 1.0f, .ExtinctionColor = glm::vec3{0.0f}
@@ -191,6 +175,8 @@ namespace EnGl
 			}
 		};
 		Params m_DayMedium{ .CloudScale = 0.81f, .DetailScale = 10.0f,  .WeatherMapScale = 9.0f, .PlanetRadius = 5709.375f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .Speed = 10.0f, .GlobalCoverage = 0.697f, .GlobalOpacity =  0.019f, .OutScatterAmbient = 1.0f, .ExtinctionColor = glm::vec3{0.0f} };
+
+		Params m_Params = m_DayLarge;
 
 		AssetImporter<Cubemap>::Params m_MidnightCubemap
 		{

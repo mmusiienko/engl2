@@ -15,7 +15,7 @@ namespace EnGl
 
 	void Global::StartUp()
 	{
-		auto aoroughvec = std::vector<f32>{ 1.0f };
+		auto aoroughvec = std::vector<f32>{ 0.6f };
 		auto metalvec = std::vector<f32>{ 0.0f };
 		auto aoroughdata = Texture::CreationInfoFromData{ .Data = aoroughvec.data(), .CpuFormat = GL_RED, .GpuFormat = GL_R8, .DataType = GL_FLOAT };
 		auto metaldata = Texture::CreationInfoFromData{ .Data = metalvec.data(), .CpuFormat = GL_RED, .GpuFormat = GL_R8, .DataType = GL_FLOAT };

@@ -3,37 +3,30 @@
 #include "resources/StaticModel.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	struct JuliaFractalQuad : public Material::Base
 	{
 		JuliaFractalQuad() : Base(AssetManager::GRAPHICS_SHADER_DIR / "JuliaFractal") {}
 
-		bool SetCommonUniforms(const GameContext& context) override
+		void SetCommonUniforms(Shader* shader, const GameContext& context) override
 		{
-			bool ok = Base::SetCommonUniforms(context);
-			if (!ok)
-			{
-				return ok;
-			}
+			Base::SetCommonUniforms(shader, context);
 
-			m_Shader->Use();
 			auto cam = context.Camera.Get();
-			m_Shader->SetUniform("uInvProjection", cam.InverseProjection);
-			m_Shader->SetUniform("uInvView", cam.InverseView);
-			m_Shader->SetUniform("uCameraPos", *cam.Position);
-			m_Shader->SetUniform("uNear", cam.Near);
-			m_Shader->SetUniform("uFar", cam.Far);
-			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
-			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
+			shader->SetUniform("uInvProjection", cam.InverseProjection);
+			shader->SetUniform("uInvView", cam.InverseView);
+			shader->SetUniform("uCameraPos", cam.Position);
+			shader->SetUniform("uNear", cam.Near);
+			shader->SetUniform("uFar", cam.Far);
+			shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+			shader->SetUniform("uTime", static_cast<f32>(context.Time));
 
-			auto [depth, g1] = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque);
+			auto depth = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque).Asset;
 			if (depth)
 			{
-				m_Shader->SetUniform("uDepth", *depth, 0);
+				shader->SetUniform("uDepth", *depth, 0);
 			}
-
-			return ok;
 		}
 	};
 
@@ -57,23 +50,16 @@ namespace EnGl
 
 		Fractal2DQuad(Fractal2DSystem& system, std::filesystem::path shaderPath) : m_System(system), Base(std::move(shaderPath)) {}
 
-		bool SetCommonUniforms(const GameContext& context) override
+		void SetCommonUniforms(Shader* shader, const GameContext& context) override
 		{
-			bool ok = Base::SetCommonUniforms(context);
-			if (!ok)
-			{
-				return ok;
-			}
+			Base::SetCommonUniforms(shader, context);
 
-			m_Shader->Use();
 			auto cam = context.Camera.Get();
-			m_Shader->SetUniform("uCameraPosX", m_System.m_Position.x);
-			m_Shader->SetUniform("uCameraPosY", m_System.m_Position.y);
-			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
-			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
-			m_Shader->SetUniform("uZoom", m_System.m_Zoom);
-
-			return ok;
+			shader->SetUniform("uCameraPosX", m_System.m_Position.x);
+			shader->SetUniform("uCameraPosY", m_System.m_Position.y);
+			shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+			shader->SetUniform("uTime", static_cast<f32>(context.Time));
+			shader->SetUniform("uZoom", m_System.m_Zoom);
 		}
 	};
 

@@ -6,7 +6,7 @@
 #include "algorithm/compute/noise/NoiseTexture.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	class TerrainSystem : public SystemImpl
 	{

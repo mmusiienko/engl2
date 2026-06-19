@@ -11,6 +11,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 template<class T>
 using ref = std::shared_ptr<T>;
@@ -48,6 +52,52 @@ inline void CheckOpenGLError(const char* stmt, const char* fname, int line)
 #else
 #define GL_CHECK(stmt) stmt
 #endif
+
+template <>
+struct fmt::formatter<glm::vec3> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::vec3& v, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(), "vec3(x:{}, y:{}, z:{})", v.x, v.y, v.z);
+    }
+};
+
+template <>
+struct fmt::formatter<glm::vec4> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::vec4& v, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(), "vec4(x:{}, y:{}, z:{}, w:{})", v.x, v.y, v.z, v.w);
+    }
+};
+
+template <>
+struct fmt::formatter<glm::quat> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::quat& v, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(), "quat(x:{}, y:{}, z:{}, w:{})", v.x, v.y, v.z, v.w);
+    }
+};
+
+template <>
+struct fmt::formatter<glm::mat3> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::mat3& m, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(),
+            "mat3(\n  col0:{}\n  col1:{}\n  col2:{})",
+            m[0], m[1], m[2]
+        );
+    }
+};
+
+template <>
+struct fmt::formatter<glm::mat4> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::mat4& m, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(),
+            "mat4(\n  col0:{}\n  col1:{}\n  col2:{}\n  col3:{})",
+            m[0], m[1], m[2], m[3]
+        );
+    }
+};
 
 namespace EnGl
 {

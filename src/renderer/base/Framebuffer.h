@@ -17,6 +17,30 @@ namespace EnGl
 
 		Framebuffer(CreationInfo info);
 
+		Framebuffer(Framebuffer&& other) noexcept
+		{
+			m_Depth = other.m_Depth;
+			m_Depth2 = other.m_Depth2;
+			m_Resolution = other.m_Resolution;
+			m_Color = std::move(other.m_Color);
+			m_Color2 = std::move(other.m_Color2);
+			other.m_Depth = {};
+			other.m_Depth2 = {};
+			other.m_Color = {};
+			other.m_Color2 = {};
+		};
+
+		Framebuffer& operator=(Framebuffer&& other) noexcept
+		{
+			std::swap(m_Id, other.m_Id);
+			std::swap(m_Depth, other.m_Depth);
+			std::swap(m_Depth2, other.m_Depth2);
+			std::swap(m_Resolution, other.m_Resolution);
+			std::swap(m_Color, other.m_Color);
+			std::swap(m_Color2, other.m_Color2);
+			return *this;
+		};
+
 		~Framebuffer();
 
 		void DoubleBuffer();

@@ -6,7 +6,7 @@
 #include "resources/StaticModel.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	static void CascadeView(WaterSystem::Cascade& cascade, u32 i)
 	{
@@ -172,73 +172,101 @@ namespace EnGl
 
 		WaterSurface(WaterSystem& system) : m_WaterSystem(system), Base(AssetManager::GRAPHICS_SHADER_DIR / "WaterSurface") {}
 
-		bool SetCommonUniforms(const GameContext& context) override
+		void SetCommonUniforms(Shader* shader, const GameContext& context) override
 		{
-			bool ok = Base::SetCommonUniforms(context);
-			if (!ok)
-			{
-				return ok;
-			}
+			Base::SetCommonUniforms(shader, context);
 
 			auto cam = context.Camera.Get();
-			m_Shader->SetUniform("uViewProjection", cam.ViewProjection);
-			m_Shader->SetUniform("uCameraPos", *cam.Position);
-			m_Shader->SetUniform("uNear", cam.Near);
-			m_Shader->SetUniform("uFar", cam.Far);
-			m_Shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
-			m_Shader->SetUniform("uTime", static_cast<f32>(context.Time));
-			m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-			m_Shader->SetUniform("uPointLights", context.PointLights);
+			shader->SetUniform("uViewProjection", cam.ViewProjection);
+
+			auto mainCam = context.Camera.GetTarget().Position;
+			shader->SetUniform("uCameraPos", mainCam);
+
+			shader->SetUniform("uNear", cam.Near);
+			shader->SetUniform("uFar", cam.Far);
+			shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+			shader->SetUniform("uTime", static_cast<f32>(context.Time));
+			shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+			shader->SetUniform("uPointLights", context.PointLights);
 
 
 			auto cubemap = AssetManager::GetAsset(context.Cubemap.Asset).Asset;
 
 			if (cubemap)
 			{
-				m_Shader->SetUniform("uCubemap", *cubemap, 0);
+				shader->SetUniform("uCubemap", *cubemap, 0);
 			}
 
 			auto foam = AssetManager::GetAsset(m_FoamTex).Asset;
-			auto depth = AssetManager::GetAsset(context.Framebuffer.DepthTextureOpaque).Asset;
+			auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
 			if (foam && depth)
 			{
-				m_Shader->SetUniform("uFoamDetail", *foam, 1);
-				m_Shader->SetUniform("uDepth", *depth, 2);
+				shader->SetUniform("uFoamDetail", *foam, 1);
+				shader->SetUniform("uDepth", *depth, 2);
 			}
 
-			//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-			//if (shadowMap)
-			//{
-			//	m_Shader->SetUniform("uShadowMap", *shadowMap, 3);
-			//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-			//}
+			auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+			if (shadowMap)
+			{
+				shader->SetUniform("uShadowMap", *shadowMap, 3);
+			}
 
 			for (u32 i = 0; i < WaterSystem::NCascades; i++)
 			{
-				auto [dispTex, g0] = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Displacement);
-				auto [normalTex, g1] = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Normal);
+				auto dispTex = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Displacement).Asset;
+				auto normalTex = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Normal).Asset;
 
 				if (!dispTex || !normalTex)
 				{
 					continue;
 				}
 
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Displacement", *dispTex, (2 * i + 4));
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].Displacement", *dispTex, (2 * i + 4));
 
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Normal", *normalTex, (2 * i + 5));
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].Normal", *normalTex, (2 * i + 5));
 
 
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].N", m_WaterSystem.m_Cascades[i].m_CommonData.N);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].L", m_WaterSystem.m_Cascades[i].m_SpectrumData.L);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].Tiling", m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1.0f / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamScale", m_WaterSystem.m_Cascades[i].m_CommonData.FoamAdd);
-				m_Shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamFlatSubtract", m_WaterSystem.m_Cascades[i].m_CommonData.FoamDecay);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].N", m_WaterSystem.m_Cascades[i].m_CommonData.N);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].L", m_WaterSystem.m_Cascades[i].m_SpectrumData.L);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].Tiling", m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1.0f / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamScale", m_WaterSystem.m_Cascades[i].m_CommonData.FoamAdd);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].FoamFlatSubtract", m_WaterSystem.m_Cascades[i].m_CommonData.FoamDecay);
 			}
+		}
 
-			
+		void SetCommonUniformsUnlit(Shader* shader, const GameContext& context) override
+		{
+			Base::SetCommonUniformsUnlit(shader, context);
 
-			return ok;
+			auto cam = context.Camera.Get();
+			shader->SetUniform("uViewProjection", cam.ViewProjection);
+
+			auto mainCam = context.Camera.GetTarget().Position;
+			shader->SetUniform("uCameraPos", mainCam);
+
+			shader->SetUniform("uNear", cam.Near);
+			shader->SetUniform("uFar", cam.Far);
+			shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+			shader->SetUniform("uTime", static_cast<f32>(context.Time));
+
+
+			for (u32 i = 0; i < WaterSystem::NCascades; i++)
+			{
+				auto dispTex = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Displacement).Asset;
+				auto normalTex = AssetManager::GetAsset(m_WaterSystem.m_Cascades[i].m_Normal).Asset;
+
+				if (!dispTex || !normalTex)
+				{
+					continue;
+				}
+
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].Displacement", *dispTex, (2 * i + 5));
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].N", m_WaterSystem.m_Cascades[i].m_CommonData.N);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].L", m_WaterSystem.m_Cascades[i].m_SpectrumData.L);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].Tiling", m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
+				shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1.0f / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
+			}
 		}
 	};
 
@@ -249,8 +277,11 @@ namespace EnGl
 		>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::FollowSnap& follow) -> void
 			{
-				auto mat = AssetManager::PutScope<Material::Base>(make_scope<WaterSurface>(*this));
-				model.Model = StaticModel::QuadTesselated(mat, m_Resolution, m_Resolution);
+				auto mat = make_scope<WaterSurface>(*this);
+
+				mat->SetUnlit(AssetManager::GRAPHICS_SHADER_DIR / "UnlitWaterTesselated");
+
+				model.Model = StaticModel::QuadTesselated(AssetManager::PutScope<Material::Base>(std::move(mat)), m_Resolution, m_Resolution);
 				model.Layer = Component::RenderLayer::TT;
 				transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
 				follow.PosUnlock = { true, false, true };
@@ -338,7 +369,7 @@ namespace EnGl
 		follow.PosOffset.z = -transform.Scale.y / 2.0f;
 		follow.PosOffset.x = -transform.Scale.x / 2.0f;
 
-		follow.Follow = context.Camera.Get().Entity;
+		follow.Follow = context.Camera.GetEntity();
 
 		follow.Snap = transform.Scale.x / m_Resolution;
 

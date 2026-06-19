@@ -12,22 +12,26 @@ namespace EnGl
 	{
 		struct CameraInfo
 		{
+		private:
+			Entity CameraId;
+			Entity TargetCameraId;
+
+		public:
 			struct Camera
 			{
-				Entity Entity;
 				bool CanRotate = false;
-				glm::vec3* Position;
+				glm::vec3 Position;
 				glm::vec3 Forward;
 				glm::vec3 Right;
 				glm::vec3 Up;
 				glm::vec3 Delta;
 
-				glm::mat4* View;
+				glm::mat4 View;
 				glm::mat4 ViewLastFrame;
 				glm::mat4 InverseView;
 				glm::mat4 InverseViewLastFrame;
 
-				glm::mat4* Projection;
+				glm::mat4 Projection;
 				glm::mat4 ProjectionLastFrame;
 				glm::mat4 InverseProjection;
 				glm::mat4 InverseProjectionLastFrame;
@@ -37,15 +41,23 @@ namespace EnGl
 				glm::mat4 InverseViewProjection;
 				glm::mat4 InverseViewProjectionLastFrame;
 
-				f32 Near;
-				f32 Far;
+				f32 Near = 0.0f;
+				f32 Far = 0.0f;
+				f32 Fov = 0.0f;
+				f32 Aspect = 0.0f;
 			};
 
-			std::vector<Camera> Cameras;
-			u32 CameraIdx = 0;
+			std::unordered_map<u32, Camera> Cameras;
 
-			inline Camera& Get() { return Cameras[CameraIdx]; }
-			inline const Camera& Get() const { return Cameras[CameraIdx]; }
+			inline Entity GetEntity() { return CameraId; }
+			inline void SetCamera(Entity cameraId) { CameraId = cameraId; }
+
+			inline void SetTargetCamera(Entity cameraId) { TargetCameraId = cameraId; }
+			inline Camera& GetTarget() { return Cameras.at(TargetCameraId); }
+			inline const Camera& GetTarget() const { return Cameras.at(TargetCameraId); }
+
+			inline Camera& Get() { return Cameras.at(CameraId); }
+			inline const Camera& Get() const { return Cameras.at(CameraId); }
 		};
 
 		struct InstancedMaterialMapKey
@@ -78,6 +90,7 @@ namespace EnGl
 				AssetHandle<Mesh> Mesh;
 				AssetHandle<Material::Base> Material;
 				Mesh::InstanceData Data;
+				Entity Entity;
 			};
 
 			std::vector<El> InstanceDatas;
@@ -95,17 +108,16 @@ namespace EnGl
 		{
 			std::array<MaterialMap, Component::RenderLayerNumber> PerMaterial;
 			std::array<InstancedMaterialMap, Component::RenderLayerNumber> PerInstancedMaterial;
-			AssetHandle<Material::Base> MaterialOverride;
 			struct CascadedShadowMapInfo
 			{
-
-
-				static constexpr u32 NShadowMapCascades = 3u;
+				static constexpr u32 NShadowMapCascades = 4u;
 
 				Entity CascadeCamera[NShadowMapCascades];
 				Framebuffer* DirShadowFramebuffer[NShadowMapCascades];
-				u32 TextureSize[NShadowMapCascades]{ 2048u, 2048u, 4096u };
-				f32 DepthSplit[NShadowMapCascades]{ 0.883f, 0.994f, 1.0f };
+				u32 TextureSize[NShadowMapCascades]{ 4096u, 4096u, 4096u, 8192u };
+				f32 DepthSplit[NShadowMapCascades]{ 15.0f, 100.0f, 300.0f, 1000.0f };
+				AssetHandle<Texture2D> ShadowMap;
+				glm::vec2 PolygonOffset{ -3.0f, -0.0f };
 			} CascadedShadowMap;
 		};
 
@@ -161,7 +173,6 @@ namespace EnGl
 
 		AssetHandle<Texture2D> SkyTexture;
 		AssetHandle<Texture2D> SkyTextureLowRes;
-
 		std::unordered_map<std::string, Entity> SpecialEntities;
 	};
 }

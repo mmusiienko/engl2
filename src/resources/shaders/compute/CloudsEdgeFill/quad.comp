@@ -2,7 +2,7 @@
 
 layout (local_size_x=16, local_size_y=16) in;
 
-layout (binding=0, rgba32f) readonly uniform image2D History;
+layout (binding=0, r8) readonly uniform image2D Edge;
 layout (binding=1, rgba32f) writeonly uniform image2D Sky;
 
 uniform mat4 uInvViewProjection;
@@ -287,7 +287,8 @@ float densityAlter(float h)
 
 float sampleDensity(vec3 pos, float h)
 {
-	vec4 weather = texture(uWeather, 0.00001 * (uWeatherScale * pos.xz + uTime * uSpeed * 1.5));
+	if (pos.y < -1000) return 0;
+	vec4 weather = texture(uWeather, 0.00001 * uWeatherScale * (pos.xz + uTime * uSpeed * 1.5));
 	h = clamp(h + weather.a * 0.2,0,1);
 
 	float weatherCoverage = max(weather.r, 2.0 * weather.g * saturate(uGlobalCoverage - 0.5));
@@ -382,13 +383,13 @@ float HG(float cos_theta, float g) {
 void main()
 {
 	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
-	if (imageLoad(History, storePos).r == 0) return;
-	//if (imageLoad(History, storePos).r == 1) { imageStore(Sky, storePos, vec4(1.0, 1.0, 1.0, 0.0)); return;}
+	if (imageLoad(Edge, storePos).r == 0) return;
+	//if (imageLoad(Edge, storePos).r == 1) { imageStore(Sky, storePos, vec4(1.0, 1.0, 1.0, 0.0)); return;}
 
 	vec2 pixel = vec2(gl_GlobalInvocationID.xy) + vec2(0.5);
 	vec2 uv = pixel / uResolution;
-
-	float depth = linDepth(texture(uDepth, uv).r);
+	float d = texture(uDepth, uv).r;
+	float depth = min(linDepth(d), 100000);
 	vec2 ndc = uv * 2.0 - 1.0;
 	vec3 rayOrigin = uCameraPos.xyz;
 	vec4 target = uInvViewProjection * vec4(ndc, 0.0, 1.0);

@@ -17,6 +17,8 @@
 #include "ecs/systems/WaterSystem.h"
 #include "ecs/systems/CloudSystem.h"
 #include "ecs/systems/TerrainSystem.h"
+#include "ecs/systems/CascadedShadowMap.h"
+#include "ecs/systems/Animation.h"
 
 #include "ui/Ui.h"
 
@@ -83,6 +85,7 @@ namespace EnGl
 		glClearDepth(0.0f);
 		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 		glDepthRange(0.0, 1.0);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 		glfwSwapInterval(0);
 
@@ -91,19 +94,38 @@ namespace EnGl
 		Entity camera = World().eEntity().Create<
 			Component::Transform,
 			Component::Velocity,
+			Component::ModelMatrix,
 			Component::ViewMatrix,
 			Component::ProjectionMatrix,
 			Component::PerspectiveProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::PerspectiveProjection& cam)
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::PerspectiveProjection& cam)
 		{
-			mov.Speed = 10.0f;
+			mov.Speed = 100.0f;
 			transform.Position = { 0.0f, 0.0f, 0.0f };
 
 			cam.Aspect = 16.0f / 9.0f;
 			cam.FovDegree = 45.0f;
 			cam.NearPlane = 0.1f;
 			cam.FarPlane = 1000.0f;
-		}, "Camera1");
+		}, "Camera");
+
+		Entity cameraX = World().eEntity().Create<
+			Component::Transform,
+			Component::Velocity,
+			Component::ModelMatrix,
+			Component::ViewMatrix,
+			Component::ProjectionMatrix,
+			Component::PerspectiveProjection
+		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::PerspectiveProjection& cam)
+			{
+				mov.Speed = 100.0f;
+				transform.Position = { 0.0f, 0.0f, 0.0f };
+
+				cam.Aspect = 16.0f / 9.0f;
+				cam.FovDegree = 45.0f;
+				cam.NearPlane = 0.1f;
+				cam.FarPlane = 1000.0f;
+			}, "CameraX");
 
 		auto colorTexHandle = m_Framebuffer->Color()[0];
 		auto depthTexHandle = m_Framebuffer->Depth();
@@ -112,10 +134,6 @@ namespace EnGl
 		mat->TextureHandle = colorTexHandle;
 
 		auto mainQuadMat = AssetManager::PutScope<Material::Base>(std::move(mat));
-		auto unlitMat = AssetManager::PutScope<Material::Base>(make_scope<Material::Unlit>(glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f }));
-		auto worldPlaneMat = AssetManager::PutScope<Material::Base>(make_scope<Material::Unlit>(glm::vec4{ 0.0f, 0.7f, 0.0f, 1.0f }));
-		auto coordinatePlaneMat = AssetManager::PutScope<Material::Base>(make_scope<Material::CoordinatePlane>());
-		auto unlitIMat = AssetManager::PutScope<Material::Base>(make_scope<Material::Unlit>(true));
 
 		auto quad = World().eEntity().Create<
 			Component::Transform, Component::ModelMatrix, Component::RenderedModel
@@ -125,28 +143,48 @@ namespace EnGl
 			model.Layer = Component::RenderLayer::SCREEN_QUAD;
 		}, "ScreenQuad");
 
-//		auto worldPlane = World().eEntity().Create<
-//			Component::Transform, Component::ModelMatrix, Component::RenderedModel
-//		>([worldPlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
-//		{
-//			transform.Scale = glm::vec3{ 1000.0f };
-//			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-//			model.Model = StaticModel::Quad(worldPlaneMat);
-//		});
-//
-//		auto coordinatePlane = World().eEntity().Create<
-//			Component::Transform, Component::ModelMatrix, Component::RenderedModel
-//		>([coordinatePlaneMat](Component::Transform& transform, auto&, Component::RenderedModel& model) -> void
-//		{
-//			transform.Scale = glm::vec3{ 2000.0f };
-//			transform.Rotation = glm::angleAxis(glm::radians(90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-//			model.Model = StaticModel::Quad(coordinatePlaneMat);
-//			model.Layer = Component::RenderLayer::OL;
-//		});
 
+		AssetImporter<Model>::Params modelParams{ AssetManager::MODEL_DIR / "rem"  / "source" / "Victory.fbx", false, false, true };
+		auto modelHandle = AssetManager::Load<Model>(modelParams);
+		auto remModel = AssetManager::GetAsset(modelHandle).Asset;
+
+		AssetImporter<Model>::Params gmodelParams{ AssetManager::MODEL_DIR / "gram" / "source" / "gram.fbx", false, false, false };
+		auto gramHandle = AssetManager::Load<Model>(gmodelParams);
+		auto gramModel = AssetManager::GetAsset(gramHandle).Asset;
+
+		scope<Material::PBRTextured> grammat = make_scope<Material::PBRTextured>();
+		grammat->AlbedoHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Base_color.tga.png");
+		grammat->AOHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Mixed_AO.tga.png");
+		grammat->MetallicHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Metallic.tga.png");
+		grammat->RoughnessHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Roughness.tga.png");
+		grammat->NormalsHandle = AssetManager::Load<Texture2D>( AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Normal_OpenGL.tga.png");
+		gramModel->GetSubmesh(0).Material = AssetManager::PutScope<Material::Base>(std::move(grammat));
+
+		AssetImporter<Model>::Params wowModelParams{ AssetManager::MODEL_DIR / "wow" / "wow.fbx", false, false, true };
+		auto wowHandle = AssetManager::Load<Model>(wowModelParams);
+		auto wowModel = AssetManager::GetAsset(wowHandle).Asset;
+
+		AssetImporter<Model>::Params humanModelParams{ AssetManager::MODEL_DIR / "human" / "source" / "Dying.fbx", false, false, true};
+		auto humanHandle = AssetManager::Load<Model>(humanModelParams);
+		auto humanModel = AssetManager::GetAsset(humanHandle).Asset;
+		for (u32 i = 1; i <= 10; i++)
+		{
+			auto name = "Tower" + std::to_string(i);
+			AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "towers" / name / (name + ".FBX")};
+			auto towerHandle = AssetManager::Load<Model>(towerParams);
+
+			World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+				[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+				{
+					transform.Position = { i * 100.0f, 0.0f, 0.0f };
+					transform.Scale = glm::vec3{ 1.0f };
+					model.Model = towerHandle;
+					model.MeshIdx = -1;
+				}, name
+			);
+		}
 
 		AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "floating-castle" / "source" / "Mineways2Skfb.obj"};
-		auto towerHandle = AssetManager::Load<Model>(towerParams);
 
 		AssetImporter<Cubemap>::Params cparams
 		{
@@ -175,30 +213,45 @@ namespace EnGl
 			}, "Cubemap"
 		);
 
-		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+		auto m1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				transform.Position = { 0.0f, 0.0f, 0.0f };
-				model.Model = towerHandle;
-				model.MeshIdx = -1;
-			}, "Tower"
+				model.Model = modelHandle;
+			}, "Rem"
 		);
 
-		World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+		auto gm1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				transform.Position = { 0.0f, 50.0f, 0.0f };
-				model.Model = StaticModel::Quad(coordinatePlaneMat);
-				model.Layer = Component::RenderLayer::OL;
-				model.MeshIdx = 0;
-			}, "CoordinatePlane"
+				model.Model = gramHandle;
+			}, "gram"
 		);
 
-		auto dirLight = World().eEntity().Create<Component::Transform, Component::DirectionalLight>(
-			[=](Component::Transform& transform, Component::DirectionalLight& l) -> void
+		auto wow = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				transform.Rotation = glm::angleAxis(glm::radians(45.0f), Constants::FORWARD) * glm::angleAxis(glm::radians(-90.0f), Constants::UP);
-				l.Color = glm::vec3{253.0f / 255.0f, 183.0f / 255.0f, 72.0f / 255.0f};
+				model.Model = wowHandle;
+			}, "wow"
+		);
+
+		auto human = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+			{
+				model.Model = humanHandle;
+			}, "human"
+		);
+
+		Component::AddAnimationData(World().eEntity(), wow, wowModel->Animations()[0], wowModel->Skeletons()[0]);
+		Component::AddAnimationData(World().eEntity(), m1, remModel->Animations()[0], remModel->Skeletons()[0]);
+		Component::AddAnimationData(World().eEntity(), human, humanModel->Animations()[0], humanModel->Skeletons()[0]);
+
+
+		auto dirLight = World().eEntity().Create<Component::Transform, Component::DirectionalLight, Component::ConstantRotation>(
+			[=](Component::Transform& transform, Component::DirectionalLight& l, Component::ConstantRotation& rot) -> void
+			{
+				transform.Rotation = glm::angleAxis(glm::radians(30.0f), Constants::FORWARD) * glm::angleAxis(glm::radians(-90.0f), Constants::UP);
+				l.Color = glm::vec3{ 1.0f };
+				rot.Velocity = glm::vec3{0.0f, 0.0f, 0.0f};
 			}, "dirLight"
 		);
 
@@ -216,159 +269,88 @@ namespace EnGl
 		
 		context.Cubemap.Asset = cubemapHadle;
 		context.Cubemap.Id = cubemapEntity;
-		auto [depth, g1] = m_Framebuffer->Depth();
-		context.Framebuffer.DepthTextureOpaque = AssetManager::Put(Texture2D{ depth });
 
-		Framebuffer::CreationInfo dinfo0;
-		dinfo0.DepthAttachment = AssetManager::Put<Texture2D>(
-			Texture2D{
-				context.Renderer.CascadedShadowMap.TextureSize[0], context.Renderer.CascadedShadowMap.TextureSize[0],
-				Texture::CreationInfoFromData{
-					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT24,
-					.DataType = GL_FLOAT,
-					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
+		std::vector<Framebuffer> shadowFbs;
+		shadowFbs.reserve(GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades);
+
+		for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
+		{
+			Framebuffer::CreationInfo dinfo;
+			dinfo.DepthAttachment = AssetManager::Put<Texture2D>(
+				Texture2D{
+					context.Renderer.CascadedShadowMap.TextureSize[i], context.Renderer.CascadedShadowMap.TextureSize[i],
+					Texture::CreationInfoFromData{
+						.CpuFormat = GL_DEPTH_COMPONENT,
+						.GpuFormat = GL_DEPTH_COMPONENT32F,
+						.DataType = GL_FLOAT,
+						.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
+					}
 				}
-			}
-		);
-		Framebuffer dirShadowFramebuffer0{dinfo0};
-		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[0] = &dirShadowFramebuffer0;
+			);
+			shadowFbs.emplace_back( dinfo );
+			context.Renderer.CascadedShadowMap.DirShadowFramebuffer[i] = &shadowFbs[i];
+			
 
-		Framebuffer::CreationInfo dinfo1;
-		dinfo1.DepthAttachment = AssetManager::Put<Texture2D>(
-			Texture2D{
-				context.Renderer.CascadedShadowMap.TextureSize[1], context.Renderer.CascadedShadowMap.TextureSize[1],
-				Texture::CreationInfoFromData{
-					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT24,
-					.DataType = GL_FLOAT,
-					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
-				}
-			}
-		);
-		Framebuffer dirShadowFramebuffer1{ dinfo1 };
-		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[1] = &dirShadowFramebuffer1;
+			Entity cameraI = World().eEntity().Create<
+				Component::Transform,
+				Component::Velocity,
+				Component::ModelMatrix,
+				Component::ViewMatrix,
+				Component::ProjectionMatrix,
+				Component::OrthogonalProjection
+			>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::OrthogonalProjection& cam)
+				{
+					cam.NearPlane = 0.1f;
+					cam.FarPlane = 5000.0f;
 
-		Framebuffer::CreationInfo dinfo2;
-		dinfo2.DepthAttachment = AssetManager::Put<Texture2D>(
-			Texture2D{
-				context.Renderer.CascadedShadowMap.TextureSize[2], context.Renderer.CascadedShadowMap.TextureSize[2],
-				Texture::CreationInfoFromData{
-					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT24,
-					.DataType = GL_FLOAT,
-					.Common = {.Wrap = GL_CLAMP_TO_BORDER, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST, .BorderColor = glm::vec4{1.0f}}
-				}
-			}
-		);
-		Framebuffer dirShadowFramebuffer2{ dinfo2 };
-		context.Renderer.CascadedShadowMap.DirShadowFramebuffer[2] = &dirShadowFramebuffer2;
+					cam.Bottom = -1000.0f;
+					cam.Right = 1000.0f;
+					cam.Left = -1000.0f;
+					cam.Top = 1000.0f;
 
-
-		Entity camera0 = World().eEntity().Create<
-			Component::Transform,
-			Component::Velocity,
-			Component::ViewMatrix,
-			Component::ProjectionMatrix,
-			Component::OrthogonalProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
-			{
-				cam.NearPlane = 0.1f;
-				cam.FarPlane = 5000.0f;
-
-				cam.Bottom = -1000.0f;
-				cam.Right = 1000.0f;
-				cam.Left = -1000.0f;
-				cam.Top = 1000.0f;
-
-				mov.Speed = 100.0f;
-				transform.Position = { 0.0f, 100.0f, 0.0f };
-				transform.Rotation =
-					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-			}, "Camera0");
-
-		Entity camera1 = World().eEntity().Create<
-			Component::Transform,
-			Component::Velocity,
-			Component::ViewMatrix,
-			Component::ProjectionMatrix,
-			Component::OrthogonalProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
-			{
-				cam.NearPlane = 0.1f;
-				cam.FarPlane = 5000.0f;
-
-				cam.Bottom = -1000.0f;
-				cam.Right = 1000.0f;
-				cam.Left = -1000.0f;
-				cam.Top = 1000.0f;
-
-				mov.Speed = 100.0f;
-				transform.Position = { 0.0f, 100.0f, 0.0f };
-				transform.Rotation =
-					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-			}, "Camera1");
-
-
-		Entity camera2 = World().eEntity().Create<
-			Component::Transform,
-			Component::Velocity,
-			Component::ViewMatrix,
-			Component::ProjectionMatrix,
-			Component::OrthogonalProjection
-		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, Component::OrthogonalProjection& cam)
-			{
-				cam.NearPlane = 0.1f;
-				cam.FarPlane = 5000.0f;
-
-				cam.Bottom = -1000.0f;
-				cam.Right = 1000.0f;
-				cam.Left = -1000.0f;
-				cam.Top = 1000.0f;
-
-				mov.Speed = 100.0f;
-				transform.Position = { 0.0f, 100.0f, 0.0f };
-				transform.Rotation =
-					glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-			}, "Camera2");
-
-		context.Renderer.CascadedShadowMap.CascadeCamera[0] = camera0;
-		context.Renderer.CascadedShadowMap.CascadeCamera[1] = camera1;
-		context.Renderer.CascadedShadowMap.CascadeCamera[2] = camera2;
+					mov.Speed = 100.0f;
+					transform.Position = { 0.0f, 100.0f, 0.0f };
+					transform.Rotation =
+						glm::angleAxis(glm::radians(-35.264f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+				}, "Camera" + std::to_string(i));
+			context.Camera.Cameras.insert({ cameraI, {} });
+			context.Renderer.CascadedShadowMap.CascadeCamera[i] = cameraI;
+		}
 
 		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
 		context.DirLight.Id = dirLight;
-
-		context.Camera.Cameras.push_back({ .Entity = camera, .CanRotate = true });
-		context.Camera.Cameras.push_back({ .Entity = camera0 });
-		context.Camera.Cameras.push_back({ .Entity = camera1 });
-		context.Camera.Cameras.push_back({ .Entity = camera2 });
-
+		context.Camera.Cameras.insert({ camera, {.CanRotate = true } });
+		context.Camera.Cameras.insert({ cameraX, {.CanRotate = true } });
+		context.Camera.SetCamera(camera);
+		context.Camera.SetTargetCamera(camera);
 
 		World().eSystem<GameContext>()
 			.Add<System::Input>()
+			.Add<System::PlayAnimation>()
 			.Add<System::Movement>()
 			.Add<System::ConstantRotation>()
 			.Add<System::FollowSnap>()
 			.Add<System::ModelMatrix>()
+			.Add<System::SceneGraph>()
+			.Add<System::CollectAnimationTransforms>()
 			.Add<System::ViewMatrix>()
 			.Add<System::ProjectionMatrix>()
 			.Add<System::UpdateCameras>()
 			.Add<System::CollisionDetection>()
 			.Add<System::Gravity>()
 			.Add<System::CollectLights>()
-			.Add<System::CascadedShadowMaps>()
-			.Add<WaterSystem>()
+			.Add<System::CascadedShadowMap>()
+			.Add<System::WaterSystem>()
 			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
 			.Add<System::RenderToFramebuffer>()
-			.Add<TerrainSystem>()
-			.Add<CloudSystem>()
+			.Add<System::TerrainSystem>()
+			.Add<System::CloudSystem>()
 			.Add<System::UpdateCubemap>()
 			.Add<System::RenderToDefaultFramebuffer>()
 			.Add<System::Cleanup>()
 			.Init();
-
+		
 		while (!glfwWindowShouldClose(m_Window))
 		{
 			glfwPollEvents();

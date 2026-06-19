@@ -23,19 +23,19 @@ namespace EnGl
 
 		struct Base
 		{
-			virtual bool SetCommonUniforms(const GameContext& context)
+			virtual void SetCommonUniforms(Shader* shader, const GameContext& context)
 			{
-				m_Shader = AssetManager::GetAsset(m_ShaderHandle).Asset;
+				shader->Use();
+			};
 
-				if (m_Shader)
-				{
-					m_Shader->Use();
-				}
-
-				return m_Shader != nullptr;
+			virtual void SetCommonUniformsUnlit(Shader* shader, const GameContext& context)
+			{
+				return SetCommonUniforms(shader, context);
 			};
 
 			virtual void SetUniforms(Shader* shader) const {};
+
+			virtual void SetUniformsUnlit(Shader* shader) const { SetUniforms(shader); }
 
 			void SetModel(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
 			{
@@ -43,18 +43,28 @@ namespace EnGl
 				shader->SetUniform("uNormal", normal);
 			}
 
+			void SetModelUnlit(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
+			{
+				shader->SetUniform("uModel", model);
+			}
+
 			inline AssetHandle<Shader> Get() const { return m_ShaderHandle; }
+			inline AssetHandle<Shader> GetUnlit() const { return m_UnlitShaderHandle; }
+			inline AssetHandle<Shader> GetAnimated() const { return m_UnlitShaderHandle; }
 
 			void Set(const std::filesystem::path& path) { m_ShaderHandle = AssetManager::Load<Shader>(path); }
+			void SetUnlit(const std::filesystem::path& path) { m_UnlitShaderHandle = AssetManager::Load<Shader>(path); }
 
 			virtual void Editor() {}
 
 			virtual ~Base() = default;
+
+			
 		protected:
 			Base(const std::filesystem::path& path) : m_ShaderHandle(AssetManager::Load<Shader>(path)) {}
 
 			AssetHandle<Shader> m_ShaderHandle{};
-			mutable Shader* m_Shader = nullptr;
+			AssetHandle<Shader> m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "Unlit");
 		};
 
 		struct Unlit : public Base
@@ -75,16 +85,10 @@ namespace EnGl
 				Color = std::move(color);
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-
-				if (ok)
-				{
-					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				}
-
-				return ok;
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -113,14 +117,10 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (ok)
-				{
-					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				}
-				return ok;
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -145,22 +145,23 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uNear", context.Camera.Get().Near);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 0);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				return ok;
 			}
-
+				
 			void SetUniforms(Shader* shader) const override
 			{
 				shader->SetUniform("uColor", Color);
@@ -189,27 +190,19 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 0);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				//if (shadowMap)
-				//{
-				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 0);
-				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				//}
-
-				return ok;
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -247,27 +240,20 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 5);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				//if (shadowMap)
-				//{
-				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 5);
-				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				//}
-
-				return ok;
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -307,27 +293,21 @@ namespace EnGl
 				)
 			{}
 
-			bool SetCommonUniforms(const GameContext& context) override
+
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 3);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				//auto shadowMap = AssetManager::GetAsset(context.Framebuffer.DirShadowFramebuffer->Depth()).Asset;
-				//if (shadowMap)
-				//{
-				//	m_Shader->SetUniform("uShadowMap", *shadowMap, 4);
-				//	m_Shader->SetUniform("uShadowMapViewProjection", context.Camera.GetDirShadowCamera().ViewProjection);
-				//}
-
-				return ok;
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -336,7 +316,6 @@ namespace EnGl
 				auto arm = AssetManager::GetAsset(ARMHandle).Asset;
 				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
 				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
-
 				shader->SetUniform("uMaterial.Albedo", *albedo, 0);
 				shader->SetUniform("uMaterial.ARM", *arm, 1);
 				shader->SetUniform("uMaterial.Normals", *normals, 2);
@@ -356,20 +335,20 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 1);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				return ok;
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -426,43 +405,36 @@ namespace EnGl
 				}
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
+				Base::SetCommonUniforms(shader, context);
 				auto sky = AssetManager::GetAsset(context.SkyTexture).Asset;
 				auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
-				
-				if (!ok) return ok;
 
 				if (depth)
 				{
-					m_Shader->SetUniform("uDepth", *depth, 1);
+					shader->SetUniform("uDepth", *depth, 1);
 				}
 
 				if (sky)
 				{
-					m_Shader->SetUniform("uSkyTexture", *sky, 2);
+					shader->SetUniform("uSkyTexture", *sky, 2);
 				}
 
 
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uNear", context.Camera.Get().Near);
-				m_Shader->SetUniform("uFar", context.Camera.Get().Far);
-
-				return ok;
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uNear", context.Camera.Get().Near);
 			}
 		};
 
 		struct Phong : public Base
 		{
-			AssetHandle<Texture2D> DiffuseHandle;
-			AssetHandle<Texture2D> SpecularHandle;
+			AssetHandle<Texture2D> DiffuseHandle{};
+			AssetHandle<Texture2D> SpecularHandle{};
+			AssetHandle<Texture2D> NormalsHandle{};
 			f32 Shininess = 0.0f;
 
-			Phong(AssetHandle<Texture2D> diffuseHandle, AssetHandle<Texture2D> specularHandle, f32 shininess = 1, bool isInstanced = false)
-				: DiffuseHandle(diffuseHandle),
-				SpecularHandle(specularHandle),
-				Shininess(shininess),
+			Phong(bool isInstanced = false) :
 				Base(!isInstanced ?
 					AssetManager::GRAPHICS_SHADER_DIR / "Phong" :
 					AssetManager::GRAPHICS_SHADER_DIR / "PhongInstanced"
@@ -470,31 +442,36 @@ namespace EnGl
 			{
 			}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (!ok)
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+				shader->SetUniform("uDirectionalLight", context.DirLight.Data);
+				shader->SetUniform("uPointLights", context.PointLights);
+
+				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
+
+				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
+				if (shadowMap)
 				{
-					return ok;
+					shader->SetUniform("uShadowMap", *shadowMap, 3);
 				}
-
-				m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-				m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				m_Shader->SetUniform("uDirectionalLight", context.DirLight.Data);
-				m_Shader->SetUniform("uPointLights", context.PointLights);
-
-				return ok;
 			}
 
 			void SetUniforms(Shader* shader) const override
 			{
-				auto [textureD, gen1] = AssetManager::GetAsset(DiffuseHandle);
-				auto [textureS, gen2] = AssetManager::GetAsset(SpecularHandle);
+				auto textureD = AssetManager::GetAsset(DiffuseHandle).Asset;
+				auto textureS = AssetManager::GetAsset(SpecularHandle).Asset;
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				
 				if (textureD && textureS)
 				{
 					shader->SetUniform("uMaterial.Diffuse", *textureD, 0);
 					shader->SetUniform("uMaterial.Specular", *textureS, 1);
 					shader->SetUniform("uMaterial.Shininess", Shininess);
+					normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+					shader->SetUniform("uMaterial.Normals", *normals, 2);
 				}
 			}
 		};
@@ -503,16 +480,11 @@ namespace EnGl
 		{
 			CoordinatePlane() : Base(AssetManager::GRAPHICS_SHADER_DIR / "CoordinatePlane") {}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				if (ok)
-				{
-					m_Shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
-					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-				}
-
-				return ok;
+				Base::SetCommonUniforms(shader, context);
+				shader->SetUniform("uViewProjection", context.Camera.Get().ViewProjection);
+				shader->SetUniform("uCameraPos", context.Camera.Get().Position);
 			}
 		};
 
@@ -522,20 +494,53 @@ namespace EnGl
 
 			CubemapObj(AssetHandle<Cubemap> cubemapHandle) : Base(AssetManager::GRAPHICS_SHADER_DIR / "Cubemap"), CubemapHandle(cubemapHandle) {}
 
-			bool SetCommonUniforms(const GameContext& context) override
+			void SetCommonUniforms(Shader* shader, const GameContext& context) override
 			{
-				bool ok = Base::SetCommonUniforms(context);
-				auto [cubemap, g] = AssetManager::GetAsset(CubemapHandle);
+				Base::SetCommonUniforms(shader, context);
+				auto cubemap = AssetManager::GetAsset(CubemapHandle).Asset;
 
-				if (ok && cubemap)
+				if (cubemap)
 				{
-					m_Shader->SetUniform("uView", glm::mat4(glm::mat3(*context.Camera.Get().View)));
-					m_Shader->SetUniform("uProjection", *context.Camera.Get().Projection);
-					m_Shader->SetUniform("uCameraPos", *context.Camera.Get().Position);
-					m_Shader->SetUniform("uCubemap", *cubemap, 2);
+					shader->SetUniform("uViewProjection", context.Camera.Get().Projection * glm::mat4{ glm::mat3{context.Camera.Get().View } });
+					shader->SetUniform("uCameraPos", context.Camera.Get().Position);
+					shader->SetUniform("uCubemap", *cubemap, 2);
 				}
+			}
+		};
 
-				return ok;
+		struct PBRTexturedARMAnimated : public PBRTexturedARM
+		{
+			PBRTexturedARMAnimated(bool isInstanced = false) : PBRTexturedARM(isInstanced)
+			{
+				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRARMAnimated");
+				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+			}
+		};
+
+		struct PBRAnimated : public PBR
+		{
+			PBRAnimated(bool isInstanced = false) : PBR(isInstanced)
+			{
+				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRAnimated");
+				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+			}
+		};
+
+		struct PBRTexturedAnimated : public PBRTextured
+		{
+			PBRTexturedAnimated(bool isInstanced = false) : PBRTextured(isInstanced)
+			{
+				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRTexturedAnimated");
+				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+			}
+		};
+
+		struct PhongAnimated : public Phong
+		{
+			PhongAnimated(bool isInstanced = false) : Phong(isInstanced)
+			{
+				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PhongAnimated");
+				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
 			}
 		};
 	}

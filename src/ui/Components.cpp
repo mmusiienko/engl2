@@ -65,6 +65,7 @@ namespace EnGl
 		changed |= InputUInt("Grid cells", &channel.Params.NCells);
 		changed |= InputUInt("Seed", &channel.Params.Seed);
 		changed |= InputUInt("Octaves", &channel.Params.Octaves);
+		changed |= ImGui::InputFloat("Threshold", &channel.Params.DarkThreshold);
 
 		return changed;
 	}
@@ -110,7 +111,7 @@ namespace EnGl
 		}
 	}
 
-	void UiComponents::Texture2DView(AssetHandle<Texture2D> texA)
+	void UiComponents::Texture2DView(AssetHandle<Texture2D> texA, glm::vec2 scale)
 	{
 		auto tex = AssetManager::GetAsset(texA).Asset;
 		if (!tex)
@@ -119,7 +120,7 @@ namespace EnGl
 			return;
 		}
 
-		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(static_cast<f32>(tex->Properties().w), static_cast<f32>(tex->Properties().h)));
+		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(static_cast<f32>(tex->Properties().w) * scale.x, static_cast<f32>(tex->Properties().h) * scale.y));
 	}
 
 	void UiComponents::Texture3DView(AssetHandle<Texture3D> texA)

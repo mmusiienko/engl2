@@ -54,12 +54,27 @@ namespace EnGl
 		{
 			GL_CHECK(glDisableVertexAttribArray(2));
 		}
+
+		if (info.HasBones)
+		{
+			GL_CHECK(glVertexAttribIPointer(5, 4, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, BoneIds)));
+			GL_CHECK(glEnableVertexAttribArray(5));
+			GL_CHECK(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BoneWeights)));
+			GL_CHECK(glEnableVertexAttribArray(6));
+		}
+		else
+		{
+			GL_CHECK(glDisableVertexAttribArray(5));
+			GL_CHECK(glDisableVertexAttribArray(6));
+		}
 	}
 
 	void Mesh::Draw() const
 	{
 		GL_CHECK(glBindVertexArray(m_Id));
 		GL_CHECK(glDrawElements(m_DrawType, m_IndicesSize, GL_UNSIGNED_INT, 0));
+
+		m_BoneUpdated = false;
 	}
 
 	void Mesh::UpdateInstanceBuffer(const std::vector<InstanceData>& instanceData)

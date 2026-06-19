@@ -5,7 +5,7 @@
 #include "algorithm/compute/FFT.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	class WaterSystem : public SystemImpl
 	{
@@ -39,7 +39,7 @@ namespace EnGl
 			f32 Fetch = 1000.0f * 1000.0f * 100.0f;
 			f32 Depth = 500.0f;
 
-			f32 FoamAdd = 0.558f;
+			f32 FoamAdd = 0.492f;
 			f32 FoamDecay = 0.034f;
 
 			bool DimensionChanged = false;

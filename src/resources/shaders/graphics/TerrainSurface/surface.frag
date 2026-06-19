@@ -7,7 +7,6 @@ in flat int vLod;
 in vec4 vShadowPos;
 
 uniform vec3 uCameraPos;
-uniform samplerCube uCubemap;
 uniform float uNear;
 uniform float uFar;
 uniform float uTime;
@@ -40,8 +39,9 @@ struct UniformDirectionalLight
 uniform UniformPointLight       uPointLights[MAX_LIGHTS];
 uniform UniformDirectionalLight uDirectionalLight;
 uniform sampler2D               uShadowMap;
+uniform uvec2 uResolution;
 
-uniform Material material = Material(vec3(0.1, 0.8, 0.1), 0.0, .7, 1.0);
+uniform Material material = Material(vec3(0.1, 0.8, 0.1), 0.0, 0.6, 1.0);
 
 float DistributionGGX(float NDotH, float roughness)
 {
@@ -106,50 +106,26 @@ const float GAUSSIAN_3X3[9] = float[9](
     1.0, 2.0, 1.0
 );
 
-float Shadow()
+float Shadow(vec3 normal, UniformDirectionalLight light)
 {
-    vec3 proj = (vShadowPos.xyz / vShadowPos.w) * 0.5 + 0.5;
-    if (proj.z > 1.0) return 0.0;
-
-    vec2  texelSize = 1.0 / textureSize(uShadowMap, 0);
-    float shadow    = 0.0;
-    float bias      = 0.01;
-
-    for (int x = -1; x <= 1; ++x)
-        for (int y = -1; y <= 1; ++y)
-        {
-            float d = texture(uShadowMap, proj.xy + vec2(x, y) * texelSize).r;
-            shadow += proj.z - bias > d ? GAUSSIAN_3X3[(x + 1) * 3 + (y + 1)] : 0.0;
-        }
-
-    return shadow / 16.0;
+    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    return s.r;
 }
+
 const vec3 F0 = vec3(0.04);
 const vec3 AMBIENT  = vec3(0.7);
 
 uniform sampler2D uTerrainInfo;
-uniform float uResolution = 1.0;
+uniform float uTerrainResolution = 1.0;
 uniform vec4 uHeightWeights = vec4(100.0, 1.0, 0.1, 0.001);
 uniform vec4 uScale = vec4(0.001);
 const float baseScale = 0.001;
 
-float sampleHeight(vec2 pos)
-{
-    vec4 heightSample = vec4(
-        texture(uTerrainInfo, pos * uScale.x * baseScale).r,
-        texture(uTerrainInfo, pos * uScale.y * baseScale).g,
-        texture(uTerrainInfo, pos * uScale.z * baseScale).b,
-        texture(uTerrainInfo, pos * uScale.w * baseScale).a
-    ) - vec4(0.5);
-    float h = dot(heightSample, uHeightWeights);
-    
-    return h;
-}
-
-const vec3 GRASS = vec3(0.1, 0.8, 0.1);
-const vec3 SNOW = vec3(1.0);
+const vec3 GRASS = vec3(0.1, 0.8, 0.1) * 0.2;
+const vec3 SNOW = vec3(1.0) * 0.2;
 const vec3 SAND = vec3(224.0 / 255.0, 198.0 / 255.0, 49.0 / 255.0);
-const vec3 ROCK = vec3(0.03);
+const vec3 ROCK = vec3(0.03) ;
+const vec3 ROCK2 = vec3(0.2, 0.05, 0.07);
 
 float remap(float val, float mn1, float mx1, float mn2, float mx2)
 {
@@ -168,16 +144,20 @@ float grad(float val, float mn1, float mx1, float mn2, float mx2)
 
 vec3 getColor(float height)
 {
-    float h = height + texture(uTerrainInfo, vPos * uScale.y * baseScale).b * 300.0;
-    float sandToGrass = grad(h, 0.0, 200.0, 0.0, 1.0);
-    float grassToRock = grad(h,   150.0, 300.0, 0.0, 1.0);
-    float rockToSnow  = grad(h,  2300.0, 2500.0, 0.0, 1.0);
+    vec4 s = texture(uTerrainInfo, vPos * baseScale * uScale.a * 0.5);
+
+    float h = height + s.a * 100;
+    //float sandToGrass = grad(h, 0.0, 50.0, 0.0, 1.0);
+    //float grassToRock = grad(h,   30.0, 100.0, 0.0, 1.0);
+    //float rockToSnow  = grad(h,  200.0, 400.0, 0.0, 1.0);
+
+    float sandToRock = grad(h, -600.0, -300.0, 0.0, 1.0);
+    float rockToGrass = grad(h,   -300.0, 000.0, 0.0, 1.0);
 
     vec3 col = SAND;
-    col = mix(col, GRASS, sandToGrass);
-    col = mix(col, ROCK,  grassToRock);
-    col = mix(col, SNOW,  rockToSnow);
-    return col;
+    col = mix(col, ROCK, sandToRock);
+    col = mix(col, ROCK2,  rockToGrass);
+    return col + s.rgb * vec3(1.0, 0.8, 0.7) * 0.01;
 }
 
 vec3 getColorAngle(float angle)
@@ -194,32 +174,21 @@ vec3 getColorAngle(float angle)
     return col;
 }
 
-vec3 computeNormal(vec2 pos) {
-    float eps = uResolution /16;
-    float hL = sampleHeight(vPos + vec2(-eps, 0));
-    float hR = sampleHeight(vPos + vec2(eps, 0));
-    float hD = sampleHeight(vPos + vec2(0, -eps));
-    float hU = sampleHeight(vPos + vec2(0, eps));
-
-    vec3 normal = normalize(vec3(hL - hR, 2.0 * eps, hD - hU));
-    return normal;
-}
-
 in float vHeight;
+in vec3 vNormal;
 
 void main()
 {
-    vec3 normal = computeNormal(vPos);
+    vec3 normal = normalize(vNormal);
 
     vec3  V     = normalize(uCameraPos - vFragPos);
-    float NdotV = max(dot(normal, V), 0.0);
 
     vec3 albedo = getColor(vHeight);
 
     vec3 F0mix = mix(F0, albedo, material.Metallic);
 
     vec3 L0 = vec3(0.0);
-    float shadow = (1 - Shadow());
+    float shadow = Shadow(normal, uDirectionalLight);
     L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, normal, albedo);
 
     for (uint i = 0u; i < MAX_LIGHTS; i++)
@@ -227,5 +196,5 @@ void main()
 
     vec3 color = AMBIENT * albedo * material.AO + L0;
 
-    FragColor = vec4(color * 0.1, 1);
+    FragColor = vec4(color, 1);
 }

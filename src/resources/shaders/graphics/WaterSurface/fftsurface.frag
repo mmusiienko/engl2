@@ -92,7 +92,7 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0)
 }
 
 vec3 DirectionalLightLobe(UniformDirectionalLight light, vec3 V, vec3 F0mat,
-                           vec3 N, vec3 albedo, float roughness, float foam)
+                           vec3 N, vec3 albedo, float roughness)
 {
     vec3  L     = light.Direction;
     vec3  H     = normalize(V + L);
@@ -106,7 +106,7 @@ vec3 DirectionalLightLobe(UniformDirectionalLight light, vec3 V, vec3 F0mat,
     vec3  fresnel = FresnelSchlick(HDotV, F0mat);
 
     vec3 kD      = (vec3(1.0) - fresnel) * (1.0 - material.Metallic);
-    vec3 specular = (foam < 0.001) ? ((ndf * G * fresnel) / (4.0 * NDotV * NDotL + 0.0001)) : vec3(0);
+    vec3 specular = ((ndf * G * fresnel) / (4.0 * NDotV * NDotL + 0.0001));
 
     return (kD * albedo / PI + specular) * light.Color * NDotL;
 }
@@ -114,8 +114,9 @@ vec3 DirectionalLightLobe(UniformDirectionalLight light, vec3 V, vec3 F0mat,
 vec3 DirectionalLight(UniformDirectionalLight light, vec3 V, vec3 F0mat,
                       vec3 N, vec3 albedo, float foam)
 {
-    vec3 sharp = DirectionalLightLobe(light, V, F0mat, N, albedo, material.Roughness, foam);
-    vec3 broad  = DirectionalLightLobe(light, V, F0mat, N, albedo, material.Roughness + 0.30, foam);
+    float roughness = foam < 0.001 ? material.Roughness : 1.0;
+    vec3 sharp = DirectionalLightLobe(light, V, F0mat, N, albedo, roughness);
+    vec3 broad  = DirectionalLightLobe(light, V, F0mat, N, albedo, material.Roughness + 0.30);
     return sharp * 0.75 + broad * 0.25;
 }
 
@@ -137,23 +138,10 @@ const float GAUSSIAN_3X3[9] = float[9](
     1.0, 2.0, 1.0
 );
 
-float Shadow()
+float Shadow(vec3 normal, UniformDirectionalLight light)
 {
-    vec3 proj = (vShadowPos.xyz / vShadowPos.w) * 0.5 + 0.5;
-    if (proj.z > 1.0) return 0.0;
-
-    vec2  texelSize = 1.0 / textureSize(uShadowMap, 0);
-    float shadow    = 0.0;
-    float bias      = 0.01;
-
-    for (int x = -1; x <= 1; ++x)
-        for (int y = -1; y <= 1; ++y)
-        {
-            float d = texture(uShadowMap, proj.xy + vec2(x, y) * texelSize).r;
-            shadow += proj.z - bias > d ? GAUSSIAN_3X3[(x + 1) * 3 + (y + 1)] : 0.0;
-        }
-
-    return shadow / 16.0;
+    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    return s.r;
 }
 
 const vec3 F0_WATER = vec3(0.02);
@@ -180,22 +168,25 @@ void main()
     vec3 normal = normalize(vec3(-totalSlope.x, 1.0, -totalSlope.y));
     
     vec3  foamDetail = texture(uFoamDetail, vFragPos.xz * 0.0002).rgb;
-    float depth      = texture(uDepth, gl_FragCoord.xy / vec2(uResolution)).r;
+    float depth      = linDepth(texture(uDepth, gl_FragCoord.xy / vec2(uResolution)).r);
 
     totalFoam += clamp(
-        2.0 * max(foamDetail.r - max(linDepth(depth) - linDepth(gl_FragCoord.z) - 0.1, 0.0), 0.0),
+        2.0 * max(foamDetail.r - max(depth - linDepth(gl_FragCoord.z) - 0.1, 0.0), 0.0),
         0.0, 1.0) * 0.5;
+    totalFoam = max(totalFoam, 0.0);
 
+    vec3 albedo = material.Albedo;
+    albedo = mix(albedo, albedo + foamDetail, 10 * totalFoam);
 
     vec3  V     = normalize(uCameraPos - vFragPos);
     float NdotV = max(dot(normal, V), 0.0);
 
-    vec3 albedo = material.Albedo * NdotV;
+    albedo = albedo * NdotV;
 
     vec3 F0mix = mix(F0_WATER, albedo, material.Metallic);
 
     vec3 L0 = vec3(0.0);
-    float shadow = 1;
+    float shadow = Shadow(normal, uDirectionalLight);
     L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, normal, albedo, totalFoam);
 
     for (uint i = 0u; i < MAX_LIGHTS; i++)
@@ -209,9 +200,6 @@ void main()
 
     color += shadow * reflectionColor * (0.15 * reflFresnel);
 
-    totalFoam = max(totalFoam, 0.0);
-
-    color = mix(color, color + foamDetail, shadow * totalFoam);
 
     FragColor = vec4(color, 1 - 0.01 *dot(reflectDir, normal));
 }

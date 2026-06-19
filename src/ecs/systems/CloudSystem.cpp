@@ -3,20 +3,20 @@
 #include "ui/Components.h"
 
 
-namespace EnGl
+namespace EnGl::System
 {
 	void CloudSystem::Init(EcsImpl::EntityManager& manager)
 	{
 		m_SkyTextureLowResA = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
 			.CpuFormat = GL_RGBA,
 			.GpuFormat = GL_RGBA32F,
-			.Common = {.MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
+			.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
 		});
 
 		m_SkyTextureLowResB = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
-			.CpuFormat = GL_RGBA,
-			.GpuFormat = GL_RGBA32F,
-			.Common = {.MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
+			.CpuFormat = GL_RED,
+			.GpuFormat = GL_R32F,
+			.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
 		});
 
 		m_SkyTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{ 
@@ -29,6 +29,12 @@ namespace EnGl
 			.CpuFormat = GL_RGBA,
 			.GpuFormat = GL_RGBA32F,
 			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
+		});
+
+		m_EdgeTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
+			.CpuFormat = GL_RED,
+			.GpuFormat = GL_R8,
+			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
 		});
 
 		m_TransmittanceLUT = AssetManager::Put<Texture2D>(
@@ -89,16 +95,17 @@ namespace EnGl
 		auto tex = AssetManager::GetAsset(m_SkyTexture).Asset;
 		auto history = AssetManager::GetAsset(m_HistoryTexture).Asset;
 		auto texLowResB = AssetManager::GetAsset(m_SkyTextureLowResB).Asset;
+		auto edge = AssetManager::GetAsset(m_EdgeTexture).Asset;
 
 		if (context.Framebuffer.MainFramebuffer->Resolution() != m_Res)
 		{
 			m_Res = context.Framebuffer.MainFramebuffer->Resolution();
-			texLowResA->Properties().w = m_Res.x / m_Params.ResScale;
-			texLowResA->Properties().h = m_Res.y / m_Params.ResScale;
+			texLowResA->Properties().w = static_cast<u32>(m_Res.x / m_Params.ResScale);
+			texLowResA->Properties().h = static_cast<u32>(m_Res.y / m_Params.ResScale);
 			texLowResA->Update();
 
-			texLowResB->Properties().w = m_Res.x / m_Params.ResScale;
-			texLowResB->Properties().h = m_Res.y / m_Params.ResScale;
+			texLowResB->Properties().w = static_cast<u32>(m_Res.x / m_Params.ResScale);
+			texLowResB->Properties().h = static_cast<u32>(m_Res.y / m_Params.ResScale);
 			texLowResB->Update();
 
 			tex->Properties().w = m_Res.x;
@@ -108,9 +115,13 @@ namespace EnGl
 			history->Properties().w = m_Res.x;
 			history->Properties().h = m_Res.y;
 			history->Update();
+
+			edge->Properties().w = m_Res.x;
+			edge->Properties().h = m_Res.y;
+			edge->Update();
 		}
 
-		return { .LowResA = texLowResA, .LowResB = texLowResB  , .Sky = tex, .History = history };
+		return { .LowResA = texLowResA, .LowResB = texLowResB  , .Sky = tex, .History = history, .Edge = edge };
 	}
 
 	void CloudSystem::Run(EcsImpl::EntityManager& manager, GameContext& context)
@@ -127,8 +138,6 @@ namespace EnGl
 		DispatchLowRes(context, textures);
 
 		DispatchUpsample(context, textures);
-
-		//DispatchBlur(context, textures);
 
 		DispatchEdge(context, textures);
 
@@ -168,7 +177,7 @@ namespace EnGl
 		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
 
 		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
-		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uCameraPos", cam.Position);
 		shader->SetUniform("uCameraDelta", cam.Delta);
 		shader->SetUniform("uCameraForward", cam.Forward);
 		shader->SetUniform("uNear", cam.Near);
@@ -265,7 +274,7 @@ namespace EnGl
 		}
 		shader->SetUniform("uCameraForward", cam.Forward);
 		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
-		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uCameraPos", cam.Position);
 		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
 		shader->SetUniform("uViewProjectionLastFrame", cam.ViewProjectionLastFrame);
 		shader->SetUniform("uResolution", m_Res);
@@ -279,40 +288,6 @@ namespace EnGl
 				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
 			}
 			, GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-		);
-	}
-
-	void CloudSystem::DispatchDepthNeighborFill(GameContext& context, CloudTextures& textures)
-	{
-		auto shader = AssetManager::GetAsset(m_DepthNeighborShader).Asset;
-
-		if (!shader)
-		{
-			spdlog::error("Shader for sky is not loaded.");
-			return;
-		}
-
-		auto depth = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Depth()).Asset;
-		if (!depth)
-			return;
-
-		auto& cam = context.Camera.Get();
-
-		shader->Use();
-
-		shader->BindWriteTexture(*textures.LowResB, 0);
-		shader->SetUniform("uDepth", *depth, 1);
-		shader->SetUniform("uResScale", m_Params.ResScale);
-		shader->SetUniform("uResolution", m_Res);
-		shader->SetUniform("uNear", cam.Near);
-		shader->SetUniform("uFar", cam.Far);
-
-		shader->DispatchWait(
-			{
-				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / m_Params.ResScale / 16.0f)),
-				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / m_Params.ResScale / 16.0f))
-			}
-			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 		);
 	}
 
@@ -350,7 +325,7 @@ namespace EnGl
 				.GroupSizeX = static_cast<u32> (glm::ceil(m_Res.x / 16.0f)),
 				.GroupSizeY = static_cast<u32> (glm::ceil(m_Res.y / 16.0f))
 			}
-			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+			, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
 		);
 	}
 
@@ -373,7 +348,7 @@ namespace EnGl
 		shader->Use();
 
 		shader->BindReadTexture(*textures.Sky, 0);
-		shader->BindWriteTexture(*textures.History, 1);
+		shader->BindWriteTexture(*textures.Edge, 1);
 		shader->SetUniform("uDepth", *depth, 2);
 		shader->SetUniform("uResScale", m_Params.ResScale);
 		shader->SetUniform("uResolution", m_Res);
@@ -411,13 +386,13 @@ namespace EnGl
 		auto& cam = context.Camera.Get();
 
 		shader->Use();
-		shader->BindReadTexture(*textures.History, 0);
+		shader->BindReadTexture(*textures.Edge, 0);
 		shader->BindWriteTexture(*textures.Sky, 1);
 
 		shader->SetUniform("uCurrentOffset", m_CurrentRenderOffsetIdx);
 
 		shader->SetUniform("uInvViewProjection", cam.InverseViewProjection);
-		shader->SetUniform("uCameraPos", *cam.Position);
+		shader->SetUniform("uCameraPos", cam.Position);
 		shader->SetUniform("uCameraDelta", cam.Delta);
 		shader->SetUniform("uCameraForward", cam.Forward);
 		shader->SetUniform("uNear", cam.Near);
@@ -492,7 +467,7 @@ namespace EnGl
 		PresetSelect(manager, context);
 
 		auto& dirLight = manager.Get<Component::DirectionalLight>(context.DirLight.Id);
-		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.Get().Entity);
+		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.GetEntity());
 
 		ImGui::SeparatorText("Skybox shape");
 		ImGui::InputFloat("SkyHeightMin", &m_Params.SkyHeightMin);
@@ -541,7 +516,7 @@ namespace EnGl
 	void CloudSystem::PresetSelect(EcsImpl::EntityManager& manager, GameContext& context)
 	{
 		auto& dirLight = manager.Get<Component::DirectionalLight>(context.DirLight.Id);
-		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.Get().Entity);
+		auto& cam = manager.Get<Component::PerspectiveProjection>(context.Camera.GetEntity());
 
 		for (auto& [presetName, preset] : m_Presets)
 		{

@@ -3,7 +3,7 @@
 layout (local_size_x=16, local_size_y=16) in;
 
 layout (binding=0, rgba32f) writeonly uniform image2D SkyA;
-layout (binding=1, rgba32f) writeonly uniform image2D SkyB;
+layout (binding=1, r32f) writeonly uniform image2D SkyB;
 
 uniform mat4 uInvViewProjection;
 uniform uvec2 uResolution;
@@ -286,7 +286,8 @@ float densityAlter(float h)
 
 float sampleDensity(vec3 pos, float h)
 {
-	vec4 weather = texture(uWeather, 0.00001 * (uWeatherScale * pos.xz + uTime * uSpeed * 1.5));
+	if (pos.y < -1000) return 0;
+	vec4 weather = texture(uWeather, 0.00001 * uWeatherScale * (pos.xz + uTime * uSpeed * 1.5));
 	h = clamp(h + weather.a * 0.2,0,1);
 
 	float weatherCoverage = max(weather.r, 2.0 * weather.g * saturate(uGlobalCoverage - 0.5));
@@ -299,13 +300,10 @@ float sampleDensity(vec3 pos, float h)
 	vec4 detailSample = texture(uDetail, samplePos2 * uDetailScale);
 
 	float shape = remap(shapeSample.r, (0.625 * shapeSample.g + 0.25 * shapeSample.b + 0.125 * shapeSample.a) - 1.0, 1.0, 0.0, 1.0);
-
-	if (shape < 0.01) return 0.0;
-
+	float shapeDensity = grad(shape  * shapeAlter(h) * densityHeightGradient(h, weather.b), 1.0 - uGlobalCoverage * weatherCoverage, 1.0, 0.0, 1.0);
+	
 	float detail = 0.625 * detailSample.g + 0.25 * detailSample.b + 0.125 * detailSample.a;
 	float detailModifier = mix(detail, 1.0 - detail, saturate(h * 5.0)) * 0.35 * exp(-uGlobalCoverage * 0.75);
-
-	float shapeDensity = grad(shape  * shapeAlter(h) * densityHeightGradient(h, weather.b), 1.0 - uGlobalCoverage * weatherCoverage, 1.0, 0.0, 1.0);
 
 	return grad(shapeDensity, detailModifier, 1.0, 0.0, 1.0) * densityAlter(h);
 }
@@ -377,7 +375,7 @@ vec3 getOffset(ivec2 lowResPos)
 	res.xy = CrossOffset4x4[uCurrentOffset];
 	float d = texelFetch(uDepth, lowResPos + ivec2(res.xy), 0).r;
 
-	res.b = linDepth(d);
+	res.b = min(linDepth(d), 100000);
     return res;
 }
 
@@ -541,7 +539,7 @@ void main()
 		float cloudFirstDist = (near + firstDist);
 
 		imageStore(SkyA, storePos, vec4(color, transmittance));
-		imageStore(SkyB, storePos, vec4(cloudFirstDist, effectiveDepth < distTotal ? 1 : 0, distTotal, effectiveDepth));
+		imageStore(SkyB, storePos, vec4(cloudFirstDist));
 	}
 	else
 	{
@@ -607,6 +605,6 @@ void main()
 		float cloudFirstDist = (near + firstDist);
 
 		imageStore(SkyA, storePos, vec4(color, transmittance));
-		imageStore(SkyB, storePos, vec4(cloudFirstDist, depth, distInside, effectiveDepth));
+		imageStore(SkyB, storePos, vec4(cloudFirstDist));
 	}
 }

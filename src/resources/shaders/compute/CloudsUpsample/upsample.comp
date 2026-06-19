@@ -98,6 +98,7 @@ void main()
     float t = texture(uLowResB, uvLow).r;
 
 	vec3 worldPos = uCameraPos + rayDir * t;
+	// TODO: adjust worldpos for cloud movement
 
     vec4 clipLast = uViewProjectionLastFrame * vec4(worldPos, 1.0);
     clipLast /= clipLast.w;
@@ -123,7 +124,7 @@ void main()
             vec2 uvN = (vec2(n) + 0.5) / lowResResolution;
 
             vec4 s = texture(uLowResA, uvN);
-            vec4 sd = texture(uLowResB, uvN);
+            //vec4 sd = texture(uLowResB, uvN);
 
 			//if (abs(t - sd.r) > 1e8) continue;
 
@@ -133,7 +134,7 @@ void main()
 
         vec4 clampedHistory = clamp(history, minN, maxN);
 
-		float alpha = wasPixelFilledThisFrame ? 1 : 0;
+		float alpha = wasPixelFilledThisFrame ? 1 : 0.0;
 
         result = mix(clampedHistory, currentSample, alpha);
 
