@@ -4,7 +4,6 @@ out vec4 FragColor;
 in vec3 vFragPos;
 in vec2 vPos;
 in flat int vLod;
-in vec4 vShadowPos;
 
 uniform vec3 uCameraPos;
 uniform float uNear;

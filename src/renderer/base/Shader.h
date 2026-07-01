@@ -52,6 +52,7 @@ namespace EnGl
 		void SetUniform(std::string_view name, const glm::mat4& value) const;
 		void SetUniform(std::string_view name, const glm::mat4x3& value) const;
 		void SetUniform(std::string_view name, const glm::mat3x4& value) const;
+		void SetUniform(std::string_view name, const glm::mat3& value) const;
 		void SetUniform(std::string_view name, const glm::vec4& value) const;
 		void SetUniform(std::string_view name, const glm::vec3& value) const;
 		void SetUniform(std::string_view name, const glm::vec2& value) const;
@@ -59,9 +60,9 @@ namespace EnGl
 		void SetUniform(std::string_view name, const UniformDirectionalLight& value) const;
 		void SetUniform(std::string_view name, const std::array<UniformPointLight, MAX_LIGHTS>& value) const;
 		void SetUniform(std::string_view name, const Texture& value, u32 unit) const;
-		void SetUniform(std::string_view name, void*) = delete;
-		void SetUniform(std::string_view name, const void*) = delete;
-		void SetUniform(std::string_view name, std::nullptr_t) = delete;
+		template <typename T>
+		requires std::is_pointer_v<T>
+		void SetUniform(std::string_view, T) = delete;
 
 		void BindTextureUnit(const Texture& tex, u32 unit) const;
 		void BindSSBO(const SSBO& ssbo, u32 unit) const;

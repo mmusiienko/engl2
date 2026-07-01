@@ -253,7 +253,10 @@ namespace EnGl
 
 		void SystemView(size_t system, GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& registry)
 		{
-			ImGui::Text("Selected System: %s", registry.GetName(system).c_str());
+			u64 elapsed = 0;
+			GL_CHECK(glGetQueryObjectui64v(context.FrameStats[system].GpuQueryIndex, GL_QUERY_RESULT, &elapsed));
+
+			ImGui::Text("Selected System: %s, CPU time: %.3fms, GPU time : %.3fms", registry.GetName(system).c_str(), context.FrameStats[system].TimeCpu, elapsed / 1000000.0f);
 			ImGui::Spacing();
 			registry.Get(system)->Editor(manager, context);
 		}

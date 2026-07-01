@@ -2,7 +2,7 @@
 
 layout (local_size_x=16, local_size_y=16) in;
 
-layout (binding=0, rgba32f) writeonly uniform image2D SkyA;
+layout (binding=0, rgba16f) writeonly uniform image2D SkyA;
 layout (binding=1, r32f) writeonly uniform image2D SkyB;
 
 uniform mat4 uInvViewProjection;
@@ -438,7 +438,6 @@ void main()
 		float silverLine = uSilverLine * pow(saturate(theta), uSilverLineExp);
 
 		float IOScattering = mix( max( HG(theta, uInScatter), silverLine), HG(theta, -uOutScatter), uInOutCoefficient );
-
 		float stepSize = distToTravel / float(uNumSteps);
 		float offset = random(pixel) * stepSize;
 		vec3 pos = rayOrigin + (near + offset) * rayDir;

@@ -192,6 +192,30 @@
     <ClInclude Include="external\imguizmo\ImZoomSlider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\techniques\SSAO.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\Prepass.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\ResetRenderState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\Render.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\DrawDebug.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ecs\systems\renderer\RenderScreenQuad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="algorithm\compute\Blur.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="algorithm\compute\FFT.cpp">
@@ -308,10 +332,10 @@
     <ClCompile Include="ecs\systems\TerrainSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ecs\systems\CascadedShadowMap.h">
+    <ClCompile Include="ecs\systems\renderer\techniques\CascadedShadowMap.h">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ecs\systems\CascadedShadowMap.cpp">
+    <ClCompile Include="ecs\systems\renderer\techniques\CascadedShadowMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ecs\systems\Animation.cpp">
@@ -342,6 +366,30 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="external\imguizmo\ImVectorEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\techniques\SSAO.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\Prepass.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\ResetRenderState.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\Render.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\Common.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\DrawDebug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ecs\systems\renderer\RenderScreenQuad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="algorithm\compute\Blur.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

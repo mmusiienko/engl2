@@ -1,7 +1,7 @@
 #version 460 core
 layout (local_size_x=16, local_size_y=16) in;
 
-layout (binding=0, rgba32f) writeonly uniform image2D ScreenSpaceShadow;
+layout (binding=0, r8) writeonly uniform image2D ScreenSpaceShadow;
 
 struct Cascade
 {
@@ -50,7 +50,7 @@ float Shadow(uint idx, vec4 world, int radius)
 			for (int y = -radius; y <= radius;y++)
 			{
 				lightDepth = texture(uCascades[idx].ShadowMap, luv.xy + vec2(x,y) * texelSize).r;
-				shadow += luv.z < lightDepth ? 1 : 0.0;
+				shadow += luv.z < lightDepth ? 1.0 : 0.0;
 			}
 		}
 	} 
@@ -95,7 +95,10 @@ void main()
 
 	vec4 world = uInvView * cam;
 
-	int radius = 6 - 2 * int(idx);	
+	int radius = 0;	
+
+	if (idx < 2) radius = 1;
+
 	float total = radius * 2.0 + 1.0;
 	float invRadiusSqr = 1.0 / (total * total);
 	float shadow = Shadow(idx, world, radius);

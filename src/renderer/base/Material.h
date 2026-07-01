@@ -9,6 +9,14 @@
 
 namespace EnGl
 {
+	enum class RenderpassType
+	{
+		NORMAL,
+		SHADOW,
+		PREPASS,
+		COUNT
+	};
+
 	namespace Material
 	{
 		struct PlaceholderTextures
@@ -19,41 +27,111 @@ namespace EnGl
 			inline static AssetHandle<Texture2D> AO;
 			inline static AssetHandle<Texture2D> ARM;
 			inline static AssetHandle<Texture2D> Opacity;
+			inline static AssetHandle<Texture2D> Color;
 		};
 
 		struct Base
 		{
-			virtual void SetCommonUniforms(Shader* shader, const GameContext& context)
+			virtual void SetCommonUniforms(Shader* shader, const GameContext& context){ shader->Use(); }
+			virtual void SetCommonUniformsShadow(Shader* shader, const GameContext& context) { SetCommonUniforms(shader, context); }
+			virtual void SetCommonUniformsPrepass(Shader* shader, const GameContext& context) { SetCommonUniforms(shader, context); }
+			void SetCommonUniforms(Shader* shader, const GameContext& context, RenderpassType type)
 			{
-				shader->Use();
-			};
-
-			virtual void SetCommonUniformsUnlit(Shader* shader, const GameContext& context)
-			{
-				return SetCommonUniforms(shader, context);
-			};
+				switch (type)
+				{
+				case EnGl::RenderpassType::NORMAL:
+					SetCommonUniforms(shader, context);
+					break;
+				case EnGl::RenderpassType::SHADOW:
+					SetCommonUniformsShadow(shader, context);
+					break;
+				case EnGl::RenderpassType::PREPASS:
+					SetCommonUniformsPrepass(shader, context);
+					break;
+				case EnGl::RenderpassType::COUNT:
+					break;
+				default:
+					break;
+				}
+			}
 
 			virtual void SetUniforms(Shader* shader) const {};
+			virtual void SetUniformsShadow(Shader* shader) const { SetUniforms(shader); }
+			virtual void SetUniformsPrepass(Shader* shader) const { SetUniforms(shader); }
+			void SetUniforms(Shader* shader, RenderpassType type)
+			{
+				switch (type)
+				{
+				case EnGl::RenderpassType::NORMAL:
+					SetUniforms(shader);
+					break;
+				case EnGl::RenderpassType::SHADOW:
+					SetUniformsShadow(shader);
+					break;
+				case EnGl::RenderpassType::PREPASS:
+					SetUniformsPrepass(shader);
+					break;
+				case EnGl::RenderpassType::COUNT:
+					break;
+				default:
+					break;
+				}
+			}
 
-			virtual void SetUniformsUnlit(Shader* shader) const { SetUniforms(shader); }
-
-			void SetModel(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
+			void SetModelNormal(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
 			{
 				shader->SetUniform("uModel", model);
 				shader->SetUniform("uNormal", normal);
 			}
 
-			void SetModelUnlit(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal) const
+			void SetModel(Shader* shader, const glm::mat4& model) const
 			{
 				shader->SetUniform("uModel", model);
 			}
 
+			void SetMatrices(Shader* shader, const glm::mat4& model, const glm::mat3x4& normal, RenderpassType type) const
+			{
+				switch (type)
+				{
+				case EnGl::RenderpassType::NORMAL:
+					SetModelNormal(shader, model, normal);
+					break;
+				case EnGl::RenderpassType::SHADOW:
+					SetModel(shader, model);
+					break;
+				case EnGl::RenderpassType::PREPASS:
+					SetModelNormal(shader, model, normal);
+					break;
+				case EnGl::RenderpassType::COUNT:
+					break;
+				default:
+					break;
+				}
+			}
+
 			inline AssetHandle<Shader> Get() const { return m_ShaderHandle; }
-			inline AssetHandle<Shader> GetUnlit() const { return m_UnlitShaderHandle; }
-			inline AssetHandle<Shader> GetAnimated() const { return m_UnlitShaderHandle; }
+			inline AssetHandle<Shader> GetShadow() const { return m_ShadowShaderHandle; }
+			inline AssetHandle<Shader> GetPrepass() const { return m_PrepassShaderHandle; }
+			AssetHandle<Shader> Get(RenderpassType type) const
+			{
+				switch (type)
+				{
+				case EnGl::RenderpassType::NORMAL:
+					return Get();
+				case EnGl::RenderpassType::SHADOW:
+					return GetShadow();
+				case EnGl::RenderpassType::PREPASS:
+					return GetPrepass();
+				case EnGl::RenderpassType::COUNT:
+					return {};
+				default:
+					return {};
+				}
+			}
 
 			void Set(const std::filesystem::path& path) { m_ShaderHandle = AssetManager::Load<Shader>(path); }
-			void SetUnlit(const std::filesystem::path& path) { m_UnlitShaderHandle = AssetManager::Load<Shader>(path); }
+			void SetShadow(const std::filesystem::path& path) { m_ShadowShaderHandle = AssetManager::Load<Shader>(path); }
+			void SetPrepass(const std::filesystem::path& path) { m_PrepassShaderHandle = AssetManager::Load<Shader>(path); }
 
 			virtual void Editor() {}
 
@@ -63,8 +141,9 @@ namespace EnGl
 		protected:
 			Base(const std::filesystem::path& path) : m_ShaderHandle(AssetManager::Load<Shader>(path)) {}
 
-			AssetHandle<Shader> m_ShaderHandle{};
-			AssetHandle<Shader> m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "Unlit");
+			AssetHandle<Shader> m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "Unlit");
+			AssetHandle<Shader> m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "Unlit");
+			AssetHandle<Shader> m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "Prepass");
 		};
 
 		struct Unlit : public Base
@@ -99,7 +178,7 @@ namespace EnGl
 			void Editor() override
 			{
 				ImGui::Separator();
-				ImGui::Text("Unlit material");
+				ImGui::Text("Shadow material");
 				ImGui::ColorEdit4("Color", glm::value_ptr(Color));
 			}
 		};
@@ -160,6 +239,9 @@ namespace EnGl
 				{
 					shader->SetUniform("uShadowMap", *shadowMap, 0);
 				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 4);
 			}
 				
 			void SetUniforms(Shader* shader) const override
@@ -203,6 +285,9 @@ namespace EnGl
 				{
 					shader->SetUniform("uShadowMap", *shadowMap, 0);
 				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 4);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -238,6 +323,7 @@ namespace EnGl
 					AssetManager::GRAPHICS_SHADER_DIR / "PBRTextured"
 				)
 			{
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassNormalMap");
 			}
 
 			void SetCommonUniforms(Shader* shader, const GameContext& context) override
@@ -254,6 +340,9 @@ namespace EnGl
 				{
 					shader->SetUniform("uShadowMap", *shadowMap, 5);
 				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 6);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -278,6 +367,13 @@ namespace EnGl
 					shader->SetUniform("uMaterial.Normals", *normals , 4);
 				}
 			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
+			}
 		};
 
 		struct PBRTexturedARM : public Base
@@ -291,7 +387,10 @@ namespace EnGl
 					AssetManager::GRAPHICS_SHADER_DIR / "PBRARM" :
 					AssetManager::GRAPHICS_SHADER_DIR / "PBRARM"
 				)
-			{}
+			{
+				m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAlpha");
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassAlphaNormalMap");
+			}
 
 
 			void SetCommonUniforms(Shader* shader, const GameContext& context) override
@@ -308,6 +407,9 @@ namespace EnGl
 				{
 					shader->SetUniform("uShadowMap", *shadowMap, 3);
 				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 4);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -316,9 +418,31 @@ namespace EnGl
 				auto arm = AssetManager::GetAsset(ARMHandle).Asset;
 				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
 				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				arm = arm ? arm : AssetManager::GetAsset(PlaceholderTextures::ARM).Asset;
+				albedo = albedo ? albedo : AssetManager::GetAsset(PlaceholderTextures::Color).Asset;
+
 				shader->SetUniform("uMaterial.Albedo", *albedo, 0);
 				shader->SetUniform("uMaterial.ARM", *arm, 1);
 				shader->SetUniform("uMaterial.Normals", *normals, 2);
+			}
+
+			virtual void SetUniformsShadow(Shader* shader) const
+			{ 
+				Base::SetUniformsShadow(shader);
+				auto albedo = AssetManager::GetAsset(AlbedoHandle).Asset;
+				albedo = albedo ? albedo : AssetManager::GetAsset(PlaceholderTextures::Color).Asset;
+
+				shader->SetUniform("uTexture", *albedo, 0);
+			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				auto albedo = AssetManager::GetAsset(AlbedoHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				albedo = albedo ? albedo : AssetManager::GetAsset(PlaceholderTextures::Color).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
+				shader->SetUniform("uColor", *albedo, 1);
 			}
 		};
 
@@ -349,6 +473,9 @@ namespace EnGl
 				{
 					shader->SetUniform("uShadowMap", *shadowMap, 1);
 				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 4);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -440,6 +567,7 @@ namespace EnGl
 					AssetManager::GRAPHICS_SHADER_DIR / "PhongInstanced"
 				)
 			{
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassNormalMap");
 			}
 
 			void SetCommonUniforms(Shader* shader, const GameContext& context) override
@@ -454,9 +582,17 @@ namespace EnGl
 
 				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
 				if (shadowMap)
-				{
 					shader->SetUniform("uShadowMap", *shadowMap, 3);
-				}
+				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
+				if (ssao)
+					shader->SetUniform("uSSAO", *ssao, 4);
+			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
 			}
 
 			void SetUniforms(Shader* shader) const override
@@ -513,7 +649,15 @@ namespace EnGl
 			PBRTexturedARMAnimated(bool isInstanced = false) : PBRTexturedARM(isInstanced)
 			{
 				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRARMAnimated");
-				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassAnimatedNormalMap");
+			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
 			}
 		};
 
@@ -522,7 +666,8 @@ namespace EnGl
 			PBRAnimated(bool isInstanced = false) : PBR(isInstanced)
 			{
 				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRAnimated");
-				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassAnimated");
 			}
 		};
 
@@ -531,7 +676,15 @@ namespace EnGl
 			PBRTexturedAnimated(bool isInstanced = false) : PBRTextured(isInstanced)
 			{
 				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PBRTexturedAnimated");
-				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassAnimatedNormalMap");
+			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
 			}
 		};
 
@@ -540,7 +693,15 @@ namespace EnGl
 			PhongAnimated(bool isInstanced = false) : Phong(isInstanced)
 			{
 				m_ShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PhongAnimated");
-				m_UnlitShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitAnimated");
+				m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "PrepassAnimatedNormalMap");
+			}
+
+			void SetUniformsPrepass(Shader* shader) const override
+			{
+				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
+				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
+				shader->SetUniform("uNormals", *normals, 0);
 			}
 		};
 	}

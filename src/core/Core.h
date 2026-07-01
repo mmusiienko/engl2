@@ -54,6 +54,22 @@ inline void CheckOpenGLError(const char* stmt, const char* fname, int line)
 #endif
 
 template <>
+struct fmt::formatter<glm::vec2> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::vec2& v, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(), "vec2(x:{}, y:{})", v.x, v.y);
+    }
+};
+
+template <>
+struct fmt::formatter<glm::uvec2> {
+    constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
+    auto format(const glm::uvec2& v, fmt::format_context& ctx) const {
+        return fmt::format_to(ctx.out(), "uvec2(x:{}, y:{})", v.x, v.y);
+    }
+};
+
+template <>
 struct fmt::formatter<glm::vec3> {
     constexpr auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); }
     auto format(const glm::vec3& v, fmt::format_context& ctx) const {

@@ -38,6 +38,7 @@ struct UniformDirectionalLight
 uniform UniformPointLight uPointLights[MAX_LIGHTS];
 uniform UniformDirectionalLight uDirectionalLight;
 uniform sampler2D uShadowMap;
+uniform sampler2D uSSAO;
 uniform uvec2 uResolution;
 
 uniform Material uMaterial;
@@ -106,12 +107,17 @@ vec3 PointLight(UniformPointLight light, vec3 V, vec3 F0, vec3 albedo, float rou
 	return DirectionalLight(dirLight, V, F0,albedo, roughness, metallic, N) * attenuation * light.Intensity;
 }
 
-float Shadow(vec3 normal, UniformDirectionalLight light)
+float Shadow(vec3 normal, UniformDirectionalLight light, vec2 screenUv)
 {
-    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    vec4 s = texture(uShadowMap, screenUv);
     return s.r;
 }
 
+float SSAO(vec2 screenUv)
+{
+    vec4 s = texture(uSSAO, screenUv);
+    return s.r;
+}
 
 const vec3 F0 = vec3(0.04); 
 const vec3 AMBIENT = vec3(0.03); 
@@ -119,6 +125,7 @@ const vec3 AMBIENT = vec3(0.03);
 void main()
 {
 	vec3 L0 = vec3(0.0);
+	vec2 screenUv = gl_FragCoord.xy / vec2(uResolution);
 
 	vec3 V = normalize(uCameraPos - vFragPos);  
 
@@ -129,9 +136,8 @@ void main()
 
 	vec3 normal = normalize(vNormal);
 	vec3 tangent = normalize(vTangent);
-	vec3 bitangent = normalize(vBitangent);
-	tangent = normalize(tangent - dot(tangent, normal) * normal);
-    bitangent = cross(normal, tangent);
+	tangent = normalize(tangent - dot(normal, tangent) * normal);
+    vec3 bitangent = cross(normal, tangent);
 
 	vec3 normalMap = texture(uMaterial.Normals, vTexCoords).rgb;
 	normalMap = normalMap * 2.0 - vec3(1.0);
@@ -139,15 +145,15 @@ void main()
 
 	vec3 N = normalize(TBN * normalMap);
     vec3 F0mix = mix(F0, albedo, metallic);
-	float shadow = Shadow(N, uDirectionalLight);
+	float shadow = Shadow(N, uDirectionalLight, screenUv);
 	L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, albedo, roughness, metallic, N);
 
 	for (uint i = 0; i < MAX_LIGHTS; i++)
 	{
 		L0 += PointLight(uPointLights[i], V, F0mix, albedo, roughness, metallic, N);
 	}
-	
-	vec3 color = AMBIENT * albedo * ao + L0;
+	float ssao = SSAO(screenUv);
+	vec3 color = AMBIENT * albedo * ao * ssao + L0 * clamp(ssao + 0.1, 0.0, 1.0);
 
 	FragColor = vec4(color, 1.0);
 }

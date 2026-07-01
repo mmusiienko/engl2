@@ -320,7 +320,6 @@ namespace EnGl
 			glm::vec3 vnorm{};
 			glm::vec2 vtc{};
 			glm::vec3 tangent{};
-			glm::vec3 bitangent{};
 			glm::ivec4 boneIds{-1};
 			glm::vec4 boneWeights{};
 			
@@ -330,7 +329,6 @@ namespace EnGl
 				if (hasTangentsAndBitangents)
 				{
 					tangent = ToVec3(aMesh->mTangents[i]);
-					bitangent = ToVec3(aMesh->mBitangents[i]);
 				}
 			}
 
@@ -340,7 +338,7 @@ namespace EnGl
 				vtc = { tex.x, tex.y };
 			}
 
-			vertices.emplace_back(vpos, vnorm, vtc, tangent, bitangent, boneIds, boneWeights);
+			vertices.emplace_back(vpos, vnorm, vtc, tangent, boneIds, boneWeights);
 		}
 
 		if (hasBones && params.ImportAnimations)
@@ -420,6 +418,7 @@ namespace EnGl
 		std::optional<AssetHandle<Texture2D>> aoOpt = TryGetTexture(scene, mat, aiTextureType_AMBIENT_OCCLUSION, modelDirName, params.FlipTextures);
 		std::optional<AssetHandle<Texture2D>> baseColorOpt = TryGetTexture(scene, mat, aiTextureType_BASE_COLOR, modelDirName, params.FlipTextures, true);
 		std::optional<AssetHandle<Texture2D>> normalsOpt = TryGetTexture(scene, mat, aiTextureType_NORMALS, modelDirName, params.FlipTextures);
+
 		if (baseColorOpt.has_value() && metalnessOpt.has_value() && roughnessOpt.has_value())
 		{
 			auto roughnessHandle = roughnessOpt.value();
@@ -499,7 +498,7 @@ namespace EnGl
 	{
 		try
 		{
-			AssetImporter<Texture2D>::Params params{ name, {}, flipTextures, isColor, true, {texture->mWidth, reinterpret_cast<unsigned char*>(texture->pcData)} };
+			AssetImporter<Texture2D>::Params params{ name, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR, .MagFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor, true, {texture->mWidth, reinterpret_cast<unsigned char*>(texture->pcData)} };
 
 			std::optional<AssetHandle<Texture2D>> textureHandleOpt 
 				= AssetManager::Load<Texture2D>(params);
@@ -524,10 +523,12 @@ namespace EnGl
 
 		aiString str;
 		mat->GetTexture(type, 0, &str);
-
+		
 		if (str.length > 0)
 		{
 			std::string name = str.C_Str();
+			
+
 			if (const aiTexture* tex = scene->GetEmbeddedTexture(name.c_str()))
 			{
 				return LoadEmbedded(name, tex, flipTextures, isColor);
@@ -548,7 +549,7 @@ namespace EnGl
 			{
 				try
 				{
-					AssetImporter<Texture2D>::Params params{ texPath, {}, flipTextures, isColor };
+					AssetImporter<Texture2D>::Params params{ texPath, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR, .MagFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor};
 					textureHandleOpt = AssetManager::Load<Texture2D>(params);
 					return textureHandleOpt;
 				}

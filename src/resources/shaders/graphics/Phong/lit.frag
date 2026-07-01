@@ -8,7 +8,6 @@ in vec3 vNormal;
 in vec3 vFragPos;
 in vec2 vTexCoords;
 in vec3 vTangent;
-in vec3 vBitangent;
 
 struct Material
 {
@@ -84,9 +83,8 @@ void main()
 
 	vec3 normal = normalize(vNormal);
 	vec3 tangent = normalize(vTangent);
-	vec3 bitangent = normalize(vBitangent);
 	tangent = normalize(tangent - dot(tangent, normal) * normal);
-    bitangent = cross(normal, tangent);
+    vec3 bitangent = cross(normal, tangent);
 	mat3 TBN = mat3(tangent, bitangent, normal);
 
 	vec3 normalMap = texture(uMaterial.Normals, vTexCoords).rgb * 2.0 - 1.0;

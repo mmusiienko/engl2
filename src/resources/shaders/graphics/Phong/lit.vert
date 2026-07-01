@@ -4,7 +4,6 @@ layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
 layout (location = 3) in vec3 aTangent;
-layout (location = 4) in vec3 aBitangent;
 layout (location = 5) in ivec4 aBoneIds;
 layout (location = 6) in vec4 aWeights;
 
@@ -17,7 +16,6 @@ out vec2 vTexCoords;
 
 out vec3 vNormal;
 out vec3 vTangent;
-out vec3 vBitangent;
 
 uniform mat4 uModel;
 uniform mat3x4 uNormal;
@@ -43,7 +41,6 @@ void main()
         mat3 boneRot = mat3(Transform[aBoneIds[i]]);
         normal += aWeights[i] * boneRot * aNormal;
         tangent += aWeights[i] * boneRot * aTangent;
-        bitangent += aWeights[i] * boneRot * aBitangent;
         hasBones = true;
     }
 
@@ -52,7 +49,6 @@ void main()
         pos = vec4(aPos, 1.0);
         normal = aNormal;
         tangent = aTangent;
-        bitangent = aBitangent;
     }
 
     vec4 worldPos = uModel * pos;
@@ -61,7 +57,6 @@ void main()
 
     vNormal = normalize(vec3(uNormal * normal));
     vTangent = normalize(vec3(uNormal * tangent));
-    vBitangent = normalize(vec3(uNormal * bitangent));
 
     vFragPos = worldPos.xyz;
 

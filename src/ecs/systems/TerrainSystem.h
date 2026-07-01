@@ -28,7 +28,7 @@ namespace EnGl::System
 					Noise2DChannel{.Params = {.NCells = 32u, .NChannel = 2u, .Seed = 187u, .Octaves = 16u}, .Strategy = Noise2D::Worley},
 					Noise2DChannel{.Params = {.NCells = 32u, .NChannel = 3u, .Seed = 13u, .Octaves = 16u}, .Strategy = Noise2D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			};
 			u32 TerrainResolution = 200u;
 

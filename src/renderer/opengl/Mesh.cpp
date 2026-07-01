@@ -34,15 +34,12 @@ namespace EnGl
 			{
 				GL_CHECK(glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent)));
 				GL_CHECK(glEnableVertexAttribArray(3));
-				GL_CHECK(glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BiTangent)));
-				GL_CHECK(glEnableVertexAttribArray(4));
 			}
 		}
 		else
 		{
 			GL_CHECK(glDisableVertexAttribArray(1));
 			GL_CHECK(glDisableVertexAttribArray(3));
-			GL_CHECK(glDisableVertexAttribArray(4));
 		}
 
 		if (info.HasTextureCoords)

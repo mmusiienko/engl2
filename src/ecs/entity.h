@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../core/Core.h"
-#include "../math/Math.h"
 #include <vector>
 #include <tuple>
 #include <queue>
@@ -722,6 +721,9 @@ namespace EnGl
         };
 
         template<typename Context>
+        class SystemRegistry;
+
+        template<typename Context>
         class System
         {
         public:
@@ -729,6 +731,8 @@ namespace EnGl
             virtual void Init(Ecs<AllCs...>::EntityManager& manager) {};
             virtual void Editor(Ecs<AllCs...>::EntityManager& manager, Context& context) {};
             virtual ~System() = default;
+        private:
+            friend class SystemRegistry<Context>;
         };
 
         template<typename Context>
@@ -756,14 +760,18 @@ namespace EnGl
 
             void Run(Context& context)
             {
-                u32 i = 0;
                 for (auto& system : m_Systems)
                 {
-                    auto start = glfwGetTime();
                     system->Run(m_Manager, context);
-                    i++;
-                    auto end = glfwGetTime();
-                    //spdlog::info("{} took {}", i, end - start);
+                }
+            }
+
+            template<typename F>
+            void Run(Context& context, F&& func)
+            {
+                for (auto& system : m_Systems)
+                {
+                    func([&]() { system->Run(m_Manager, context); });
                 }
             }
 
@@ -772,9 +780,9 @@ namespace EnGl
                 return m_Systems;
             }
 
-            auto& Get(size_t idx) const
+            System<Context>* Get(size_t idx) const
             {
-                return m_Systems[idx];
+                return m_Systems[idx].get();
             }
 
             const std::string& GetName(size_t idx) const

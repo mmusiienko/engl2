@@ -9,7 +9,11 @@ namespace EnGl::System
 	{
 		TerrainSystem& m_TerrainSystem;
 
-		TerrainSurface(TerrainSystem& system) : m_TerrainSystem(system), Base(AssetManager::GRAPHICS_SHADER_DIR / "TerrainSurface") {}
+		TerrainSurface(TerrainSystem& system) : m_TerrainSystem(system), Base(AssetManager::GRAPHICS_SHADER_DIR / "TerrainSurface") 
+		{ 
+			m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitTerrainSurface");
+			m_PrepassShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "TerrainSurfacePrepass");
+		}
 
 		void SetCommonUniforms(Shader* shader, const GameContext& context) override
 		{
@@ -40,7 +44,7 @@ namespace EnGl::System
 			}
 		}
 
-		void SetCommonUniformsUnlit(Shader* shader, const GameContext& context) override
+		void SetCommonUniformsShadow(Shader* shader, const GameContext& context) override
 		{
 			Base::SetCommonUniforms(shader, context);
 
@@ -58,6 +62,12 @@ namespace EnGl::System
 				shader->SetUniform("uHeightWeights", m_TerrainSystem.m_Props.HeightWeights);
 				shader->SetUniform("uTerrainResolution", m_TerrainSystem.m_Props.Resolution);
 			}
+		}
+
+		void SetCommonUniformsPrepass(Shader* shader, const GameContext& context) override
+		{
+			Base::SetCommonUniformsPrepass(shader, context);
+			SetCommonUniformsShadow(shader, context);
 		}
 	};
 
@@ -87,7 +97,6 @@ namespace EnGl::System
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::FollowSnap& follow) -> void
 			{
 				auto mat = make_scope<TerrainSurface>(*this);
-				mat->SetUnlit(AssetManager::GRAPHICS_SHADER_DIR / "TerrainSurface");
 
 				auto matH = AssetManager::PutScope<Material::Base>(std::move(mat));
 				model.Model = StaticModel::QuadTesselated(matH, m_Props.TerrainResolution, m_Props.TerrainResolution);

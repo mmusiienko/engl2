@@ -6,9 +6,6 @@ in patch int tcLod;
 
 uniform mat4 uModel;
 uniform mat4 uViewProjection;
-uniform vec3 uCamPos;
-uniform mat4 uShadowMapViewProjection;
-out vec4 vShadowPos;
 out vec3 vFragPos;
 out vec2 vPos;
 out flat int vLod;
@@ -86,8 +83,6 @@ void main()
     vHeight = worldPos.y;
 
     vFragPos = worldPos.xyz;
-
-    vShadowPos = uShadowMapViewProjection * worldPos;
 
     vNormal = computeNormal(vPos, vHeight);
 

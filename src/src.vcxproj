@@ -22,6 +22,7 @@
     <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="algorithm\compute\Blur.h" />
     <ClInclude Include="algorithm\compute\FFT.h" />
     <ClInclude Include="algorithm\compute\noise\Gaussian.h" />
     <ClInclude Include="algorithm\compute\noise\Noise.h" />
@@ -35,6 +36,13 @@
     <ClInclude Include="ecs\GameContext.h" />
     <ClInclude Include="ecs\systems\Animation.h" />
     <ClInclude Include="ecs\systems\FractalSystem.h" />
+    <ClInclude Include="ecs\systems\renderer\Common.h" />
+    <ClInclude Include="ecs\systems\renderer\DrawDebug.h" />
+    <ClInclude Include="ecs\systems\renderer\Prepass.h" />
+    <ClInclude Include="ecs\systems\renderer\Render.h" />
+    <ClInclude Include="ecs\systems\renderer\RenderScreenQuad.h" />
+    <ClInclude Include="ecs\systems\renderer\ResetRenderState.h" />
+    <ClInclude Include="ecs\systems\renderer\techniques\SSAO.h" />
     <ClInclude Include="ecs\systems\Systems.h" />
     <ClInclude Include="ecs\systems\TerrainSystem.h" />
     <ClInclude Include="ecs\systems\WaterSystem.h" />
@@ -82,6 +90,7 @@
     <ClInclude Include="ui\Ui.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="algorithm\compute\Blur.cpp" />
     <ClCompile Include="algorithm\compute\FFT.cpp" />
     <ClCompile Include="algorithm\compute\noise\NoiseTexture.h" />
     <ClCompile Include="core\Application.cpp" />
@@ -89,11 +98,18 @@
     <ClCompile Include="core\InputHandler.cpp" />
     <ClCompile Include="core\Main.cpp" />
     <ClCompile Include="ecs\systems\Animation.cpp" />
-    <ClCompile Include="ecs\systems\CascadedShadowMap.cpp" />
-    <ClCompile Include="ecs\systems\CascadedShadowMap.h" />
+    <ClCompile Include="ecs\systems\renderer\Common.cpp" />
+    <ClCompile Include="ecs\systems\renderer\DrawDebug.cpp" />
+    <ClCompile Include="ecs\systems\renderer\Render.cpp" />
+    <ClCompile Include="ecs\systems\renderer\RenderScreenQuad.cpp" />
+    <ClCompile Include="ecs\systems\renderer\techniques\CascadedShadowMap.cpp" />
+    <ClCompile Include="ecs\systems\renderer\techniques\CascadedShadowMap.h" />
     <ClCompile Include="ecs\systems\CloudSystem.cpp" />
     <ClCompile Include="ecs\systems\CloudSystem.h" />
     <ClCompile Include="ecs\systems\FractalSystem.cpp" />
+    <ClCompile Include="ecs\systems\renderer\Prepass.cpp" />
+    <ClCompile Include="ecs\systems\renderer\ResetRenderState.cpp" />
+    <ClCompile Include="ecs\systems\renderer\techniques\SSAO.cpp" />
     <ClCompile Include="ecs\systems\TerrainSystem.cpp" />
     <ClCompile Include="ecs\systems\WaterSystem.cpp" />
     <ClCompile Include="external\imguizmo\GraphEditor.cpp" />

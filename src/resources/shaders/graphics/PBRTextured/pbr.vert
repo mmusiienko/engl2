@@ -4,16 +4,13 @@ layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
 layout (location = 3) in vec3 aTangent;
-layout (location = 4) in vec3 aBitangent;
 
 out vec3 vFragPos;
 out vec2 vTexCoords;
 out vec4 vShadowPos;
 
-
 out vec3 vNormal;
 out vec3 vTangent;
-out vec3 vBitangent;
 
 uniform mat4 uModel;
 uniform mat3x4 uNormal;
@@ -27,7 +24,6 @@ void main()
     gl_Position = uViewProjection * pos;
     vNormal = normalize(vec3(uNormal * aNormal));
     vTangent = normalize(vec3(uNormal * aTangent));
-    vBitangent = normalize(vec3(uNormal * aBitangent));
 
     vFragPos = pos.xyz;
 

@@ -26,12 +26,16 @@ namespace EnGl
 		auto armvec = std::vector<glm::vec3>{ {0.0f, 1.0f, 0.0f } };
 		auto armdata = Texture::CreationInfoFromData{ .Data = armvec.data(), .CpuFormat = GL_RGB, .GpuFormat = GL_RGB8, .DataType = GL_FLOAT };
 
+		auto colorvec = std::vector<glm::vec4>{ {1.0f, 0.0f, 0.0f, 1.0f } };
+		auto colordata = Texture::CreationInfoFromData{ .Data = colorvec.data(), .CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8, .DataType = GL_FLOAT };
+
 		Material::PlaceholderTextures::AO = AssetManager::Put<Texture2D>(1u, aoroughdata);
 		Material::PlaceholderTextures::Roughness = Material::PlaceholderTextures::AO;
 		Material::PlaceholderTextures::Opacity = Material::PlaceholderTextures::AO;
 		Material::PlaceholderTextures::Normals = AssetManager::Put<Texture2D>(1u, normaldata);
 		Material::PlaceholderTextures::Metallic = AssetManager::Put<Texture2D>(1u, metaldata);
 		Material::PlaceholderTextures::ARM = AssetManager::Put<Texture2D>(1u, armdata);
+		Material::PlaceholderTextures::Color = AssetManager::Put<Texture2D>(1u, colordata);
 	}
 
 	void Global::ShutDown()

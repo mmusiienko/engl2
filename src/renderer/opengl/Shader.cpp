@@ -133,6 +133,11 @@ namespace EnGl
 		GL_CHECK(glUniformMatrix3x4fv(GetLocation(name), 1, GL_FALSE, glm::value_ptr(value)));
 	}
 
+	void Shader::SetUniform(std::string_view name, const glm::mat3& value) const
+	{
+		GL_CHECK(glUniformMatrix3fv(GetLocation(name), 1, GL_FALSE, glm::value_ptr(value)));
+	}
+
 	void Shader::SetUniform(std::string_view name, const glm::vec3& value) const
 	{
 		GL_CHECK( glUniform3f(GetLocation(name), value.x, value.y, value.z) );

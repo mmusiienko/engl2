@@ -10,7 +10,7 @@ namespace EnGl
 	Texture2D AssetImporter<Texture2D>::Import(const Params& params)
 	{
 		static const GLenum COMPONENTS_TO_CHANNELS[4]{ GL_RED, GL_RG, GL_RGB, GL_RGBA };
-		static const GLenum COMPONENTS_TO_CHANNELS_GPU_COLOR[4]{ GL_R8, GL_RG16F, GL_SRGB8, GL_SRGB8_ALPHA8 };
+		static const GLenum COMPONENTS_TO_CHANNELS_GPU_COLOR[4]{ GL_R8, GL_RG8, GL_SRGB8, GL_SRGB8_ALPHA8 };
 		static const GLenum COMPONENTS_TO_CHANNELS_GPU[4]{ GL_R8, GL_RG8, GL_RGB8, GL_RGBA8 };
 		int width, height, nr_channels;
 		FileSystem::RaiiImageData data;

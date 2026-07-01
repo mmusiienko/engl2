@@ -17,7 +17,13 @@
 #include "ecs/systems/WaterSystem.h"
 #include "ecs/systems/CloudSystem.h"
 #include "ecs/systems/TerrainSystem.h"
-#include "ecs/systems/CascadedShadowMap.h"
+#include "ecs/systems/renderer/RenderScreenQuad.h"
+#include "ecs/systems/renderer/ResetRenderState.h"
+#include "ecs/systems/renderer/Render.h"
+#include "ecs/systems/renderer/Prepass.h"
+#include "ecs/systems/renderer/DrawDebug.h"
+#include "ecs/systems/renderer/techniques/CascadedShadowMap.h"
+#include "ecs/systems/renderer/techniques/SSAO.h"
 #include "ecs/systems/Animation.h"
 
 #include "ui/Ui.h"
@@ -34,11 +40,23 @@ namespace EnGl
 				w, h, 
 				Texture::CreationInfoFromData{
 					.CpuFormat = GL_RGBA,
-					.GpuFormat = GL_RGBA32F,
-					.DataType = GL_UNSIGNED_BYTE,
+					.GpuFormat = GL_RGBA16F,
+					.DataType = GL_FLOAT,
 				}
 			}
 		);
+
+		auto normals = AssetManager::Put<Texture2D>(
+			Texture2D{
+				w, h,
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_RG,
+					.GpuFormat = GL_RG16F,
+					.DataType = GL_FLOAT,
+				}
+			}
+		);
+
 		auto depth = AssetManager::Put<Texture2D>(
 			Texture2D{ 
 				w, h,
@@ -51,7 +69,7 @@ namespace EnGl
 		);
 
 		Framebuffer::CreationInfo info;
-		info.ColorAttachments = { color };
+		info.ColorAttachments = { color, normals };
 		info.DepthAttachment = depth;
 		m_Framebuffer = make_scope<Framebuffer>(std::move(info));
 	}
@@ -100,7 +118,7 @@ namespace EnGl
 			Component::PerspectiveProjection
 		>([](Component::Transform& transform, Component::Velocity& mov, auto&, auto&, auto&, Component::PerspectiveProjection& cam)
 		{
-			mov.Speed = 100.0f;
+			mov.Speed = 10.0f;
 			transform.Position = { 0.0f, 0.0f, 0.0f };
 
 			cam.Aspect = 16.0f / 9.0f;
@@ -144,47 +162,55 @@ namespace EnGl
 		}, "ScreenQuad");
 
 
-		AssetImporter<Model>::Params modelParams{ AssetManager::MODEL_DIR / "rem"  / "source" / "Victory.fbx", false, false, true };
-		auto modelHandle = AssetManager::Load<Model>(modelParams);
-		auto remModel = AssetManager::GetAsset(modelHandle).Asset;
+		//AssetImporter<Model>::Params modelParams{ AssetManager::MODEL_DIR / "rem"  / "source" / "Victory.fbx", false, false, true };
+		//auto modelHandle = AssetManager::Load<Model>(modelParams);
+		//auto remModel = AssetManager::GetAsset(modelHandle).Asset;
 
-		AssetImporter<Model>::Params gmodelParams{ AssetManager::MODEL_DIR / "gram" / "source" / "gram.fbx", false, false, false };
-		auto gramHandle = AssetManager::Load<Model>(gmodelParams);
-		auto gramModel = AssetManager::GetAsset(gramHandle).Asset;
+		//AssetImporter<Model>::Params sponzaParams{ AssetManager::MODEL_DIR / "sponza_pbr" / "Sponza.gltf" };
+		//auto sponzaHandle = AssetManager::Load<Model>(sponzaParams);
+		//auto sponzaModel = AssetManager::GetAsset(sponzaHandle).Asset;
 
-		scope<Material::PBRTextured> grammat = make_scope<Material::PBRTextured>();
-		grammat->AlbedoHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Base_color.tga.png");
-		grammat->AOHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Mixed_AO.tga.png");
-		grammat->MetallicHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Metallic.tga.png");
-		grammat->RoughnessHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Roughness.tga.png");
-		grammat->NormalsHandle = AssetManager::Load<Texture2D>( AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Normal_OpenGL.tga.png");
-		gramModel->GetSubmesh(0).Material = AssetManager::PutScope<Material::Base>(std::move(grammat));
+		//AssetImporter<Model>::Params dustParams{ AssetManager::MODEL_DIR / "dust2" / "de_dust2_d.gltf" };
+		//auto dustHandle = AssetManager::Load<Model>(dustParams);
+		//auto dustModel = AssetManager::GetAsset(dustHandle).Asset;
 
-		AssetImporter<Model>::Params wowModelParams{ AssetManager::MODEL_DIR / "wow" / "wow.fbx", false, false, true };
-		auto wowHandle = AssetManager::Load<Model>(wowModelParams);
-		auto wowModel = AssetManager::GetAsset(wowHandle).Asset;
+		AssetImporter<Model>::Params cacheParams{ AssetManager::MODEL_DIR / "dust2" / "de_dust2_d.gltf" };
+		auto cacheHandle = AssetManager::Load<Model>(cacheParams);
+		auto cacheModel = AssetManager::GetAsset(cacheHandle).Asset;
+		
+		//AssetImporter<Model>::Params gmodelParams{ AssetManager::MODEL_DIR / "gram" / "source" / "gram.fbx", false, false, false };
+		//auto gramHandle = AssetManager::Load<Model>(gmodelParams);
+		//auto gramModel = AssetManager::GetAsset(gramHandle).Asset;
 
-		AssetImporter<Model>::Params humanModelParams{ AssetManager::MODEL_DIR / "human" / "source" / "Dying.fbx", false, false, true};
-		auto humanHandle = AssetManager::Load<Model>(humanModelParams);
-		auto humanModel = AssetManager::GetAsset(humanHandle).Asset;
-		for (u32 i = 1; i <= 10; i++)
-		{
-			auto name = "Tower" + std::to_string(i);
-			AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "towers" / name / (name + ".FBX")};
-			auto towerHandle = AssetManager::Load<Model>(towerParams);
+		//scope<Material::PBRTextured> grammat = make_scope<Material::PBRTextured>();
+		//grammat->AlbedoHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Base_color.tga.png");
+		//grammat->AOHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Mixed_AO.tga.png");
+		//grammat->MetallicHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Metallic.tga.png");
+		//grammat->RoughnessHandle = AssetManager::Load<Texture2D>(AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Roughness.tga.png");
+		//grammat->NormalsHandle = AssetManager::Load<Texture2D>( AssetManager::MODEL_DIR / "gram" / "textures" / "DefaultMaterial_Normal_OpenGL.tga.png");
+		//gramModel->GetSubmesh(0).Material = AssetManager::PutScope<Material::Base>(std::move(grammat));
 
-			World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
-				[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-				{
-					transform.Position = { i * 100.0f, 0.0f, 0.0f };
-					transform.Scale = glm::vec3{ 1.0f };
-					model.Model = towerHandle;
-					model.MeshIdx = -1;
-				}, name
-			);
-		}
+		//AssetImporter<Model>::Params wowModelParams{ AssetManager::MODEL_DIR / "wow" / "wow.fbx", false, false, true };
+		//auto wowHandle = AssetManager::Load<Model>(wowModelParams);
+		//auto wowModel = AssetManager::GetAsset(wowHandle).Asset;
 
-		AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "floating-castle" / "source" / "Mineways2Skfb.obj"};
+		//for (u32 i = 1; i <= 10; i++)
+		//{
+		//	auto name = "Tower" + std::to_string(i);
+		//	AssetImporter<Model>::Params towerParams{ AssetManager::MODEL_DIR / "towers" / name / (name + ".FBX")};
+		//	auto towerHandle = AssetManager::Load<Model>(towerParams);
+
+		//	World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel>(
+		//		[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//		{
+		//			transform.Position = { i * 100.0f, 0.0f, 0.0f };
+		//			transform.Scale = glm::vec3{ 1.0f };
+		//			model.Model = towerHandle;
+		//			model.MeshIdx = -1;
+		//		}, name
+		//	);
+		//}
+
 
 		AssetImporter<Cubemap>::Params cparams
 		{
@@ -213,45 +239,58 @@ namespace EnGl
 			}, "Cubemap"
 		);
 
-		auto m1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//auto m1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//	{
+		//		model.Model = modelHandle;
+		//	}, "Rem"
+		//);
+
+		//auto sponza = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//	{
+		//		model.Model = sponzaHandle;
+		//	}, "sponza"
+		//);
+
+		//auto dust = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//	{
+		//		model.Model = dustHandle;
+		//	}, "dust"
+		//); 
+		
+		auto cache = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				model.Model = modelHandle;
-			}, "Rem"
+				model.Model = cacheHandle;
+			}, "cache"
 		);
 
-		auto gm1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-			{
-				model.Model = gramHandle;
-			}, "gram"
-		);
+		//auto gm1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//	{
+		//		model.Model = gramHandle;
+		//	}, "gram"
+		//);
 
-		auto wow = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-			{
-				model.Model = wowHandle;
-			}, "wow"
-		);
+		//auto wow = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
+		//	{
+		//		model.Model = wowHandle;
+		//	}, "wow"
+		//);
 
-		auto human = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
-			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-			{
-				model.Model = humanHandle;
-			}, "human"
-		);
-
-		Component::AddAnimationData(World().eEntity(), wow, wowModel->Animations()[0], wowModel->Skeletons()[0]);
-		Component::AddAnimationData(World().eEntity(), m1, remModel->Animations()[0], remModel->Skeletons()[0]);
-		Component::AddAnimationData(World().eEntity(), human, humanModel->Animations()[0], humanModel->Skeletons()[0]);
+		//Component::AddAnimationData(World().eEntity(), wow, wowModel->Animations()[0], wowModel->Skeletons()[0]);
+		//Component::AddAnimationData(World().eEntity(), m1, remModel->Animations()[0], remModel->Skeletons()[0]);
 
 
 		auto dirLight = World().eEntity().Create<Component::Transform, Component::DirectionalLight, Component::ConstantRotation>(
 			[=](Component::Transform& transform, Component::DirectionalLight& l, Component::ConstantRotation& rot) -> void
 			{
-				transform.Rotation = glm::angleAxis(glm::radians(30.0f), Constants::FORWARD) * glm::angleAxis(glm::radians(-90.0f), Constants::UP);
 				l.Color = glm::vec3{ 1.0f };
 				rot.Velocity = glm::vec3{0.0f, 0.0f, 0.0f};
+				transform.Rotation = glm::quat{ 0.308f, -0.075f, -0.833f, -0.453f };
 			}, "dirLight"
 		);
 
@@ -265,10 +304,22 @@ namespace EnGl
 		);
 
 		GameContext context{};
+		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
+
 		f64 timeLastFrame = 0.0f;
 		
 		context.Cubemap.Asset = cubemapHadle;
 		context.Cubemap.Id = cubemapEntity;
+		context.Renderer.DepthWithoutTransparents = AssetManager::Put<Texture2D>(
+			Texture2D{
+				context.Framebuffer.MainFramebuffer->Resolution().x, context.Framebuffer.MainFramebuffer->Resolution().y,
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_DEPTH_COMPONENT,
+					.GpuFormat = GL_DEPTH_COMPONENT32F,
+					.DataType = GL_FLOAT
+				}
+			}
+		);
 
 		std::vector<Framebuffer> shadowFbs;
 		shadowFbs.reserve(GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades);
@@ -317,7 +368,6 @@ namespace EnGl
 			context.Renderer.CascadedShadowMap.CascadeCamera[i] = cameraI;
 		}
 
-		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
 		context.DirLight.Id = dirLight;
 		context.Camera.Cameras.insert({ camera, {.CanRotate = true } });
 		context.Camera.Cameras.insert({ cameraX, {.CanRotate = true } });
@@ -339,23 +389,34 @@ namespace EnGl
 			.Add<System::CollisionDetection>()
 			.Add<System::Gravity>()
 			.Add<System::CollectLights>()
-			.Add<System::CascadedShadowMap>()
+			.Add<System::CascadedShadowMapFit>()
 			.Add<System::WaterSystem>()
 			.Add<System::PrepareDebugDraw>()
 			.Add<System::BundleDirtyMaterials>()
-			.Add<System::RenderToFramebuffer>()
+			.Add<System::ResetRenderState>()
+			.Add<System::Prepass>()
+			.Add<System::CascadedShadowMapRender>()
+			.Add<System::SSAO>()
+			.Add<System::Render>()
+			.Add<System::DrawDebug>()
 			.Add<System::TerrainSystem>()
 			.Add<System::CloudSystem>()
 			.Add<System::UpdateCubemap>()
-			.Add<System::RenderToDefaultFramebuffer>()
+			.Add<System::RenderScreenQuad>()
 			.Add<System::Cleanup>()
 			.Init();
-		
+
+		context.FrameStats.resize(World().eSystem<GameContext>().Systems().size());
+
+		for (auto& stat : context.FrameStats)
+		{
+			GL_CHECK(glGenQueries(1, &stat.GpuQueryIndex));
+		}
+
 		while (!glfwWindowShouldClose(m_Window))
 		{
 			glfwPollEvents();
-
-			auto [d, g] = AssetManager::GetAsset(m_Framebuffer->Depth());
+;
 			InputHandler::ProcessInputEvents(m_Window);
 				
 			f64 time = glfwGetTime();
@@ -364,11 +425,24 @@ namespace EnGl
 			context.Time = time;
 			context.DeltaTime = deltaTime;
 
-				if (!Global::IsPaused)
-				{
-					World().eSystem<GameContext>().Run(context);
-				}
-				ui.Render(context, World().eEntity(), World().eSystem<GameContext>());
+			if (!Global::IsPaused)
+			{
+				u32 i = 0u;
+				World().eSystem<GameContext>().Run(context, [&](auto&& func) 
+					{
+						auto start = glfwGetTime();
+
+							GL_CHECK(glBeginQuery(GL_TIME_ELAPSED, context.FrameStats[i].GpuQueryIndex));
+								func();
+							GL_CHECK(glEndQuery(GL_TIME_ELAPSED));
+
+						auto end = glfwGetTime();
+
+						context.FrameStats[i++].TimeCpu = static_cast<f32>((end - start) * 1000.0);
+					}
+				);
+			}
+			ui.Render(context, World().eEntity(), World().eSystem<GameContext>());
 			ui.Present();
 
 			glfwSwapBuffers(m_Window);

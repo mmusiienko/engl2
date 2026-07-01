@@ -137,7 +137,7 @@ namespace EnGl::System
 			AssetHandle<ComputeShader> m_ConjSpectrumShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "FFTSPECTRUMCONJUGATE");
 			AssetHandle<ComputeShader> m_HtPassShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "HTPASS");
 			AssetHandle<ComputeShader> m_CombineShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "COMBINE");
-			AssetHandle<ComputeShader> m_BlurShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BLUR");
+			AssetHandle<ComputeShader> m_BlurShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "FOAMBLUR");
 
 			void CheckParametersChange();
 			void UpdateTimeSpectrum(f64 time);

@@ -1,0 +1,94 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (location = 0) uniform writeonly image2D SSAO;
+uniform sampler2D uDepth;
+uniform sampler2D uNormals;
+uniform float uNear = 0.1;
+uniform mat4 uInvProjection;
+uniform mat4 uProjection;
+uniform mat3 uViewN;
+
+uniform float uRadius = 0.5;
+uniform float uBias = 0.1;
+
+uniform uint uNumSamples = 16;
+uniform uint uNumRotationsSqrt = 4;
+
+layout(std430, binding = 0) readonly buffer Kernel {
+    vec4 samples[];
+};
+
+layout(std430, binding = 1) readonly buffer Rotations {
+    vec2 rotations[];
+};
+
+vec3 GetRotation(ivec2 id)
+{
+    return vec3(rotations[uNumRotationsSqrt * (id.x % uNumRotationsSqrt) + id.y % uNumRotationsSqrt], 0.0);
+}
+
+vec3 Decode(vec2 f)
+{
+    f = f * 2.0 - 1.0;
+    // https://twitter.com/Stubbesaurus/status/937994790553227264
+    vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    float t = clamp(-n.z, 0.0, 1.0);
+    n.xy -= sign(n.xy) * t;
+    return normalize(n);
+}
+
+void main()
+{
+    ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+    vec3 rot = GetRotation(storePos);
+
+    vec2 uv = (vec2(storePos) + vec2(0.5)) / vec2(imageSize(SSAO));
+
+    vec2 normal2 = texture(uNormals, uv).rg;
+    vec3 normal = uViewN * Decode(normal2);
+
+    vec3 tangent = normalize(rot - normal * dot(normal, rot));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 tbn = mat3(tangent, bitangent, normal);
+
+    float depth = texture(uDepth, uv).r;
+
+    if (depth == 0.0) 
+    {
+        imageStore(SSAO, storePos, vec4(0.0));
+        return;
+    }
+
+    float z = uNear / depth;
+
+    vec2 ndc = uv * 2.0 - 1.0;
+
+    vec4 viewPos = uInvProjection * vec4(ndc, depth, 1.0);
+    viewPos /= viewPos.w;
+
+    float total = 0.0;
+    uint samplesTaken = 0;
+	for (uint i = 0; i < uNumSamples; i++)
+    {
+        vec3 dir = tbn * vec3(samples[i]);
+        vec3 pos = viewPos.xyz + dir * uRadius;
+
+        vec4 proj = uProjection * vec4(pos, 1.0);
+        proj /= proj.w;
+        vec2 sampleUv = proj.xy * 0.5 + 0.5;
+
+        if (sampleUv.x != clamp(sampleUv.x, 0, 1) || sampleUv.y != clamp(sampleUv.y, 0, 1)) continue;
+        samplesTaken++;
+        float sampleDepth = texture(uDepth, sampleUv).r;
+        float sampleZ = uNear / sampleDepth;
+
+        float occlusionFix = smoothstep(0.0, 1.0, uRadius / abs(z - sampleZ));
+        total += (z - uBias >= sampleZ ? 1.0 : 0.0) * occlusionFix;
+    }
+
+    total = clamp(1.0 - total / float(samplesTaken), 0.0, 1.0);
+
+    imageStore(SSAO, storePos, vec4(total));
+}

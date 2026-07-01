@@ -9,7 +9,7 @@ namespace EnGl::System
 	{
 		m_SkyTextureLowResA = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
 			.CpuFormat = GL_RGBA,
-			.GpuFormat = GL_RGBA32F,
+			.GpuFormat = GL_RGBA16F,
 			.Common = {.MinFilter = GL_NEAREST, .MagFilter = GL_NEAREST}
 		});
 
@@ -21,13 +21,13 @@ namespace EnGl::System
 
 		m_SkyTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{ 
 			.CpuFormat = GL_RGBA,
-			.GpuFormat = GL_RGBA32F,
+			.GpuFormat = GL_RGBA16F,
 			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
 		});
 
 		m_HistoryTexture = AssetManager::Put<Texture2D>(1u, 1u, Texture::CreationInfoFromData{
 			.CpuFormat = GL_RGBA,
-			.GpuFormat = GL_RGBA32F,
+			.GpuFormat = GL_RGBA16F,
 			.Common = {.Wrap = GL_CLAMP_TO_EDGE, .MinFilter = GL_LINEAR, .MagFilter = GL_LINEAR}
 		});
 

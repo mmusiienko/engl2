@@ -4,7 +4,7 @@ layout (location = 0) in vec3 aPos;
 layout (location = 5) in ivec4 aBoneIds;
 layout (location = 6) in vec4 aWeights;
 
-layout(std430, binding = 0) buffer BoneMatrices {
+layout(std430, binding = 0) readonly buffer BoneMatrices {
     mat4 Transform[];
 };
 

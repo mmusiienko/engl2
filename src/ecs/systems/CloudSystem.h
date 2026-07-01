@@ -62,7 +62,7 @@ namespace EnGl::System
 					Noise3DChannel{.Params = {.NCells = 16u, .NChannel = 2u, .Seed = 157u, .Octaves = 8u}, .Strategy = Noise3D::Worley},
 					Noise3DChannel{.Params = {.NCells = 32u, .NChannel = 3u, .Seed = 17u, .Octaves = 8u}, .Strategy = Noise3D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture3D>(128u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture3D>(128u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			};
 
 			Noise3DWrapper Detail
@@ -74,7 +74,7 @@ namespace EnGl::System
 					Noise3DChannel{.Params = {.NCells = 8u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u}, .Strategy = Noise3D::Worley},
 					Noise3DChannel{.Params = {.NCells = 16u, .NChannel = 3u, .Seed = 13u, .Octaves = 8u}, .Strategy = Noise3D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture3D>(32u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture3D>(32u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			};
 
 			Noise2DWrapper Weather
@@ -88,7 +88,7 @@ namespace EnGl::System
 					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u, .DarkThreshold = -1.0f}, .Strategy = Noise2D::Perlin},
 					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 3u, .Seed = 13u, .Octaves = 1u}, .Strategy = Noise2D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			};
 		};
 
@@ -104,8 +104,8 @@ namespace EnGl::System
 	private:
 		AssetHandle<ComputeShader> m_LowResShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsLowRes");
 		AssetHandle<ComputeShader> m_UpsampleShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsUpsample");
-		AssetHandle<ComputeShader> m_BlurShaderV = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BlurV");
-		AssetHandle<ComputeShader> m_BlurShaderH = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BlurH");
+		AssetHandle<ComputeShader> m_BlurShaderV = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BLUR" / "BlurVrgba16f");
+		AssetHandle<ComputeShader> m_BlurShaderH = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "BLUR" / "BlurHrgba16f");
 		AssetHandle<ComputeShader> m_EdgeShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "Edge");
 		AssetHandle<ComputeShader> m_FullResShader = AssetManager::Load<ComputeShader>(AssetManager::COMPUTE_SHADER_DIR / "CloudsEdgeFill");
 		AssetHandle<Texture2D> m_SkyTextureLowResA;
@@ -159,7 +159,7 @@ namespace EnGl::System
 					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u}, .Strategy = Noise2D::Perlin},
 					Noise2DChannel{.Params = {.NCells = 16u, .NChannel = 3u, .Seed = 13u, .Octaves = 8u}, .Strategy = Noise2D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			}
 		};
 		Params m_DaySmallAltSunset{ .CloudScale = 0.51f, .DetailScale = 5.85f,  .WeatherMapScale = 28.77f, .PlanetRadius = 2000.0f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .GlobalCoverage = 0.327f, .GlobalOpacity = 0.019f, .OutScatterAmbient = 1.0f, .ExtinctionColor = glm::vec3{12.0f / 255.0f, 26.0f / 255.0f, 69.0f / 255.0f}
@@ -171,7 +171,7 @@ namespace EnGl::System
 					Noise2DChannel{.Params = {.NCells = 2u, .NChannel = 2u, .Seed = 187u, .Octaves = 8u}, .Strategy = Noise2D::Perlin},
 					Noise2DChannel{.Params = {.NCells = 16u, .NChannel = 3u, .Seed = 13u, .Octaves = 8u}, .Strategy = Noise2D::Worley}
 				},
-				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA32F })
+				.Texture = AssetManager::Put<Texture2D>(512u, Texture::CreationInfoFromData{.CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8 })
 			}
 		};
 		Params m_DayMedium{ .CloudScale = 0.81f, .DetailScale = 10.0f,  .WeatherMapScale = 9.0f, .PlanetRadius = 5709.375f, .SkyHeightMin = 450.0f, .SkyHeightMax = 1000.0f, .Speed = 10.0f, .GlobalCoverage = 0.697f, .GlobalOpacity =  0.019f, .OutScatterAmbient = 1.0f, .ExtinctionColor = glm::vec3{0.0f} };

@@ -200,8 +200,7 @@ namespace EnGl
 						.Position = {xPos, yPos, zPos},
 						.Normal = {xPos, yPos, zPos},
 						.TexCoord = {xSegment, ySegment},
-						.Tangent = {},
-						.BiTangent = {}
+						.Tangent = {}
 					}
 				);
 			}

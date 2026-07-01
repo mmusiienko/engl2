@@ -120,7 +120,7 @@ namespace EnGl
 			return;
 		}
 
-		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(static_cast<f32>(tex->Properties().w) * scale.x, static_cast<f32>(tex->Properties().h) * scale.y));
+		ImGui::Image((ImTextureID)(intptr_t)tex->Id(), ImVec2(static_cast<f32>(tex->Properties().w) * scale.x, static_cast<f32>(tex->Properties().h) * scale.y), ImVec2(0, 1), ImVec2(1, 0));
 	}
 
 	void UiComponents::Texture3DView(AssetHandle<Texture3D> texA)

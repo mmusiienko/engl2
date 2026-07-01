@@ -108,6 +108,9 @@ namespace EnGl
 		{
 			std::array<MaterialMap, Component::RenderLayerNumber> PerMaterial;
 			std::array<InstancedMaterialMap, Component::RenderLayerNumber> PerInstancedMaterial;
+			AssetHandle<Texture2D> DepthWithoutTransparents;
+			AssetHandle<Texture2D> SSAO;
+
 			struct CascadedShadowMapInfo
 			{
 				static constexpr u32 NShadowMapCascades = 4u;
@@ -115,9 +118,9 @@ namespace EnGl
 				Entity CascadeCamera[NShadowMapCascades];
 				Framebuffer* DirShadowFramebuffer[NShadowMapCascades];
 				u32 TextureSize[NShadowMapCascades]{ 4096u, 4096u, 4096u, 8192u };
-				f32 DepthSplit[NShadowMapCascades]{ 15.0f, 100.0f, 300.0f, 1000.0f };
+				f32 DepthSplit[NShadowMapCascades]{ 5.0f, 20.0f, 80.0f, 300.0f };
 				AssetHandle<Texture2D> ShadowMap;
-				glm::vec2 PolygonOffset{ -3.0f, -0.0f };
+				glm::vec2 PolygonOffset{ -10.0f, -0.0f };
 			} CascadedShadowMap;
 		};
 
@@ -174,5 +177,13 @@ namespace EnGl
 		AssetHandle<Texture2D> SkyTexture;
 		AssetHandle<Texture2D> SkyTextureLowRes;
 		std::unordered_map<std::string, Entity> SpecialEntities;
+
+		struct FrameStat
+		{
+			f32 TimeCpu = 0.0f;
+			u32 GpuQueryIndex = 0u;
+		};
+
+		std::vector<FrameStat> FrameStats;
 	};
 }

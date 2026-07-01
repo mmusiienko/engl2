@@ -14,7 +14,6 @@ out vec3 vTCamPos;
 
 out vec3 vNormal;
 out vec3 vTangent;
-out vec3 vBitangent;
 
 uniform mat4 uModel;
 uniform mat3x4 uNormal;
@@ -28,8 +27,7 @@ void main()
     vShadowPos = uShadowMapViewProjection * pos;
     gl_Position = uViewProjection * pos;
     vNormal = normalize(vec3(uNormal * aNormal));
-    vTangent = normalize(vec3(uNormal * aTangent));
-    vBitangent = normalize(vec3(uNormal * aBitangent));
+    vTangent = normalize(vec3(uModel * vec4(aTangent, 1.0)));
 
     vFragPos = pos.xyz;
 

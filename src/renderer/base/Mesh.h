@@ -20,7 +20,6 @@ namespace EnGl
 			glm::vec3 Normal;
 			glm::vec2 TexCoord;
 			glm::vec3 Tangent;
-			glm::vec3 BiTangent;
 			glm::ivec4 BoneIds;
 			glm::vec4 BoneWeights;
 		};

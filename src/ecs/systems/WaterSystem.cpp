@@ -170,7 +170,10 @@ namespace EnGl::System
 
 		AssetHandle<Texture2D> m_FoamTex = AssetManager::Load<Texture2D>(AssetManager::TEXTURE_DIR / "foam" / "foam.jpg");
 
-		WaterSurface(WaterSystem& system) : m_WaterSystem(system), Base(AssetManager::GRAPHICS_SHADER_DIR / "WaterSurface") {}
+		WaterSurface(WaterSystem& system) : m_WaterSystem(system), Base(AssetManager::GRAPHICS_SHADER_DIR / "WaterSurface") 
+		{
+			m_ShadowShaderHandle = AssetManager::Load<Shader>(AssetManager::GRAPHICS_SHADER_DIR / "UnlitWaterSurface");
+		}
 
 		void SetCommonUniforms(Shader* shader, const GameContext& context) override
 		{
@@ -235,9 +238,9 @@ namespace EnGl::System
 			}
 		}
 
-		void SetCommonUniformsUnlit(Shader* shader, const GameContext& context) override
+		void SetCommonUniformsShadow(Shader* shader, const GameContext& context) override
 		{
-			Base::SetCommonUniformsUnlit(shader, context);
+			Base::SetCommonUniformsShadow(shader, context);
 
 			auto cam = context.Camera.Get();
 			shader->SetUniform("uViewProjection", cam.ViewProjection);
@@ -268,6 +271,11 @@ namespace EnGl::System
 				shader->SetUniform("uCascades[" + std::to_string(i) + "].InvTiling", 1.0f / m_WaterSystem.m_Cascades[i].m_SpectrumData.Tiling);
 			}
 		}
+
+		void SetCommonUniformsPrepass(Shader* shader, const GameContext& context) override
+		{
+			SetCommonUniformsShadow(shader, context);
+		}
 	};
 
 	void WaterSystem::Init(EcsImpl::EntityManager& manager)
@@ -278,8 +286,6 @@ namespace EnGl::System
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, Component::FollowSnap& follow) -> void
 			{
 				auto mat = make_scope<WaterSurface>(*this);
-
-				mat->SetUnlit(AssetManager::GRAPHICS_SHADER_DIR / "UnlitWaterTesselated");
 
 				model.Model = StaticModel::QuadTesselated(AssetManager::PutScope<Material::Base>(std::move(mat)), m_Resolution, m_Resolution);
 				model.Layer = Component::RenderLayer::TT;

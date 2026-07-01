@@ -8,7 +8,6 @@ in vec3 vNormal;
 in vec3 vFragPos;
 in vec2 vTexCoords;
 in vec3 vTangent;
-in vec3 vBitangent;
 
 struct Material
 {
@@ -40,6 +39,7 @@ uniform uvec2 uResolution;
 uniform Material uMaterial;
 
 uniform vec3 uCameraPos;
+uniform sampler2D uSSAO;
 
 vec3 DirectionalLight(UniformDirectionalLight light, vec3 objDiff, vec3 objSpecular, vec3 viewDir, vec3 norm)
 {
@@ -66,14 +66,22 @@ vec3 PointLight(UniformPointLight light, vec3 objDiff, vec3 objSpecular, vec3 vi
 	return DirectionalLight(dirLight, objDiff, objSpecular, viewDir, normal) * attenuation;
 }
 
-float Shadow(vec3 normal, UniformDirectionalLight light)
+float Shadow(vec3 normal, UniformDirectionalLight light, vec2 screenUv)
 {
-    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    vec4 s = texture(uShadowMap, screenUv);
+    return s.r;
+}
+
+float SSAO(vec2 screenUv)
+{
+    vec4 s = texture(uSSAO, screenUv);
     return s.r;
 }
 
 void main()
 {
+	vec2 screenUv = gl_FragCoord.xy / vec2(uResolution);
+
 	vec3 outputColor = vec3(0.0);
 
 	vec4 diffuseT = texture(uMaterial.Diffuse, vTexCoords);
@@ -84,15 +92,14 @@ void main()
 
 	vec3 normal = normalize(vNormal);
 	vec3 tangent = normalize(vTangent);
-	vec3 bitangent = normalize(vBitangent);
 	tangent = normalize(tangent - dot(tangent, normal) * normal);
-    bitangent = cross(normal, tangent);
+    vec3 bitangent = cross(normal, tangent);
 	mat3 TBN = mat3(tangent, bitangent, normal);
 
 	vec3 normalMap = texture(uMaterial.Normals, vTexCoords).rgb * 2.0 - 1.0;
 
 	vec3 N = normalize(TBN * normalMap);
-	float shadow = Shadow(normal, uDirectionalLight);
+	float shadow = Shadow(normal, uDirectionalLight, screenUv);
 
 	vec3 viewDir = normalize(uCameraPos - vFragPos);  
 
@@ -102,7 +109,7 @@ void main()
 	{
 		outputColor += PointLight(uLights[i], diffuse, specular, viewDir, N);
 	}
-	outputColor += diffuse * 0.3;
+	outputColor += diffuse * 0.3 * SSAO(screenUv);
 
 	FragColor = vec4(outputColor, diffuseT.a);
 }

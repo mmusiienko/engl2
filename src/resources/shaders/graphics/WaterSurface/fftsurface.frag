@@ -200,6 +200,6 @@ void main()
 
     color += shadow * reflectionColor * (0.15 * reflFresnel);
 
-
-    FragColor = vec4(color, 1 - 0.01 *dot(reflectDir, normal));
+    float alpha = 1 - 0.004 *dot(reflectDir, normal);
+    FragColor = vec4(color, alpha);
 }

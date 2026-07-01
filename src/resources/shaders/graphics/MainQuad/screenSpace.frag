@@ -15,7 +15,7 @@ uniform UniformDirectionalLight uDirectionalLight;
 
 const vec3  gamma    = vec3(2.2);
 const vec3  invgamma = 1.0 / gamma;
-const float exposure = 1;
+const float exposure = 5;
 
 float linDepth(float depth)
 {
