@@ -1,12 +1,14 @@
-#include "Random.h"
+#include "math/Random.h"
+
 #include <limits>
+
 
 namespace EnGl
 {
     Random::Random() : Random(0) { }
-    Random::Random(f32 initialState) : m_State(initialState) {  }
+    Random::Random(u32 initialState) : m_State(initialState) {  }
     GaussianRandom::GaussianRandom() : Random() {}
-    GaussianRandom::GaussianRandom(f32 initialState) : Random(initialState) {}
+    GaussianRandom::GaussianRandom(u32 initialState) : Random(initialState) {}
 
     u32 Random::pcg_hash(u32 input)
     {
@@ -21,7 +23,7 @@ namespace EnGl
 
         m_State = pcg_hash(m_State);
 
-        return (f32)(m_State) * invMaxFloat;
+        return static_cast<f32>(m_State) * invMaxFloat;
     }
 
     f32 Random::UniformRange(f32 min, f32 max)
@@ -53,7 +55,7 @@ namespace EnGl
     {
         auto uniformFloat2 = UniformUnit2();
 
-        f32 a = sigma * glm::sqrt(-2.0 * glm::log(1.0 - uniformFloat2.x));
+        f32 a = sigma * static_cast<f32>(glm::sqrt(-2.0 * glm::log(1.0 - uniformFloat2.x)));
         f32 b = Math::TWO_PI * uniformFloat2.y;
 
         return glm::vec2(glm::cos(b), glm::sin(b)) * a + mu;

@@ -1,0 +1,40 @@
+#version 460 core
+
+layout (local_size_x=16, local_size_y=16) in;
+layout (binding=0, rgba32f) writeonly uniform image2D SkyB;
+
+uniform float uResScale;
+uniform uvec2 uResolution;
+
+uniform sampler2D uDepth;
+
+uniform float uNear;
+uniform float uFar;
+
+float linDepth(float depth)
+{
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * uNear * uFar) / (uFar + uNear - z * (uFar - uNear));
+}
+
+void main()
+{
+	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+
+	ivec2 lowResPixel = ivec2(gl_GlobalInvocationID.xy * uResScale);
+
+	float tileMinDepth = 1e9;
+	float tileMaxDepth = 0.0;
+
+	for (uint i = 0; i < uResScale; i++)
+	{
+		for (uint j = 0; j < uResScale; j++)
+		{
+			float d = texelFetch(uDepth, lowResPixel + ivec2(i, j), 0).r;
+			tileMinDepth = min(tileMinDepth, d);
+			tileMaxDepth = max(tileMaxDepth, d);
+		}
+	}
+
+	imageStore(SkyB, storePos, vec4(0, 0, tileMinDepth, tileMaxDepth));
+}

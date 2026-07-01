@@ -1,7 +1,8 @@
-#include "../AssetImporter.h"
+#include "resources/importers/AssetImporter.h"
 
 #include <vector>
-#include "../../FileSystem.h"
+
+#include "resources/FileSystem.h"
 
 
 namespace EnGl
@@ -9,35 +10,37 @@ namespace EnGl
 	Texture2D AssetImporter<Texture2D>::Import(const Params& params)
 	{
 		static const GLenum COMPONENTS_TO_CHANNELS[4]{ GL_RED, GL_RG, GL_RGB, GL_RGBA };
-
-		auto pathStr = params.Path.string();
-		spdlog::info("Loading texture: {}", pathStr);
+		static const GLenum COMPONENTS_TO_CHANNELS_GPU_COLOR[4]{ GL_R8, GL_RG8, GL_SRGB8, GL_SRGB8_ALPHA8 };
+		static const GLenum COMPONENTS_TO_CHANNELS_GPU[4]{ GL_R8, GL_RG8, GL_RGB8, GL_RGBA8 };
 		int width, height, nr_channels;
+		FileSystem::RaiiImageData data;
+		auto pathStr = params.Path.string();
 
-		unsigned char* data = FileSystem::ReadImageNoFlip(pathStr.c_str(), &width, &height, &nr_channels, 0);
-
-
-		if (width <= 0 || height <= 0 || !data)
+		if (params.IsEmbedded)
 		{
-			spdlog::error("Error loading texture with stbi: {}", pathStr);
-			FileSystem::FreeImage(data);
-			throw std::runtime_error("Error loading texture with stbi: " + pathStr);
+			spdlog::info("Loading embedded texture: {}", pathStr);
+
+			data = FileSystem::ReadImageFromMemory(pathStr.c_str(), params.Embedded.Data, params.Embedded.Length, &width, &height, &nr_channels, 0, params.Flip);
 		}
+		else
+		{
+			spdlog::info("Loading texture: {}", pathStr);
+
+			data = FileSystem::ReadImage(pathStr.c_str(), &width, &height, &nr_channels, 0, params.Flip);
+		}
+
 		auto format = COMPONENTS_TO_CHANNELS[nr_channels - 1];
-		
-		Texture2D tex{ 
-			static_cast<u32>(width), static_cast<u32>(height), 
+		auto gpuformat = params.IsColor ? COMPONENTS_TO_CHANNELS_GPU_COLOR[nr_channels - 1] : COMPONENTS_TO_CHANNELS_GPU[nr_channels - 1];
+
+		return Texture2D{
+			static_cast<u32>(width), static_cast<u32>(height),
 			Texture::CreationInfoFromData {
-				.Data = data,
+				.Data = data.Data,
 				.CpuFormat = format,
-				.GpuFormat = format,
+				.GpuFormat = gpuformat,
 				.DataType = GL_UNSIGNED_BYTE,
 				.Common = params.TextureParams
-			} 
+			}
 		};
-
-		FileSystem::FreeImage(data);
-
-		return tex;
 	}
 }

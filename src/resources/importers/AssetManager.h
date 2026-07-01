@@ -1,15 +1,17 @@
 #pragma once
 
 #include <queue>
-#include "../../core/Core.h"
-#include "AssetImporter.h"
 #include <algorithm>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "AssetHandle.h"
+#include <ranges>
+
+#include "core/Core.h"
+#include "resources/importers/AssetImporter.h"
+#include "resources/importers/AssetHandle.h"
 
 
 namespace EnGl
@@ -17,20 +19,35 @@ namespace EnGl
 	template<typename AssetT>
 	class AssetImporter;
 
+	template<typename AssetT>
+	struct AssetImporterParamsHash;
+
 	class AssetManager
 	{
 	private:
-		template<typename AssetT>
-		using KeyT = decltype(std::declval<typename AssetImporter<AssetT>::Params>().Key());
+		static constexpr std::string_view DEFAULT_ASSET_NAME{ "default" };
 
 		template<typename AssetT>
 		struct Storage
 		{
-			std::unordered_map<KeyT<AssetT>, AssetId> PathToAsset;
-			std::vector<AssetT> Assets;
-			std::vector<u32> Generations;
-			std::vector<bool> Alive;
+			std::unordered_map<
+				typename AssetImporter<AssetT>::Params,
+				AssetId,
+				AssetImporterParamsHash<AssetT>
+			> PathToAsset;
+
+			std::unordered_map<
+				AssetId,
+				typename AssetImporter<AssetT>::Params
+			> AssetToPath;
+
+			std::vector<scope<AssetT>> Assets;
+			std::vector<u32> Generations{ 0 };
+			std::vector<std::string> Names{ DEFAULT_ASSET_NAME.data()};
+			std::vector<bool> Alive{ false };
 			std::queue<AssetId> DeadIds;
+
+			Storage() { Assets.emplace_back(nullptr); }
 		};
 
 		inline static std::vector<std::function<void()>> CleanUps;
@@ -52,39 +69,33 @@ namespace EnGl
 		};
 
 		template<typename AssetT>
-		struct AssetResult<scope<AssetT>>
+		static std::vector<AssetHandle<AssetT>> ListAssets()
 		{
-			AssetT* Asset = nullptr;
-			u32 CurrentGeneration = 0;
-		};
-
-		template<typename AssetT>
-		static AssetResult<AssetT> GetAsset(AssetHandle<AssetT> handle)
-		{
+			std::vector<AssetHandle<AssetT>> res;
 			auto& storage = GetAssetStorage<AssetT>();
-			AssetResult<AssetT> res;
-
-			if (storage.Alive[handle.Id])
+			u32 i = 1;
+			for (auto [alive, gen] : std::views::zip(storage.Alive, storage.Generations) | std::views::drop(1))
 			{
-				res.Asset = &storage.Assets[handle.Id];
-				res.CurrentGeneration = storage.Generations[handle.Id];
+				if (alive)
+					res.emplace_back(i, gen);
+				i++;
 			}
 
 			return res;
 		}
 
 		template<typename AssetT>
-		static AssetT* GetAssetNoCheck(AssetHandle<AssetT> handle)
+		static const std::string& GetName(AssetHandle<AssetT> handle)
 		{
 			auto& storage = GetAssetStorage<AssetT>();
-			return &storage.Assets[handle.Id];
+			return storage.Names[handle.Id];
 		}
 
 		template<typename AssetT>
-		static AssetResult<scope<AssetT>> GetAsset(AssetHandle< scope<AssetT> > handle)
+		static AssetResult<AssetT> GetAsset(AssetHandle<AssetT> handle)
 		{
-			auto& storage = GetAssetStorage<scope<AssetT>>();
-			AssetResult<AssetT> res;
+			auto& storage = GetAssetStorage<AssetT>();
+			AssetResult<AssetT> res{};
 
 			if (storage.Alive[handle.Id])
 			{
@@ -96,21 +107,20 @@ namespace EnGl
 		}
 
 		template<typename AssetT>
-		static AssetT* GetAssetNoCheck(AssetHandle< scope<AssetT> > handle)
+		static AssetT* GetAssetNoCheck(AssetHandle<AssetT> handle)
 		{
-			auto& storage = GetAssetStorage<scope<AssetT>>();
+			auto& storage = GetAssetStorage<AssetT>();
 			return storage.Assets[handle.Id].get();
 		}
 
 		template<typename AssetT>
-		static AssetHandle<AssetT> Load(const AssetImporter<AssetT>::Params& params)
+		static AssetHandle<AssetT> Load(AssetImporter<AssetT>::Params params)
 		{
 			auto& storage = GetAssetStorage<AssetT>();
-			auto key = params.Key();
 
-			if (storage.PathToAsset.contains(key))
+			if (storage.PathToAsset.contains(params))
 			{
-				AssetId id = storage.PathToAsset.at(key);
+				AssetId id = storage.PathToAsset.at(params);
 				u32 gen = storage.Generations[id];
 				return AssetHandle<AssetT>
 				{
@@ -121,7 +131,8 @@ namespace EnGl
 
 			auto asset = AssetImporter<AssetT>::Import(params);
 			auto handle = Put<AssetT>(std::move(asset));
-			storage.PathToAsset.insert({ std::move(key) , handle.Id});
+			storage.PathToAsset.insert({ params, handle.Id });
+			storage.AssetToPath.insert({ handle.Id, std::move(params) });
 
 			return handle;
 		}
@@ -137,26 +148,81 @@ namespace EnGl
 				if (storage.DeadIds.empty())
 				{
 					id = static_cast<AssetId>(storage.Assets.size());
-					storage.Assets.push_back(std::move(asset));
-					storage.Generations.push_back(0);
+					storage.Assets.push_back(make_scope<AssetT>(std::move(asset)));
+					storage.Generations.push_back(gen);
 					storage.Alive.push_back(true);
+					storage.Names.push_back(DEFAULT_ASSET_NAME.data());
 				}
 				else
 				{
-					id = storage.DeadIds.back();
+					id = storage.DeadIds.front();
 					storage.DeadIds.pop();
-					storage.Assets[id] = std::move(asset);
+					storage.Assets[id] = make_scope<AssetT>(std::move(asset));
 					storage.Alive[id] = true;
+					storage.Names[id] = DEFAULT_ASSET_NAME;
 					gen = storage.Generations[id]++;
 				}
 
-				return AssetHandle<AssetT>
+				return AssetHandle<AssetT> {id, gen};
+			}
+			template<typename AssetT>
+			static AssetHandle<AssetT> PutInternal(scope<AssetT>&& asset)
+			{
+				auto& storage = GetAssetStorage<AssetT>();
+
+				AssetId id = 0;
+				u32 gen = 0;
+				if (storage.DeadIds.empty())
 				{
-					.Id = id,
-						.Generation = gen
-				};
+					id = static_cast<AssetId>(storage.Assets.size());
+					storage.Assets.push_back(std::move(asset));
+					storage.Generations.push_back(gen);
+					storage.Alive.push_back(true);
+					storage.Names.push_back(DEFAULT_ASSET_NAME.data());
+				}
+				else
+				{
+					id = storage.DeadIds.front();
+					storage.DeadIds.pop();
+					storage.Assets[id] = std::move(asset);
+					storage.Alive[id] = true;
+					storage.Names[id] = DEFAULT_ASSET_NAME;
+					gen = storage.Generations[id]++;
+				}
+
+				return AssetHandle<AssetT> {id, gen};
 			}
 		public:
+
+		template<typename AssetT>
+		static void Remove(AssetHandle<AssetT> asset)
+		{
+			auto& storage = GetAssetStorage<AssetT>();
+
+			if (!storage.Alive[asset.Id]) return;
+
+			if (storage.AssetToPath.contains(asset.Id))
+			{
+				auto& params = storage.AssetToPath.at(asset.Id);
+				storage.PathToAsset.erase(params);
+				storage.AssetToPath.erase(asset.Id);
+			}
+
+			storage.Assets[asset.Id] = nullptr;
+			storage.Alive[asset.Id] = false;
+			storage.DeadIds.push(asset.Id);
+		}
+
+		template<typename AssetT>
+		static void ReloadAll()
+		{
+			auto& storage = GetAssetStorage<AssetT>();
+
+			for (const auto& [importParams, id] : storage.PathToAsset)
+			{
+				storage.Assets[id] = make_scope<AssetT>(AssetImporter<AssetT>::Import(importParams));
+			}
+		}
 
 		template<typename AssetT, typename... Args>
 		static AssetHandle<AssetT> Put(Args&&... args)
@@ -171,15 +237,9 @@ namespace EnGl
 		}
 
 		template<typename AssetT>
-		static AssetId PutPersistent(AssetT&& asset)
+		static AssetHandle<AssetT> PutScope(scope<AssetT>&& asset)
 		{
-			return Put<AssetT>(std::move(asset)).Id;
-		}
-
-		template<typename AssetT, typename Params>
-		static AssetId LoadPersistent(const Params& params)
-		{
-			return Load<AssetT, Params>(params).Id;
+			return PutInternal<AssetT>(std::move(asset));
 		}
 
 		static void ShutDown()
@@ -187,11 +247,14 @@ namespace EnGl
 			std::for_each(CleanUps.begin(), CleanUps.end(), [](auto el) { el(); });
 		}
 
-		inline static const std::filesystem::path ASSETS_DIR = std::filesystem::path{"resources"} / "assets";
-		inline static const std::filesystem::path TEXTURE_DIR = AssetManager::ASSETS_DIR / "textures";
-		inline static const std::filesystem::path MODEL_DIR = AssetManager::ASSETS_DIR / "models";
-		inline static const std::filesystem::path SHADER_DIR = AssetManager::ASSETS_DIR / "shaders";
-		inline static const std::filesystem::path GRAPHICS_SHADER_DIR = AssetManager::SHADER_DIR / "graphics";
-		inline static const std::filesystem::path COMPUTE_SHADER_DIR = AssetManager::SHADER_DIR / "compute";
+		inline static const std::filesystem::path RESOURCES_DIR = std::filesystem::path{ "resources" };
+
+			inline static const std::filesystem::path ASSETS_DIR = RESOURCES_DIR / "assets";
+				inline static const std::filesystem::path TEXTURE_DIR = ASSETS_DIR / "textures";
+				inline static const std::filesystem::path MODEL_DIR = ASSETS_DIR / "models";
+
+			inline static const std::filesystem::path SHADER_DIR = RESOURCES_DIR / "shaders";
+				inline static const std::filesystem::path GRAPHICS_SHADER_DIR = AssetManager::SHADER_DIR / "graphics";
+				inline static const std::filesystem::path COMPUTE_SHADER_DIR = AssetManager::SHADER_DIR / "compute";
 	};
 }

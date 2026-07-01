@@ -1,0 +1,94 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (rg32f, binding = 0) uniform readonly image2D Spectrum;
+layout (rg32f, binding = 1) uniform readonly image2D ConjSpectrum;
+layout (rg32f, binding = 2) uniform writeonly image2D DYCOMBINEDDXZ;
+layout (rg32f, binding = 3) uniform writeonly image2D DXCOMBINEDZ;
+layout (rg32f, binding = 4) uniform writeonly image2D DDXCOMBINEDDZ;
+layout (rg32f, binding = 5) uniform writeonly image2D DYDXCOMBINEDYDZ;
+
+uniform double t;
+
+uniform uint N;
+uniform float L;
+
+#define PI 3.1415926535897932384626433832795
+#define twopi 3.1415926535897932384626433832795 * 2
+const float g = 9.81;
+
+int wrap(int i)
+{
+    return i - int(N / 2);
+}
+
+vec2 getK(ivec2 pos)
+{
+    float x = wrap(pos.x);
+    float y = wrap(pos.y);
+
+    return vec2(x, y) * twopi / L;
+}
+
+float omega(float kNorm)
+{
+    return sqrt(g * kNorm);
+}
+
+vec2 mult(vec2 a, vec2 b)
+{
+    return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+vec4 combine(vec2 x, vec2 y)
+{
+    return vec4(x.x - y.y, x.y + y.x, 0.0, 0.0);
+}
+
+void main()
+{
+    vec2 x = vec2(gl_GlobalInvocationID.xy) - float(N) / 2.0;
+
+    vec2 k = vec2(
+        2.0 * PI * x.x / L,
+        2.0 * PI * x.y / L
+    );
+
+    float kNorm = length(k);
+
+    if (kNorm < 0.00001) 
+    {
+        kNorm = 1;
+    }
+
+    float wt = float(omega(kNorm) * t);
+    
+    float sinwt = sin(wt);
+    float coswt = cos(wt);
+
+    vec2 h0 = imageLoad(Spectrum, ivec2(gl_GlobalInvocationID.xy)).xy;
+    vec2 h0conj = imageLoad(ConjSpectrum, ivec2(gl_GlobalInvocationID.xy)).xy;
+
+    vec2 euler = vec2(coswt, sinwt);
+    vec2 minuseuler = vec2(coswt, -sinwt);
+    vec2 ikx = vec2(0, k.x);
+    vec2 ikz = vec2(0, k.y);
+    float kNormInv = 1 / kNorm;
+    vec2 Displacement_y = mult(euler, h0) + mult(minuseuler, h0conj);
+    vec2 Displacement_x = mult(Displacement_y, ikx * kNormInv);
+    vec2 Displacement_z = mult(Displacement_y, ikz * kNormInv);
+
+    vec2 DY_DX = mult(Displacement_y, ikx);
+    vec2 DY_DZ = mult(Displacement_y, ikz);
+    
+    vec2 Displacement_x_DX = -Displacement_y * k.x * k.x * kNormInv;
+    vec2 Displacement_z_Dz = -Displacement_y * k.y * k.y * kNormInv;
+    vec2 Displacement_x_Dz = -Displacement_y * k.x * k.y * kNormInv;
+
+    //combine two complex iffts into one using linearity of fft 
+    imageStore(DYCOMBINEDDXZ, ivec2(gl_GlobalInvocationID.xy), combine(Displacement_y, Displacement_x_Dz));
+    imageStore(DYDXCOMBINEDYDZ, ivec2(gl_GlobalInvocationID.xy), combine(DY_DX, DY_DZ));
+    imageStore(DXCOMBINEDZ, ivec2(gl_GlobalInvocationID.xy), combine(Displacement_x, Displacement_z));
+    imageStore(DDXCOMBINEDDZ, ivec2(gl_GlobalInvocationID.xy), combine(Displacement_x_DX, Displacement_z_Dz));
+}

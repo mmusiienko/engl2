@@ -1,6 +1,6 @@
-#include "Ui.h"
+#include "ui/Ui.h"
+
 #include "spdlog/spdlog.h"
-#include <ranges>
 
 
 namespace EnGl
@@ -26,14 +26,16 @@ namespace EnGl
 		ImGui::DestroyContext();
 	}
 
-	void Ui::Render(GameContext& context)
+	void Ui::Render(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& registry)
 	{
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		//ImGuizmo::BeginFrame();
 
-		Frame(context);
+		Frame(context, manager, registry);
 
+		ImGui::End();
 		ImGui::Render();
 	}
 
@@ -42,29 +44,24 @@ namespace EnGl
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
 
-	void Ui::Frame(GameContext& context)
+	void Ui::Frame(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& registry)
 	{
 		ImGui::Begin("Configuration");
 
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / m_io->Framerate, m_io->Framerate);
 
 		ImGui::Separator();
+		DebugView(context.Debug, manager);
 
-		CameraView(context.Camera);
-
-		ImGui::End();
+		m_EcsUi.Frame(context, manager, registry);
 	}
 
-	void Ui::CameraView(GameContext::CameraInfo& cameraInfo)
+	void Ui::DebugView(GameContext::DebugInfo& debug, EcsImpl::EntityManager& manager)
 	{
-		ImGui::Text("Selected Camera Id: %d", cameraInfo.Get());
-		for (const auto [idx, camId] : std::views::enumerate(cameraInfo.Cameras))
-		{
-			auto label = "Camera Id: " + std::to_string(camId) + "##SelectCamera" + std::to_string(idx);
-			if (ImGui::Button(label.c_str()))
-			{
-				cameraInfo.CameraIdx = idx;
-			}
-		}
+		ImGui::Separator();
+		ImGui::Text("Debug flags");
+		ImGui::Checkbox("Enable", &debug.Draw.Enabled);
+		ImGui::Checkbox("Draw Cameras", &debug.Draw.Camera);
+		ImGui::Checkbox("Draw Bounding Boxes", &debug.Draw.AABB);
 	}
 }

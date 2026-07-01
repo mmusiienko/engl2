@@ -1,7 +1,9 @@
 #pragma once
 
-#include "../core/Core.h"
-#include "Math.h"
+#include "math/Math.h"
+
+#include "core/Core.h"
+
 
 namespace EnGl
 {
@@ -9,7 +11,7 @@ namespace EnGl
 	{
 	public:
 		Random();
-		Random(f32 initialState);
+		Random(u32 initialState);
 		f32 UniformUnit();
 		f32 UniformRange(f32 min, f32 max);
 		glm::vec2 UniformUnit2();
@@ -23,7 +25,7 @@ namespace EnGl
 		}
 
 	private:
-		f32 m_State = 0;
+		u32 m_State = 0u;
 
 		static u32 pcg_hash(u32 input);
 	};
@@ -32,7 +34,7 @@ namespace EnGl
 	{
 	public:
 		GaussianRandom();
-		GaussianRandom(f32 initialState);
+		GaussianRandom(u32 initialState);
 		glm::vec2 GaussianPair()
 		{
 			return GaussianPair(0.0f, 1.0f);

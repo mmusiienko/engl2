@@ -1,0 +1,609 @@
+#version 460 core
+
+layout (local_size_x=16, local_size_y=16) in;
+
+layout (binding=0, rgba16f) writeonly uniform image2D SkyA;
+layout (binding=1, r32f) writeonly uniform image2D SkyB;
+
+uniform mat4 uInvViewProjection;
+uniform uvec2 uResolution;
+uniform vec3 uCameraPos;
+
+uniform float uNear;
+uniform float uFar;
+
+uniform float uTime;
+
+struct UniformDirectionalLight { vec3 Direction; vec3 Color; };
+uniform UniformDirectionalLight uDirectionalLight;
+
+uniform float uCloudScale = 0.1;
+uniform float uDetailScale = 3.0;
+uniform float uWeatherScale = 1.0;
+
+uniform float uSkyHeightMin = 200.0;
+uniform float uSkyHeightMax = 300.0;
+uniform float uPlanetRadius = 40000.0;
+
+uniform uint uNumSteps = 64;
+uniform uint uNumStepsLight = 4;
+
+uniform vec3 uDirection = vec3(0);
+uniform float uSpeed = 1.0;
+
+uniform sampler2D uDepth;
+uniform sampler3D uShape;
+uniform sampler3D uDetail;
+uniform sampler2D uWeather;
+uniform sampler2D SkyLastFrame;
+
+uniform float uGlobalCoverage = 0.49;
+uniform float uGlobalOpacity = 0.02;
+
+uniform float uResScale = 4;
+
+uniform uint uCurrentOffset = 0;
+
+uniform samplerCube uCubemap;
+
+uniform vec3 uCameraForward;
+uniform float uAnvil = 0.5;
+uniform float uBeer = 6.0;
+uniform float uInScatter = 0.2;
+uniform float uOutScatter = 0.1;
+uniform float uInOutCoefficient = 0.5;
+uniform float uSilverLine = 2.5;
+uniform float uSilverLineExp = 2.0;
+uniform float uAmbient = 0.2;
+uniform float uOutScatterAmbient = 0.9;
+uniform vec3 uExtinctionColor;
+
+const uvec2 CrossOffset4x4[16] = uvec2[16](
+	uvec2(0, 0),
+	uvec2(2, 2),
+	uvec2(2, 0),
+	uvec2(0, 2),
+	uvec2(1, 1),
+	uvec2(3, 3),
+	uvec2(3, 1),
+	uvec2(1, 3),
+	uvec2(1, 0),
+	uvec2(3, 2),
+	uvec2(3, 0),
+	uvec2(1, 2),
+	uvec2(0, 1),
+	uvec2(2, 3),
+	uvec2(2, 1),
+	uvec2(0, 3)
+);
+
+const uvec2 CrossOffset2x2[4] = uvec2[4](
+	uvec2(0, 0),
+	uvec2(1, 1),
+	uvec2(1, 0),
+	uvec2(0, 1)
+);
+
+float linDepth(float depth)
+{
+	return uNear / depth;
+}
+
+struct IntersectionResult
+{
+	bool intersect;
+	float tNear;
+	float tFar;
+
+	bool second;
+	float tNear2;
+	float tFar2;
+};
+
+IntersectionResult intersectSphere(
+    vec3 rayOrigin,
+    vec3 rayDir,
+    vec3 center,
+    float radius)
+{
+    IntersectionResult res;
+
+    vec3 oc = rayOrigin - center;
+
+    float a = dot(rayDir, rayDir);
+    float b = 2.0 * dot(oc, rayDir);
+    float c = dot(oc, oc) - radius * radius;
+
+    float discriminant = b * b - 4.0 * a * c;
+
+    if (discriminant < 0.0)
+    {
+        res.intersect = false;
+        return res;
+    }
+
+    float s = sqrt(discriminant);
+
+    float invDenom = 0.5 / a;
+
+    float t0 = (-b - s) * invDenom;
+    float t1 = (-b + s) * invDenom;
+
+    if (t0 > t1)
+    {
+        float tmp = t0;
+        t0 = t1;
+        t1 = tmp;
+    }
+
+    res.intersect = t1 >= 0.0;
+    res.tNear = t0;
+    res.tFar  = t1;
+
+    return res;
+}
+
+IntersectionResult intersectAtmosphere(
+    vec3 ro,
+    vec3 rd,
+    vec3 center,
+    float minRadius,
+    float maxRadius)
+{
+    IntersectionResult r;
+
+    r.intersect = false;
+	r.second = false;
+
+    IntersectionResult outer =
+        intersectSphere(
+            ro,
+            rd,
+            center,
+            maxRadius);
+
+    if (!outer.intersect)
+        return r;
+
+    IntersectionResult inner =
+        intersectSphere(
+            ro,
+            rd,
+            center,
+            minRadius);
+
+    float t0 = max(outer.tNear, 0.0);
+    float t1 = outer.tFar;
+
+    if (!inner.intersect)
+    {
+        r.intersect = t1 > t0;
+        r.tNear = t0;
+        r.tFar = t1;
+        return r;
+    }
+
+	vec3 diff = ro - center;
+    float distSqr = dot(diff, diff);
+
+    r.intersect = true;
+
+    if (distSqr < minRadius * minRadius)
+    {
+		r.tNear = inner.tFar;
+		r.tFar = outer.tFar;
+    }
+    else
+    {
+		if (outer.tNear < inner.tNear && inner.tFar < outer.tFar)
+		{
+			r.second = true;
+			r.tNear = t0;
+			r.tFar = inner.tNear;
+			r.tNear2 = inner.tFar;
+			r.tFar2 = t1;
+		}
+    }
+	
+    return r;
+}
+
+IntersectionResult intersectSkyBox(vec3 rayOrigin, vec3 rayDir, vec3 boundsMin, vec3 boundsMax)
+{
+	IntersectionResult res;
+
+    vec3 invDir = 1.0 / rayDir;
+    vec3 t1 = (boundsMin - rayOrigin) * invDir;
+    vec3 t2 = (boundsMax - rayOrigin) * invDir;
+
+    vec3 tmin = min(t1, t2);
+    vec3 tmax = max(t1, t2);
+
+    res.tNear = max(max(tmin.x, tmin.y), tmin.z);
+	res.tFar  = min(min(tmax.x, tmax.y), tmax.z);
+
+    res.intersect = (res.tNear <= res.tFar && res.tFar > 0.0);
+
+    return res;
+}
+
+float remap(float val, float mn1, float mx1, float mn2, float mx2)
+{
+	return (val - mn1) / (mx1 - mn1) * (mx2 - mn2) + mn2;
+}
+
+float saturate(float val)
+{
+	return clamp(val, 0, 1);
+}
+
+float grad(float val, float mn1, float mx1, float mn2, float mx2)
+{
+	return saturate(remap(val, mn1, mx1, mn2, mx2));
+}
+
+vec4 mixGradients(float cloudType){
+	const vec4 STRATUS_GRADIENT = vec4(0.02f, 0.05f, 0.09f, 0.3f);
+	const vec4 STRATOCUMULUS_GRADIENT = vec4(0.02f, 0.2f, 0.48f, 0.625f);
+	const vec4 CUMULUS_GRADIENT = vec4(0.01f, 0.0625f, 0.78f, 1.0f);
+
+	float stratus = 1.0f - clamp(cloudType * 2.0f, 0.0, 1.0);
+	float stratocumulus = 1.0f - abs(cloudType - 0.5f) * 2.0f;
+	float cumulus = clamp(cloudType - 0.5f, 0.0, 1.0) * 2.0f;
+
+	return STRATUS_GRADIENT * stratus + STRATOCUMULUS_GRADIENT * stratocumulus + CUMULUS_GRADIENT * cumulus;
+}
+
+float densityHeightGradient(float heightFrac, float cloudType) {
+	vec4 cloudGradient = mixGradients(clamp(2.0 * cloudType - 1.0, 0, 1));
+	return smoothstep(cloudGradient.x, cloudGradient.y, heightFrac) - smoothstep(cloudGradient.z, cloudGradient.w, heightFrac);
+}
+
+
+float shapeAlter(float h)
+{
+	const float wh = 1.0;
+
+	float bottom = grad(h, 0.0, 0.07, 0.0, 1.0);
+	float stopHeight = wh + 0.12;
+	float top = grad(h, stopHeight * 0.2, stopHeight, 1.0, 0.0);
+	float alter = bottom * top;
+	float anvil = pow(alter, grad(h, 0.65, 0.95, 1.0, 1.0 - uAnvil * uGlobalCoverage));
+	return anvil;
+}
+
+float densityAlter(float h)
+{
+	const float wd = 1.0;
+
+	float bottom = h * grad(h, 0.0, 0.2, 0.0, 1.0);
+	float top = grad(h, 0.9, 1.0, 1.0, 0.0);
+	float density = wd * 2.0;
+	float alter = bottom * top * density * uGlobalOpacity;
+	float anvil = alter * mix(1.0, grad(pow(h, 0.5), 0.4, 0.95, 1.0, 0.2), uAnvil);
+	return anvil;
+}
+
+float sampleDensity(vec3 pos, float h)
+{
+	if (pos.y < -1000) return 0;
+	vec4 weather = texture(uWeather, 0.00001 * uWeatherScale * (pos.xz + uTime * uSpeed * 1.5));
+	h = clamp(h + weather.a * 0.2,0,1);
+
+	float weatherCoverage = max(weather.r, 2.0 * weather.g * saturate(uGlobalCoverage - 0.5));
+
+	vec3 samplePos1 = 0.001 * (vec3(pos.x, pos.y + uTime * uSpeed * 0.2 ,pos.z) + uDirection * uTime * uSpeed);
+	vec3 samplePos2 = 0.001 * (vec3(pos.x, pos.y + uTime * uSpeed * 0.6 ,pos.z) + 1.5 * uSpeed * uDirection * uTime);
+
+
+	vec4 shapeSample = texture(uShape, samplePos1 * uCloudScale);
+	vec4 detailSample = texture(uDetail, samplePos2 * uDetailScale);
+
+	float shape = remap(shapeSample.r, (0.625 * shapeSample.g + 0.25 * shapeSample.b + 0.125 * shapeSample.a) - 1.0, 1.0, 0.0, 1.0);
+	float shapeDensity = grad(shape  * shapeAlter(h) * densityHeightGradient(h, weather.b), 1.0 - uGlobalCoverage * weatherCoverage, 1.0, 0.0, 1.0);
+	
+	float detail = 0.625 * detailSample.g + 0.25 * detailSample.b + 0.125 * detailSample.a;
+	float detailModifier = mix(detail, 1.0 - detail, saturate(h * 5.0)) * 0.35 * exp(-uGlobalCoverage * 0.75);
+
+	return grad(shapeDensity, detailModifier, 1.0, 0.0, 1.0) * densityAlter(h);
+}
+
+float sampleDensityTowardsLight(vec3 pos)
+{
+	float radiusMin = uPlanetRadius + uSkyHeightMin;
+	float radiusMax = uPlanetRadius + uSkyHeightMax;
+	vec3 center = vec3(uCameraPos.x, -uPlanetRadius, uCameraPos.z);
+	vec3 lightDir = uDirectionalLight.Direction;
+	IntersectionResult res = intersectAtmosphere(pos, lightDir, center, radiusMin, radiusMax);
+
+	float toTravel = max(res.tFar - res.tNear, 0.0);
+	float stepSize =  toTravel / float(uNumStepsLight + 20);
+	float totalDensity = 0;
+		
+	float dist = 0.0;
+	for (uint i = 0; i < uNumStepsLight; i++)
+	{
+		pos += lightDir * stepSize;
+
+		float height =
+				length(pos - center) - radiusMin;
+
+		float h =
+			saturate(
+				height /
+				(radiusMax - radiusMin));
+		totalDensity += sampleDensity(pos, h) * stepSize;
+		dist += stepSize;
+	}
+
+	stepSize *= 10;
+
+	for (int i = 0; i < 2; i ++)
+	{
+		pos += lightDir * stepSize;
+
+		float height =
+				length(pos - center) - radiusMin;
+
+		float h =
+			saturate(
+				height /
+				(radiusMax - radiusMin));
+		totalDensity += sampleDensity(pos, h) * stepSize;
+		dist += stepSize;
+	}
+
+	return  totalDensity;
+}
+
+float random(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+const ivec2 offsets[8] = ivec2[]
+(
+    ivec2(-1,-1), ivec2(-1, 1), 
+	ivec2(1, -1), ivec2(1, 1), 
+	ivec2(1, 0), ivec2(0, -1), 
+	ivec2(0, 1), ivec2(-1, 0)
+);
+
+vec3 getOffset(ivec2 lowResPos)
+{
+	vec3 res = vec3(0, 0, 0);
+
+	res.xy = CrossOffset4x4[uCurrentOffset];
+	float d = texelFetch(uDepth, lowResPos + ivec2(res.xy), 0).r;
+
+	res.b = min(linDepth(d), 100000);
+    return res;
+}
+
+
+float HGx(float cos_theta, float g) {
+	const float k = 0.0795774715459;
+	return k * (1.0 - g * g) / (pow(1.0 + g * g - 2.0 * g * cos_theta, 1.5));
+}
+
+float HG(float cos_theta, float g) {
+	return HGx(cos_theta, g) / HGx(0, 0);
+}
+
+void main()
+{
+	const float maxDist = 1e9;
+	vec2 lowResPixel = vec2(gl_GlobalInvocationID.xy) * uResScale;
+	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);
+	vec3 offsetCurrent = getOffset(ivec2(lowResPixel));
+
+	vec2 pixel = vec2(gl_GlobalInvocationID.xy) * uResScale + vec2(0.5) + offsetCurrent.xy;
+	vec2 uv = pixel / uResolution;
+	
+	float depth = offsetCurrent.b;
+	vec2 ndc = uv * 2.0 - 1.0;
+
+	//vec3 boundsMin = vec3(uCameraPos.x - uFar, uSkyHeightMin, uCameraPos.z - uFar);
+	//vec3 boundsMax = vec3(uCameraPos.x + uFar, uSkyHeightMax, uCameraPos.z + uFar);
+
+	vec3 rayOrigin = uCameraPos.xyz;
+	vec4 target = uInvViewProjection * vec4(ndc, 0.0, 1.0);
+
+	vec3 rayDir = normalize(target.xyz);
+	float radiusMin = uPlanetRadius + uSkyHeightMin;
+	float radiusMax = uPlanetRadius + uSkyHeightMax;
+	vec3 center = vec3(rayOrigin.x, -uPlanetRadius, rayOrigin.z);
+	IntersectionResult res = intersectAtmosphere(rayOrigin, rayDir, center, radiusMin, radiusMax);
+	
+	float angle = dot(uCameraForward, rayDir);
+	float theta = dot(uDirectionalLight.Direction, rayDir);
+
+	if (!res.intersect)
+	{
+		imageStore(SkyA, storePos, vec4(0, 0, 0, 1));
+		imageStore(SkyB, storePos, vec4(maxDist, 0, 0, 0));
+	}
+	else if (res.second)
+	{
+		float distAlongRayToScene = depth / angle;
+		float near = max(res.tNear, 0.0);
+		float distInside1 = res.tFar - near;
+		float distInside2 = res.tFar2 - max(res.tNear2, 0.0);
+		float effectiveDepth = distAlongRayToScene - near;
+		float distToTravel1 = max(0.0, min(distInside1, effectiveDepth));
+		float distToTravel2 = max(0.0, min(distInside2, effectiveDepth));
+		float distToTravel = distToTravel1 + distToTravel2;
+		float distTotal = res.tFar2 - res.tNear;
+		float finalDist =  max(0.0, min(distTotal, effectiveDepth));
+		float betweenStages = max(0.0, res.tNear2 - res.tFar);
+		float silverLine = uSilverLine * pow(saturate(theta), uSilverLineExp);
+
+		float IOScattering = mix( max( HG(theta, uInScatter), silverLine), HG(theta, -uOutScatter), uInOutCoefficient );
+		float stepSize = distToTravel / float(uNumSteps);
+		float offset = random(pixel) * stepSize;
+		vec3 pos = rayOrigin + (near + offset) * rayDir;
+		float lightEnergy = 0;
+		vec3 color = vec3(0.0);
+		float transmittance = 1;
+		float dist = 0.0;
+		vec4 currentFrame = vec4(0.0, 0.0, 0.0, 1.0);
+
+		float firstDist = maxDist;
+		bool isFirstDist = true;
+
+		vec3 bg = texture(uCubemap, rayDir).rgb;
+
+		while (dist < distToTravel1)
+		{
+			if (transmittance < 0.01) break;
+
+			float height =
+				length(pos - center) - radiusMin;
+
+			float h =
+				saturate(
+					height /
+					(radiusMax - radiusMin));
+
+			float density = sampleDensity(pos, h);
+			if (density > 0.0)
+			{
+				float dt = exp(-density * stepSize * uBeer);
+
+				float densityLight = sampleDensityTowardsLight(pos);
+				float lightEnergy = max(exp(-densityLight * uBeer), exp(-densityLight * uBeer * 0.25) * 0.7); 
+
+				float d = uOutScatterAmbient  * pow(density, remap(
+				h,0.3,0.9,0.5,1.0));
+				float vertical = pow(grad(h,0.0,0.3,0.8,1.0),0.8);
+
+				float out_scatter = d * vertical;
+
+				out_scatter = 1.0 - saturate(out_scatter);
+
+				float scatter = (1.0 - dt) * transmittance; 
+
+				color += scatter * mix(IOScattering * out_scatter * mix(uExtinctionColor, uDirectionalLight.Color, lightEnergy), bg, clamp((near + dist) * uAmbient, 0, 1));
+
+				transmittance *= dt;
+				if (isFirstDist) {firstDist = dist; isFirstDist = false;}
+			}
+			
+			pos += stepSize * rayDir;
+			dist += stepSize;
+		}
+
+		dist += betweenStages;
+		pos += betweenStages * rayDir;
+
+		while (dist < finalDist)
+		{
+			if (transmittance < 0.01) break;
+
+			float height =
+				length(pos - center) - radiusMin;
+
+			float h =
+				saturate(
+					height /
+					(radiusMax - radiusMin));
+
+			float density = sampleDensity(pos, h);
+			if (density > 0.0)
+			{
+				float dt = exp(-density * stepSize * uBeer);
+
+				float densityLight = sampleDensityTowardsLight(pos);
+
+				float d = uOutScatterAmbient * pow(density, remap(
+				h,0.3,0.9,0.5,1.0));
+				float vertical = pow(grad(h,0.0,0.3,0.8,1.0),0.8);
+
+				float out_scatter = d * vertical;
+
+				out_scatter = 1.0 - saturate(out_scatter);
+
+				float lightEnergy = max(exp(-densityLight * uBeer), exp(-densityLight * uBeer * 0.25) * 0.7); 
+				float scatter = (1.0 - dt) * transmittance; 
+				color += scatter * mix(IOScattering * out_scatter * mix(uExtinctionColor, uDirectionalLight.Color, lightEnergy), bg, clamp((near + dist) * uAmbient, 0, 1));
+
+
+				transmittance *= dt;
+				if (isFirstDist) {firstDist = dist; isFirstDist = false;}
+			}
+			
+			pos += stepSize * rayDir;
+			dist += stepSize;
+		}
+
+		float cloudFirstDist = (near + firstDist);
+
+		imageStore(SkyA, storePos, vec4(color, transmittance));
+		imageStore(SkyB, storePos, vec4(cloudFirstDist));
+	}
+	else
+	{
+		float distAlongRayToScene = depth / angle;
+		float near = max(res.tNear, 0.0);
+		float distInside = res.tFar - max(res.tNear, 0.0);
+		float effectiveDepth = distAlongRayToScene - near;
+		float distToTravel = max(0.0, min(distInside, effectiveDepth));
+
+		float silverLine = uSilverLine * pow(saturate(theta), uSilverLineExp);
+
+		float IOScattering = mix( max( HG(theta, uInScatter), silverLine), HG(theta, -uOutScatter), uInOutCoefficient );
+
+		float stepSize = distToTravel / float(uNumSteps);
+		float offset = random(pixel) * stepSize;
+		vec3 pos = rayOrigin + (near + offset) * rayDir;
+		float lightEnergy = 0;
+		vec3 color = vec3(0.0);
+		float transmittance = 1;
+		float dist = 0.0;
+		vec4 currentFrame = vec4(0.0, 0.0, 0.0, 1.0);
+		float firstDist = maxDist;
+		bool isFirstDist = true;
+		vec3 bg = texture(uCubemap, rayDir).rgb;
+
+		while (dist < distToTravel)
+		{
+			float height =
+				length(pos - center) - radiusMin;
+
+			float h =
+				saturate(
+					height /
+					(radiusMax - radiusMin));
+
+			float density = sampleDensity(pos, h);
+			if (density > 0.0)
+			{
+				float dt = exp(-density * stepSize * uBeer);
+
+				float densityLight = sampleDensityTowardsLight(pos);
+				float lightEnergy = max(exp(-densityLight * uBeer), exp(-densityLight * uBeer * 0.25) * 0.7); 
+				float scatter = (1.0 - dt) * transmittance; 
+
+				float d = uOutScatterAmbient * pow(density, remap(
+				h,0.3,0.9,0.5,1.0));
+				float vertical = pow(grad(h,0.0,0.3,0.8,1.0),0.8);
+
+				float out_scatter = d * vertical;
+
+				out_scatter = 1.0 - saturate(out_scatter);
+
+				color += scatter * mix(IOScattering * out_scatter * mix(uExtinctionColor, uDirectionalLight.Color, lightEnergy), bg, clamp((near + dist) * uAmbient, 0, 1));
+
+				transmittance *= dt;
+				if (isFirstDist) {firstDist = dist; isFirstDist = false;}
+				if (transmittance < 0.01) break;
+			}
+			
+			pos += stepSize * rayDir;
+			dist += stepSize;
+		}
+		float cloudFirstDist = (near + firstDist);
+
+		imageStore(SkyA, storePos, vec4(color, transmittance));
+		imageStore(SkyB, storePos, vec4(cloudFirstDist));
+	}
+}

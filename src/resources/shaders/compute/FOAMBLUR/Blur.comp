@@ -1,0 +1,39 @@
+#version 460 core
+layout (local_size_x=16, local_size_y=16) in;
+layout (binding=0, rgba32f) uniform image2D Foam;
+
+uniform uint N;
+
+const float GAUSSIAN_3X3[9] = float[9](
+    1, 2, 1,
+    2, 4, 2,
+    1, 2, 1
+);
+
+const float SHARPEN_3X3[9] = float[9](
+     0, -1,  0,
+    -1,  5, -1,
+     0, -1,  0
+);
+
+void main()
+{
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+	float accum = 0;
+	for (int i = -1; i <= 1; i++)
+	{
+		for (int j = -1; j <= 1; j++)
+		{
+			ivec2 newPos = pos + ivec2(i, j);
+			newPos = (newPos + int(N)) % int(N);
+			float val = imageLoad(Foam, newPos).b;
+			float w = GAUSSIAN_3X3[(i + 1) * 3 + (j + 1)];
+			accum += w * val;
+		}
+	}
+	vec4 prevVal = imageLoad(Foam, pos);
+	prevVal.a = accum / 16.0;
+
+	imageStore(Foam, pos, prevVal);
+}

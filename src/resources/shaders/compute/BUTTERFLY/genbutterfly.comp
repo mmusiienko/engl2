@@ -1,0 +1,50 @@
+#version 460 core
+#define PI 3.1415926535897932384626433832795
+layout (local_size_x=1, local_size_y=16) in;
+layout (binding=0, rgba32f) writeonly uniform image2D butterflyTexture;
+
+uniform uint N;
+uniform uint bitcount;
+
+uint reverseBits(uint x)
+{
+    uint r = 0;
+    for (uint i = 0; i < bitcount; ++i) {
+        r = (r << 1) | (x & 1u);
+        x >>= 1;
+    }
+    return r;
+}
+
+void main()
+{
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+	uint span = uint(pow(2, pos.x));
+	uint nextSpan = span * 2;
+
+	uint butterflywing;
+	if (mod(pos.y, nextSpan) < span)
+	    butterflywing = 1;
+	else butterflywing = 0;
+
+	ivec2 indices;
+
+	ivec2 indexpos = ivec2(pos.y, pos.y + span);
+	if (butterflywing == 0)
+		indexpos -= ivec2(span);
+
+	if (pos.x == 0)
+		indices = ivec2(reverseBits(indexpos.x), reverseBits(indexpos.y));
+	else
+		indices = indexpos;
+
+	float fn = float(N);
+	float k = mod(pos.y * ( fn / pow(2, pos.x + 1)), N);
+	float arg = 2.0 * PI * k / fn;
+	vec2 twiddle = vec2( cos(arg), sin(arg) );
+
+	imageStore(butterflyTexture, pos, vec4(
+		twiddle, indices
+	));
+}

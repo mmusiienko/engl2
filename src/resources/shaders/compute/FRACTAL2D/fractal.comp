@@ -1,0 +1,40 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform sampler2D Perlin;
+layout(rgba8, binding = 1) uniform image2D Fractal;
+
+uniform uint w;
+uniform uint h;
+uniform uint N;
+uniform float persistence;
+uniform float lacunarity;
+uniform uint channelFrom;
+uniform uint channelTo;
+
+
+void main() {
+    ivec2 size = imageSize(Fractal);
+    vec2 uv = gl_GlobalInvocationID.xy / size;
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+    float total = 0.0;
+    float freq = 1.0;
+    float amplitude = 1.0;
+    float maxVal = 0.0;
+
+    for (int i = 0; i < N; i++) {
+        float val = texture(Perlin, uv * freq)[channelFrom - 1];
+        total += val * amplitude;
+        maxVal += amplitude;
+
+        amplitude *= persistence;
+        freq *= lacunarity;
+    }
+
+    float val = total / maxVal;
+    vec4 prevVal = imageLoad(Fractal, pos);
+	prevVal[channelTo - 1] = val;
+	imageStore(Fractal, pos, prevVal);
+}

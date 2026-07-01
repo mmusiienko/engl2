@@ -1,0 +1,19 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (rg32f, binding = 0) uniform readonly image2D Spectrum;
+layout (rg32f, binding = 1) uniform writeonly image2D ConjSpectrum;
+
+uniform uint N;
+uniform float L;
+
+void main()
+{
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 mirrored = ivec2((N - pos.x) % N, (N - pos.y) % N);
+
+    vec2 spectrum = imageLoad(Spectrum, mirrored).xy;
+    
+    imageStore(ConjSpectrum, pos, vec4(spectrum.x, -spectrum.y, 0.0, 1.0));
+}

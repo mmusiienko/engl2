@@ -1,36 +1,35 @@
 #pragma once
 
-#include "../core/Global.h"
-#include "../ecs/GameContext.h"
+#include "ecs/GameContext.h"
+#include "ui/EcsUi.h"
 
-
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 
 namespace EnGl
 {
 	class Ui
 	{
 	public:
-		
-		struct State
-		{
-		};
-
-		State m_State;
 		ImGuiIO* m_io;
 
 		Ui(GLFWwindow* window);
 		~Ui();
 
-		void Render(GameContext& context);
+		void Render(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& systemRegistry);
 		void Present();
 	private:
 		GLFWwindow* m_Window;
 
-		void Frame(GameContext& context);
+		struct State
+		{
+			enum PanelState { NONE, ECS, Count } CurrentPanelState = NONE;
+		};
 
-		void CameraView(GameContext::CameraInfo& cameraInfo);
+		State m_State;
+
+		EcsUi m_EcsUi{};
+
+		void Frame(GameContext& context, EcsImpl::EntityManager& manager, EcsImpl::SystemRegistry<GameContext>& registry);
+
+		void DebugView(GameContext::DebugInfo &debug, EcsImpl::EntityManager& manager);
 	};
 }

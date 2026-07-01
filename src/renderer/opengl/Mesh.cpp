@@ -1,11 +1,12 @@
-#include <glad/glad.h>
+#include "renderer/base/Mesh.h"
 
-#include "../base/Mesh.h"
-#include "../core/Core.h"
+#include "core/Core.h"
+#include "spdlog/spdlog.h"
+
 
 namespace EnGl
 {
-	Mesh::Mesh(const CreationInfo& info)
+	Mesh::Mesh(const CreationInfo& info) : m_AABB(info.Aabb), m_DrawType(info.DrawType)
 	{
 		GL_CHECK(glGenVertexArrays(1, &m_Id));
 		GL_CHECK(glBindVertexArray(m_Id));
@@ -16,7 +17,7 @@ namespace EnGl
 
 		GL_CHECK(glGenBuffers(1, &m_EBO));
 
-		m_IndicesSize = info.Indices.size();
+		m_IndicesSize = static_cast<u32>(info.Indices.size());
 
 		GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO));
 		GL_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Index) * m_IndicesSize, info.Indices.data(), GL_STATIC_DRAW));
@@ -28,10 +29,17 @@ namespace EnGl
 		{
 			GL_CHECK(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal)));
 			GL_CHECK(glEnableVertexAttribArray(1));
+
+			if (info.HasTangents)
+			{
+				GL_CHECK(glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent)));
+				GL_CHECK(glEnableVertexAttribArray(3));
+			}
 		}
 		else
 		{
 			GL_CHECK(glDisableVertexAttribArray(1));
+			GL_CHECK(glDisableVertexAttribArray(3));
 		}
 
 		if (info.HasTextureCoords)
@@ -43,38 +51,44 @@ namespace EnGl
 		{
 			GL_CHECK(glDisableVertexAttribArray(2));
 		}
+
+		if (info.HasBones)
+		{
+			GL_CHECK(glVertexAttribIPointer(5, 4, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, BoneIds)));
+			GL_CHECK(glEnableVertexAttribArray(5));
+			GL_CHECK(glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, BoneWeights)));
+			GL_CHECK(glEnableVertexAttribArray(6));
+		}
+		else
+		{
+			GL_CHECK(glDisableVertexAttribArray(5));
+			GL_CHECK(glDisableVertexAttribArray(6));
+		}
 	}
 
 	void Mesh::Draw() const
 	{
 		GL_CHECK(glBindVertexArray(m_Id));
-		GL_CHECK(glDrawElements(GL_TRIANGLES, m_IndicesSize, GL_UNSIGNED_INT, 0));
+		GL_CHECK(glDrawElements(m_DrawType, m_IndicesSize, GL_UNSIGNED_INT, 0));
+
+		m_BoneUpdated = false;
 	}
 
-	void Mesh::UpdateInstanceBuffer(const std::vector<glm::mat4>& transforms)
+	void Mesh::UpdateInstanceBuffer(const std::vector<InstanceData>& instanceData)
 	{
-		m_InstanceSize = transforms.size();
-		m_SSBO.Resize((void*) transforms.data(), transforms.size() * sizeof(glm::mat4));
+		m_InstanceSize = static_cast<u32>(instanceData.size());
+		m_InstanceData.Resize((void*)instanceData.data(), m_InstanceSize * sizeof(InstanceData));
 	}
 
 	void Mesh::DrawInstanced()
 	{
 		glBindVertexArray(m_Id);
-		m_SSBO.Bind(0);
-		glDrawElementsInstanced(GL_TRIANGLES, m_IndicesSize, GL_UNSIGNED_INT, 0, m_InstanceSize);
-	}
-
-	void Mesh::Unbind()
-	{
-		GL_CHECK(glBindVertexArray(0));
-		GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+		m_InstanceData.Bind(0);
+		glDrawElementsInstanced(m_DrawType, m_IndicesSize, GL_UNSIGNED_INT, 0, m_InstanceSize);
 	}
 
 	Mesh::~Mesh()
 	{
-		Unbind();
-
 		GL_CHECK(glDeleteVertexArrays(1, &m_Id));
 		GL_CHECK(glDeleteBuffers(1, &m_VBO));
 		GL_CHECK(glDeleteBuffers(1, &m_EBO));

@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Core.h"
-#include "../resources/StaticModel.h"
-#include "../resources/importers/AssetManager.h"
+#include "math/Math.h"
+
 
 namespace EnGl
 {
+	class Texture2D;
+
 	class Global
 	{
 	public:
@@ -15,6 +17,7 @@ namespace EnGl
 		static glm::uvec2 WindowResolution;
 		static bool IsPaused;
 
+		static void StartUp();
 		static void ShutDown();
 	};
 }

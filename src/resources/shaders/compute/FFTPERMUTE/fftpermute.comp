@@ -1,0 +1,30 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0, rg32f) uniform image2D pingpong0;
+layout(binding = 1, rg32f) uniform image2D pingpong1;
+
+uniform uint pingpong;
+uniform uint N;
+
+void main()
+{
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+	int minusOne = 1 - int(mod(pos.x + pos.y, 2)) * 2;
+
+	vec2 val;
+	if (pingpong == 0)
+	{
+		val = imageLoad(pingpong0, pos).xy;
+		vec2 res = minusOne * val ;
+		imageStore(pingpong1, pos, vec4(res, 0.0, 1.0));
+	}
+	else
+	{
+		val = imageLoad(pingpong1, pos).xy;
+		vec2 res = minusOne * val;
+		imageStore(pingpong0, pos, vec4(res, 0.0, 1.0));
+	}
+}

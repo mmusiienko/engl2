@@ -1,4 +1,5 @@
-#include "InputHandler.h"
+#include "core/InputHandler.h"
+#include "ui/ImguiEntry.h"
 
 
 namespace EnGl
@@ -41,6 +42,14 @@ namespace EnGl
 		}
 	}
 
+	void InputHandler::ScrollCallback(GLFWwindow* window, f64 xoffset, f64 yoffset)
+	{
+		if (ImGui::GetIO().WantCaptureMouse)
+			return;
+
+		State.ScrollDelta += static_cast<f32>(yoffset);
+	}
+
 	void InputHandler::KeyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		if (ImGui::GetIO().WantCaptureKeyboard)
@@ -50,12 +59,6 @@ namespace EnGl
 			State.KeysPressed[key] = true;
 		else if (action == GLFW_RELEASE)
 			State.KeysReleased[key] = true;
-
-		if (key == GLFW_KEY_F2 && action == GLFW_PRESS)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		if (key == GLFW_KEY_F1 && action == GLFW_PRESS)
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		{
@@ -70,7 +73,7 @@ namespace EnGl
 	void InputHandler::KeyboardEvent(GLFWwindow* window)
 	{
 
-		for (size_t i = 0; i < MAX_KEYS; i++)
+		for (u32 i = 0; i < MAX_KEYS; i++)
 		{
 			if (glfwGetKey(window, i) == GLFW_PRESS)
 				State.KeysHeld[i] = true;
@@ -79,7 +82,7 @@ namespace EnGl
 
 	void InputHandler::MouseEvent(GLFWwindow* window)
 	{
-		for (size_t i = 0; i < MAX_MOUSE_BUTTONS; i++)
+		for (u32 i = 0; i < MAX_MOUSE_BUTTONS; i++)
 		{
 			if (glfwGetMouseButton(window, i) == GLFW_PRESS)
 				State.MouseBHeld[i] = true;
@@ -96,6 +99,9 @@ namespace EnGl
 
 	void InputHandler::ResetState()
 	{
+		State.MouseDelta = {};
+		State.ScrollDelta = 0.0f;
+
 		for (size_t i = 0; i < MAX_KEYS; i++)
 		{
 			State.KeysHeld[i] = false;

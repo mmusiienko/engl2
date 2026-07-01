@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "../math/Math.h"
+#include "math/Math.h"
 #include "Resource.h"
 
 
@@ -10,10 +10,23 @@ namespace EnGl
 {
 	class Texture;
 	class SSBO;
-
+	
 	class Shader : public Resource
 	{
 	public:
+		struct UniformDirectionalLight
+		{
+			glm::vec3 Direction;
+			glm::vec3 Color;
+		};
+
+		static constexpr size_t MAX_LIGHTS = 16;
+		struct UniformPointLight
+		{
+			glm::vec3 Position;
+			glm::vec3 Color;
+			f32 Intensity;
+		};
 
 		struct ShaderUnit
 		{
@@ -30,22 +43,42 @@ namespace EnGl
 
 		void Use() const;
 
-		u32 GetLocation(const std::string& name) const;
-		void SetUniform(const std::string& name, i32 value) const;
-		void SetUniform(const std::string& name, u32 value) const;
-		void SetUniform(const std::string& name, f32 value) const;
-		void SetUniform(const std::string& name, f64 value) const;
-		void SetUniform(const std::string& name, bool value) const;		
-		void SetUniform(const std::string& name, const glm::mat4& value) const;
-		void SetUniform(const std::string& name, const glm::mat4x3& value) const;
-		void SetUniform(const std::string& name, const glm::vec4& value) const;
-		void SetUniform(const std::string& name, const glm::vec3& value) const;
-		void SetUniform(const std::string& name, const glm::vec2& value) const;
-		void SetUniform(const std::string& name, const Texture& value, u32 unit) const;
+		u32 GetLocation(std::string_view name) const;
+		void SetUniform(std::string_view name, i32 value) const;
+		void SetUniform(std::string_view name, u32 value) const;
+		void SetUniform(std::string_view name, f32 value) const;
+		void SetUniform(std::string_view name, f64 value) const;
+		void SetUniform(std::string_view name, bool value) const;		
+		void SetUniform(std::string_view name, const glm::mat4& value) const;
+		void SetUniform(std::string_view name, const glm::mat4x3& value) const;
+		void SetUniform(std::string_view name, const glm::mat3x4& value) const;
+		void SetUniform(std::string_view name, const glm::mat3& value) const;
+		void SetUniform(std::string_view name, const glm::vec4& value) const;
+		void SetUniform(std::string_view name, const glm::vec3& value) const;
+		void SetUniform(std::string_view name, const glm::vec2& value) const;
+		void SetUniform(std::string_view name, const glm::uvec2& value) const;
+		void SetUniform(std::string_view name, const UniformDirectionalLight& value) const;
+		void SetUniform(std::string_view name, const std::array<UniformPointLight, MAX_LIGHTS>& value) const;
+		void SetUniform(std::string_view name, const Texture& value, u32 unit) const;
+		template <typename T>
+		requires std::is_pointer_v<T>
+		void SetUniform(std::string_view, T) = delete;
 
 		void BindTextureUnit(const Texture& tex, u32 unit) const;
 		void BindSSBO(const SSBO& ssbo, u32 unit) const;
 
 		virtual ~Shader();
+
+	private:
+		struct StringHash 
+		{
+			using is_transparent = void;
+			size_t operator()(std::string_view sv) const
+			{
+				return std::hash<std::string_view>{}(sv);
+			}
+		};
+
+		mutable std::unordered_map<std::string, u32, StringHash, std::equal_to<>> m_LocationCache;
 	};
 }

@@ -1,0 +1,97 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(rgba8, binding = 0) uniform image2D Fractal;
+
+uniform uint uOctaves = 8;
+uniform uint uChannel = 0;
+uniform uint uNCells = 1;
+uniform uint uSeed = 133;
+uniform float uDarkThreshold = 0.0;
+
+
+uvec2 pcg2d(uvec2 v)
+{
+    v = v * 1664525u + 1013904223u;
+
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+
+    v = v ^ (v>>16u);
+
+    v.x += v.y * 1664525u;
+    v.y += v.x * 1664525u;
+
+    v = v ^ (v>>16u);
+
+    return v;
+}
+
+vec2 getGradient(ivec2 p, uint seed, uint NCells) {
+    uvec2 gridPos = uvec2(p % int(NCells));
+    
+    uvec2 h = pcg2d(gridPos ^ uvec2(seed, seed * 13));
+    
+    vec2 g = vec2(h) * (2.0 / 4294967295.0) - 1.0;
+    
+    return normalize(g);
+}
+
+float fade(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+
+float perlin(ivec2 pos, uint seed, uint NCells)
+{
+	vec2 dimensions = vec2(imageSize(Fractal)) / float(NCells);
+	ivec2 cell = ivec2(floor(vec2(pos) / dimensions));
+
+	vec2 grad1 = getGradient(ivec2(cell.x, cell.y), seed, NCells);
+	vec2 grad2 = getGradient(ivec2(cell.x + 1, cell.y), seed, NCells);
+	vec2 grad3 = getGradient(ivec2(cell.x, cell.y + 1), seed, NCells);
+	vec2 grad4 = getGradient(ivec2(cell.x + 1, cell.y + 1), seed, NCells);
+
+	vec2 cornerPos = vec2(cell.x * dimensions.x, cell.y * dimensions.y);
+
+	vec2 uv = (pos - cornerPos) / dimensions;
+
+	vec2 o1 = uv - vec2(0, 0);
+	vec2 o2 = uv - vec2(1, 0);
+	vec2 o3 = uv - vec2(0, 1);
+	vec2 o4 = uv - vec2(1, 1);
+
+	float dot1 = dot(o1, grad1);
+	float dot2 = dot(o2, grad2);
+	float dot3 = dot(o3, grad3);
+	float dot4 = dot(o4, grad4);
+	
+	float lerp1 = mix(dot1, dot2, fade(uv.x));
+	float lerp2 = mix(dot3, dot4, fade(uv.x));
+
+	return mix(lerp1, lerp2, fade(uv.y));
+}
+
+void main()
+{
+	ivec2 ipos = ivec2(gl_GlobalInvocationID.xy);
+	float total = 0.0;
+    uint freq = 1;
+    float amplitude = 1.0;
+    float maxVal = 0.0;
+	float gain = exp2(-.85);;
+
+    for (uint i = 0; i < uOctaves; i++) {
+        float val = perlin(ipos, uSeed + i, uNCells * freq);
+
+		total += val * amplitude;
+        maxVal += amplitude;
+		
+        amplitude *= gain;
+        freq *= 2;
+    }
+
+    float val = total / maxVal;
+    val = clamp(val + 0.5, 0.0, 1.0);
+    val = max(val - uDarkThreshold, 0.0);
+    vec4 prevVal = imageLoad(Fractal, ipos);
+    prevVal[uChannel] = val;
+	imageStore(Fractal, ipos, prevVal);
+}

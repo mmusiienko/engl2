@@ -1,0 +1,47 @@
+#version 460 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout (rg32f, binding = 0) uniform readonly image2D DYCOMBINEDDXZ;
+layout (rg32f, binding = 1) uniform readonly image2D DXCOMBINEDZ;
+layout (rg32f, binding = 2) uniform readonly image2D DDXCOMBINEDDZ;
+layout (rg32f, binding = 3) uniform readonly image2D DYDXCOMBINEDYDZ;
+layout (rgba32f, binding = 4) uniform image2D Displacement;
+layout (rgba32f, binding = 5) uniform image2D Normal;
+
+uniform float uLambda;
+uniform float L;
+
+uniform uint N;
+
+uniform float foamThreshold;
+uniform float foamDecay;
+uniform float foamIntensity;
+uniform float dt;
+
+void main()
+{
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 dyddxz = imageLoad(DYCOMBINEDDXZ, pos).rg;
+    vec2 dxdz = imageLoad(DXCOMBINEDZ, pos).rg;
+    vec2 ddxddz = imageLoad(DDXCOMBINEDDZ, pos).rg;
+    vec2 dydxdydz = imageLoad(DYDXCOMBINEDYDZ, pos).rg;
+    float Dxdx = ddxddz.x;
+    float Dzdz = ddxddz.y;
+    float Dxdz = dyddxz.y;
+
+    float jxx = 1.0 + uLambda * Dxdx;
+    float jzz = 1.0 + uLambda * Dzdz;
+    float jxz = uLambda * Dxdz;
+
+    float J = jxx * jzz - jxz * jxz;
+    J *= -1;
+    J += foamIntensity;
+
+    float accumulation = imageLoad(Normal, pos).a - foamDecay * dt / max(J, 0.5);
+    float foam = max(accumulation, J);
+    
+    imageStore(Displacement, pos, vec4(uLambda * dxdz.x, dyddxz.x, uLambda * dxdz.y, J));
+    imageStore(Normal, pos, vec4(dydxdydz / abs((1 + ddxddz)), foam, 0));
+}

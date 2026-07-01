@@ -1,4 +1,5 @@
 #include "Printer.h"
+
 #include <iostream>
 
 
@@ -7,6 +8,11 @@ namespace EnGl
 	void Printer::Print(const glm::vec3& val)
 	{
 		std::cout << val.x << " " << val.y << " " << val.z << '\n';
+	}
+
+	void Printer::Print(const glm::quat& val)
+	{
+		std::cout <<  val.w << " " << val.x << " " << val.y << " " << val.z << '\n';
 	}
 
 	void Printer::Print(const glm::mat4& val)

@@ -1,0 +1,57 @@
+#version 460 core
+
+layout(local_size_x=16, local_size_y=16) in;
+
+layout(binding=0, r8) uniform readonly image2D Source;
+layout(binding=1, r8) uniform writeonly image2D Dest;
+
+const int weights[5] = int[](
+    16,
+    12,
+    8,
+    4,
+    1
+);
+
+uniform sampler2D uDepth;
+uniform uint uDepthAware;
+uniform float uNear;
+uniform float uDepthReject;
+
+void main()
+{
+    ivec2 pos  = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(Source);
+
+    float color = 0.0;
+    int totalWeight = 0;
+
+    float z = 0.0;
+    if (uDepthAware == 1)
+    {
+        z = uNear / texelFetch(uDepth, pos, 0).r;
+    }
+
+    for (int i = -4; i < 5; i++)
+    {
+        ivec2 samplePos = pos + ivec2(i, 0);
+
+        if (samplePos.x >= size.x && samplePos.x >= 0)
+            continue;
+
+        float s = imageLoad(Source, samplePos).r;
+
+        if (uDepthAware == 1)
+        {
+            float sampleZ = uNear / texelFetch(uDepth, samplePos, 0).r;
+            if (abs(z - sampleZ) > uDepthReject) continue;
+        }
+
+        color += s * weights[abs(i)];
+        totalWeight += weights[abs(i)];
+    }
+
+    color /= float(totalWeight);
+
+    imageStore(Dest, pos, vec4(color));
+}
