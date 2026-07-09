@@ -16,7 +16,8 @@ namespace EnGl
 			u32 MinFilter = GL_LINEAR;
 			u32 MagFilter = GL_LINEAR;
 			glm::vec4 BorderColor{ 1.0f };
-
+			bool EnableMultisample = false;
+			u32 NumSamples = 4u;
 			auto operator<=>(const CommonInfo&) const = default;
 		};
 
@@ -36,15 +37,16 @@ namespace EnGl
 			u32 CpuFormat = GL_RGBA;
 			u32 GpuFormat = GL_RGBA32F;
 			u32 DataType = GL_FLOAT;
-			u32 Type = GL_TEXTURE_2D;
+			i32 Type = GL_TEXTURE_2D;
 			u32 Wrap = GL_REPEAT;
 			u32 MinFilter = GL_LINEAR;
 			u32 MagFilter = GL_LINEAR;
 			u32 w = 1;
 			u32 h = 1;
 			u32 d = 0;
-
-			glm::vec4 BorderColor;
+			bool EnableMultisample = false;
+			u32 NumSamples = 4u;
+			glm::vec4 BorderColor{};
 		};
 
 		Texture(Texture&& other) noexcept = default;

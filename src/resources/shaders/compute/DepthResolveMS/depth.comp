@@ -1,0 +1,23 @@
+#version 460 core
+
+layout(local_size_x=16, local_size_y=16) in;
+
+uniform sampler2DMS uSource;
+layout(binding=1, r32f) uniform writeonly image2D Dest;
+
+uniform uint uNumSamples = 4;
+
+void main()
+{
+    ivec2 pos  = ivec2(gl_GlobalInvocationID.xy);
+
+    float total = 0.0;
+    for (int i = 0; i < int(uNumSamples); i++)
+    {
+        total += texelFetch(uSource, pos, i).r;
+    }
+
+    total /= float(uNumSamples);
+
+    imageStore(Dest, pos, vec4(total));
+}

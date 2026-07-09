@@ -28,6 +28,7 @@ namespace EnGl
 			inline static AssetHandle<Texture2D> ARM;
 			inline static AssetHandle<Texture2D> Opacity;
 			inline static AssetHandle<Texture2D> Color;
+			inline static AssetHandle<Texture2D> ColorZeroAlpha;
 		};
 
 		struct Base
@@ -402,11 +403,13 @@ namespace EnGl
 				shader->SetUniform("uPointLights", context.PointLights);
 				shader->SetUniform("uResolution", context.Framebuffer.MainFramebuffer->Resolution());
 
+				auto normals = AssetManager::GetAsset(context.Framebuffer.MainFramebuffer->Color()[1]).Asset;
+				if (normals)
+					shader->SetUniform("uNormals", *normals, 2);
+
 				auto shadowMap = AssetManager::GetAsset(context.Renderer.CascadedShadowMap.ShadowMap).Asset;
 				if (shadowMap)
-				{
 					shader->SetUniform("uShadowMap", *shadowMap, 3);
-				}
 				auto ssao = AssetManager::GetAsset(context.Renderer.SSAO).Asset;
 				if (ssao)
 					shader->SetUniform("uSSAO", *ssao, 4);
@@ -416,14 +419,11 @@ namespace EnGl
 			{
 				auto albedo = AssetManager::GetAsset(AlbedoHandle).Asset;
 				auto arm = AssetManager::GetAsset(ARMHandle).Asset;
-				auto normals = AssetManager::GetAsset(NormalsHandle).Asset;
-				normals = normals ? normals : AssetManager::GetAsset(PlaceholderTextures::Normals).Asset;
 				arm = arm ? arm : AssetManager::GetAsset(PlaceholderTextures::ARM).Asset;
 				albedo = albedo ? albedo : AssetManager::GetAsset(PlaceholderTextures::Color).Asset;
 
 				shader->SetUniform("uMaterial.Albedo", *albedo, 0);
 				shader->SetUniform("uMaterial.ARM", *arm, 1);
-				shader->SetUniform("uMaterial.Normals", *normals, 2);
 			}
 
 			virtual void SetUniformsShadow(Shader* shader) const

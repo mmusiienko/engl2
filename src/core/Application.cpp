@@ -68,15 +68,59 @@ namespace EnGl
 			}
 		);
 
+		auto colorMS = AssetManager::Put<Texture2D>(
+			Texture2D{
+				w, h,
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_RGBA,
+					.GpuFormat = GL_RGBA16F,
+					.DataType = GL_FLOAT,
+					.Common = {.EnableMultisample = true, .NumSamples = 4u}
+				}
+			}
+		);
+
+		auto normalsMS = AssetManager::Put<Texture2D>(
+			Texture2D{
+				w, h,
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_RG,
+					.GpuFormat = GL_RG16F,
+					.DataType = GL_FLOAT,
+					.Common = {.EnableMultisample = true, .NumSamples = 4u}
+				}
+			}
+		);
+
+		auto depthMS = AssetManager::Put<Texture2D>(
+			Texture2D{
+				w, h,
+				Texture::CreationInfoFromData{
+					.CpuFormat = GL_DEPTH_COMPONENT,
+					.GpuFormat = GL_DEPTH_COMPONENT32F,
+					.DataType = GL_FLOAT,
+					.Common = {.EnableMultisample = true, .NumSamples = 4u}
+				}
+			}
+		);
+
+
 		Framebuffer::CreationInfo info;
 		info.ColorAttachments = { color, normals };
 		info.DepthAttachment = depth;
+
+		Framebuffer::CreationInfo infoMS;
+		infoMS.ColorAttachments = { colorMS, normalsMS };
+		infoMS.DepthAttachment = depthMS;
+
 		m_Framebuffer = make_scope<Framebuffer>(std::move(info));
+		m_FramebufferMS = make_scope<Framebuffer>(std::move(infoMS));
 	}
 
 	void Application::ResizeFramebuffer(u32 w, u32 h)
 	{
 		m_Framebuffer->Resize(w, h);
+		m_FramebufferMS->Resize(w, h);
 	}
 
 	void Application::framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -174,9 +218,9 @@ namespace EnGl
 		//auto dustHandle = AssetManager::Load<Model>(dustParams);
 		//auto dustModel = AssetManager::GetAsset(dustHandle).Asset;
 
-		AssetImporter<Model>::Params cacheParams{ AssetManager::MODEL_DIR / "dust2" / "de_dust2_d.gltf" };
-		auto cacheHandle = AssetManager::Load<Model>(cacheParams);
-		auto cacheModel = AssetManager::GetAsset(cacheHandle).Asset;
+		AssetImporter<Model>::Params dustParams{ AssetManager::MODEL_DIR / "dust2" / "de_dust2_d.gltf" };
+		auto dustHandle = AssetManager::Load<Model>(dustParams);
+		auto dustModel = AssetManager::GetAsset(dustHandle).Asset;
 		
 		//AssetImporter<Model>::Params gmodelParams{ AssetManager::MODEL_DIR / "gram" / "source" / "gram.fbx", false, false, false };
 		//auto gramHandle = AssetManager::Load<Model>(gmodelParams);
@@ -253,20 +297,13 @@ namespace EnGl
 		//	}, "sponza"
 		//);
 
-		//auto dust = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
-		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
-		//	{
-		//		model.Model = dustHandle;
-		//	}, "dust"
-		//); 
-		
-		auto cache = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
+		auto dust = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
 			[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 			{
-				model.Model = cacheHandle;
-			}, "cache"
-		);
-
+				model.Model = dustHandle;
+			}, "dust"
+		); 
+		
 		//auto gm1 = World().eEntity().Create<Component::Transform, Component::ModelMatrix, Component::RenderedModel, Component::LocalModelMatrix>(
 		//	[=](Component::Transform& transform, auto&, Component::RenderedModel& model, auto&...) -> void
 		//	{
@@ -305,22 +342,13 @@ namespace EnGl
 
 		GameContext context{};
 		context.Framebuffer.MainFramebuffer = m_Framebuffer.get();
+		context.Framebuffer.FramebufferMS = m_FramebufferMS.get();
 
 		f64 timeLastFrame = 0.0f;
 		
 		context.Cubemap.Asset = cubemapHadle;
 		context.Cubemap.Id = cubemapEntity;
-		context.Renderer.DepthWithoutTransparents = AssetManager::Put<Texture2D>(
-			Texture2D{
-				context.Framebuffer.MainFramebuffer->Resolution().x, context.Framebuffer.MainFramebuffer->Resolution().y,
-				Texture::CreationInfoFromData{
-					.CpuFormat = GL_DEPTH_COMPONENT,
-					.GpuFormat = GL_DEPTH_COMPONENT32F,
-					.DataType = GL_FLOAT
-				}
-			}
-		);
-
+		
 		std::vector<Framebuffer> shadowFbs;
 		shadowFbs.reserve(GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades);
 
@@ -513,6 +541,7 @@ namespace EnGl
 		spdlog::info("Terminating imgui");
 
 		m_Framebuffer.reset();
+		m_FramebufferMS.reset();
 
 		Global::ShutDown();
 

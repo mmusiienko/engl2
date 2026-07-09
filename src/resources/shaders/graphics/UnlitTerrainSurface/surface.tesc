@@ -16,9 +16,9 @@ out patch int tcLod;
 
 float tessLevel(float dist)
 {
-    if (dist < 50)  return 64.0;
-    if (dist < 200)  return 16.0;
-    if (dist < 5000) return 4.0;
+    if (dist < 100)  return 8.0;
+    if (dist < 200)  return 4.0;
+    if (dist < 5000) return 2.0;
     return 1.0;
 }
 

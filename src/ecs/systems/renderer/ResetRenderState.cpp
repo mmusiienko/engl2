@@ -12,9 +12,14 @@ namespace EnGl::System
 		glEnable(GL_DEPTH_TEST);
 		glDepthMask(GL_TRUE);
 
-		context.Framebuffer.MainFramebuffer->Bind();
+		context.Framebuffer.FramebufferMS->Bind();
 		glClear(GL_DEPTH_BUFFER_BIT);
 		GLenum buffersClear[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, buffersClear);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		context.Framebuffer.MainFramebuffer->Bind();
+		glClear(GL_DEPTH_BUFFER_BIT);
 		glDrawBuffers(2, buffersClear);
 		glClear(GL_COLOR_BUFFER_BIT);
 	}

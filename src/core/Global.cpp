@@ -27,7 +27,10 @@ namespace EnGl
 		auto armdata = Texture::CreationInfoFromData{ .Data = armvec.data(), .CpuFormat = GL_RGB, .GpuFormat = GL_RGB8, .DataType = GL_FLOAT };
 
 		auto colorvec = std::vector<glm::vec4>{ {1.0f, 0.0f, 0.0f, 1.0f } };
-		auto colordata = Texture::CreationInfoFromData{ .Data = colorvec.data(), .CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8, .DataType = GL_FLOAT };
+		auto colordata = Texture::CreationInfoFromData{ .Data = colorvec.data(), .CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8, .DataType = GL_FLOAT };\
+
+		auto colorvec0 = std::vector<glm::vec4>{ {1.0f, 0.0f, 0.0f, 0.0f } };
+		auto colordata0 = Texture::CreationInfoFromData{ .Data = colorvec0.data(), .CpuFormat = GL_RGBA, .GpuFormat = GL_RGBA8, .DataType = GL_FLOAT };
 
 		Material::PlaceholderTextures::AO = AssetManager::Put<Texture2D>(1u, aoroughdata);
 		Material::PlaceholderTextures::Roughness = Material::PlaceholderTextures::AO;
@@ -36,6 +39,7 @@ namespace EnGl
 		Material::PlaceholderTextures::Metallic = AssetManager::Put<Texture2D>(1u, metaldata);
 		Material::PlaceholderTextures::ARM = AssetManager::Put<Texture2D>(1u, armdata);
 		Material::PlaceholderTextures::Color = AssetManager::Put<Texture2D>(1u, colordata);
+		Material::PlaceholderTextures::ColorZeroAlpha = AssetManager::Put<Texture2D>(1u, colordata0);
 	}
 
 	void Global::ShutDown()

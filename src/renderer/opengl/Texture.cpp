@@ -17,6 +17,8 @@ namespace EnGl
 
 	void Texture::GenerateMips()
 	{
+		if (m_Props.EnableMultisample) return;
+
 		Bind();
 		GL_CHECK(glGenerateMipmap(m_Props.Type));
 	}
@@ -37,11 +39,11 @@ namespace EnGl
 
 		glCopyImageSubData(
 			other.m_Id,
-			GL_TEXTURE_2D,
+			m_Props.Type,
 			0,
 			0, 0, 0,
 			m_Id,
-			GL_TEXTURE_2D,
+			m_Props.Type,
 			0, 
 			0, 0, 0,
 			m_Props.w, m_Props.h, 1
@@ -57,17 +59,16 @@ namespace EnGl
 
 		m_Props = other.m_Props;
 
-
 		Update();
 		UpdateParameters();
 
 		glCopyImageSubData(
 			other.m_Id,
-			GL_TEXTURE_2D,
+			m_Props.Type,
 			0,
 			0, 0, 0,
 			m_Id,
-			GL_TEXTURE_2D,
+			m_Props.Type,
 			0,
 			0, 0, 0,
 			m_Props.w, m_Props.h, 1
@@ -96,12 +97,14 @@ namespace EnGl
 			.CpuFormat = info.CpuFormat,
 			.GpuFormat = info.GpuFormat,
 			.DataType = info.DataType,
-			.Type = GL_TEXTURE_2D,
+			.Type = info.Common.EnableMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D,
 			.Wrap = info.Common.Wrap,
 			.MinFilter = info.Common.MinFilter,
 			.MagFilter = info.Common.MagFilter,
 			.w = w,
 			.h = h,
+			.EnableMultisample = info.Common.EnableMultisample,
+			.NumSamples = info.Common.NumSamples,
 			.BorderColor = info.Common.BorderColor
 		};
 
@@ -115,11 +118,20 @@ namespace EnGl
 	{
 		Bind();
 
-		GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, m_Props.GpuFormat, m_Props.w, m_Props.h, 0, m_Props.CpuFormat, m_Props.DataType, data));
+		if (!m_Props.EnableMultisample)
+		{
+			GL_CHECK(glTexImage2D(m_Props.Type, 0, m_Props.GpuFormat, m_Props.w, m_Props.h, 0, m_Props.CpuFormat, m_Props.DataType, data));
+		}
+		else
+		{
+			GL_CHECK(glTexImage2DMultisample(m_Props.Type, m_Props.NumSamples, m_Props.GpuFormat, m_Props.w, m_Props.h, GL_TRUE));
+		}
 	}
 
 	void Texture2D::UpdateParameters()
 	{
+		if (m_Props.EnableMultisample) return;
+
 		Bind();
 
 		GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, m_Props.Wrap));

@@ -49,7 +49,8 @@ namespace EnGl
 
 			std::unordered_map<u32, Camera> Cameras;
 
-			inline Entity GetEntity() { return CameraId; }
+			inline Entity GetEntity() const { return CameraId; }
+			inline Entity GetTargetEntity() const { return TargetCameraId; }
 			inline void SetCamera(Entity cameraId) { CameraId = cameraId; }
 
 			inline void SetTargetCamera(Entity cameraId) { TargetCameraId = cameraId; }
@@ -137,6 +138,7 @@ namespace EnGl
 		{
 			AssetHandle<Texture2D> DepthTextureOpaque{};
 			Framebuffer* MainFramebuffer = nullptr;
+			Framebuffer* FramebufferMS = nullptr;
 		};
 
 		FramebufferInfo Framebuffer;
