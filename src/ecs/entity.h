@@ -632,9 +632,9 @@ namespace EnGl
                 void SkipInvalid()
                 {
                     while (
-                        Curr < Manager->m_Entities.size() && !Manager->m_Entities[Curr] &&
-                        ((Signature & Manager->m_Signatures[Curr]) == Signature) &&
-                        (Signature & ExcludeSignature).none()
+                        Curr < Manager->m_Entities.size() && (!Manager->m_Entities[Curr] ||
+                        (((Signature & Manager->m_Signatures[Curr]) == Signature) &&
+                        (Signature & ExcludeSignature).none()))
                         )
                     {
                         Curr++;

@@ -498,7 +498,7 @@ namespace EnGl
 	{
 		try
 		{
-			AssetImporter<Texture2D>::Params params{ name, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR, .MagFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor, true, {texture->mWidth, reinterpret_cast<unsigned char*>(texture->pcData)} };
+			AssetImporter<Texture2D>::Params params{ name, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor, true, {texture->mWidth, reinterpret_cast<unsigned char*>(texture->pcData)} };
 
 			std::optional<AssetHandle<Texture2D>> textureHandleOpt 
 				= AssetManager::Load<Texture2D>(params);
@@ -549,7 +549,7 @@ namespace EnGl
 			{
 				try
 				{
-					AssetImporter<Texture2D>::Params params{ texPath, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR, .MagFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor};
+					AssetImporter<Texture2D>::Params params{ texPath, Texture::CommonInfo{.MinFilter = GL_LINEAR_MIPMAP_LINEAR}, flipTextures, isColor};
 					textureHandleOpt = AssetManager::Load<Texture2D>(params);
 					return textureHandleOpt;
 				}

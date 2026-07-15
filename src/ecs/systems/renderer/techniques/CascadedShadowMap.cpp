@@ -140,27 +140,27 @@ namespace EnGl::System
 
 	void System::CascadedShadowMapRender::RenderShadows(EcsImpl::EntityManager& manager, GameContext& context)
 	{
-		glEnable(GL_DEPTH_CLAMP);
-		glClearDepth(0.0);
-		glDepthFunc(GL_GREATER);
-		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-		glEnable(GL_POLYGON_OFFSET_FILL);
-		glPolygonOffset(context.Renderer.CascadedShadowMap.PolygonOffset.x, context.Renderer.CascadedShadowMap.PolygonOffset.y);
+		GL_CHECK(glEnable(GL_DEPTH_CLAMP));
+		GL_CHECK(glClearDepth(0.0));
+		GL_CHECK(glDepthFunc(GL_GREATER));
+		GL_CHECK(glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE));
+		GL_CHECK(glEnable(GL_POLYGON_OFFSET_FILL));
+		GL_CHECK(glPolygonOffset(context.Renderer.CascadedShadowMap.PolygonOffset.x, context.Renderer.CascadedShadowMap.PolygonOffset.y));
 
 		Entity prevCamera = context.Camera.GetEntity();
 		for (u32 i = 0; i < GameContext::RendererInfo::CascadedShadowMapInfo::NShadowMapCascades; i++)
 		{
 			context.Renderer.CascadedShadowMap.DirShadowFramebuffer[i]->Bind();
-			glDrawBuffer(GL_NONE);
-			glClear(GL_DEPTH_BUFFER_BIT);
+			GL_CHECK(glDrawBuffer(GL_NONE));
+			GL_CHECK(glClear(GL_DEPTH_BUFFER_BIT));
 			context.Camera.SetCamera(context.Renderer.CascadedShadowMap.CascadeCamera[i]);
 
 			Renderer::Common::RenderLayer(manager, context, Component::RenderLayer::OQ, RenderpassType::SHADOW);
 		}
 		context.Camera.SetCamera(prevCamera);
 
-		glDisable(GL_DEPTH_CLAMP);
-		glDisable(GL_POLYGON_OFFSET_FILL);
+		GL_CHECK(glDisable(GL_DEPTH_CLAMP));
+		GL_CHECK(glDisable(GL_POLYGON_OFFSET_FILL));
 
 		DispatchCSMCombine(manager, context);
 	}

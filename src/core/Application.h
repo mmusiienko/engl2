@@ -38,6 +38,7 @@ namespace EnGl
 		f64 m_PauseTime = 0.0f;
 		GLFWwindow* m_Window = nullptr;
 		scope<Framebuffer> m_Framebuffer = nullptr;
+		scope<Framebuffer> m_FramebufferMS = nullptr;
 
 		Entity m_Camera = 0;
 		EcsImpl m_Ecs;

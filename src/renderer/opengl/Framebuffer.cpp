@@ -14,7 +14,7 @@ namespace EnGl
 		auto depth = AssetManager::GetAsset(info.DepthAttachment).Asset;
 		if (depth)
 		{
-			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth->Id(), 0));
+			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth->Properties().Type, depth->Id(), 0));
 			m_Resolution = { depth->Properties().w, depth->Properties().h };
 		}
 		else
@@ -32,7 +32,7 @@ namespace EnGl
 
 			assert(color && "Color attachment is not loaded.");
 
-			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, color->Id(), 0));
+			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, color->Properties().Type, color->Id(), 0));
 
 			i++;
 		}
@@ -127,7 +127,7 @@ namespace EnGl
 			color->Properties().h = h;
 			color->Update();
 
-			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, color->Id(), 0));
+			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, color->Properties().Type, color->Id(), 0));
 			i++;
 		}
 
@@ -157,7 +157,7 @@ namespace EnGl
 			depth->Properties().w = w;
 			depth->Properties().h = h;
 			depth->Update();
-			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth->Id(), 0));
+			GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth->Properties().Type, depth->Id(), 0));
 
 			if (!depth2 && m_Depth2.Id != 0)
 				throw std::runtime_error(std::format("Swap depth for framebuffer id: {} is not loaded", m_Id));

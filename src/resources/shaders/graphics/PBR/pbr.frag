@@ -111,25 +111,31 @@ const float GAUSSIAN_3X3[9] = float[9](
     1, 2, 1
 );
 
-float Shadow(vec3 normal, UniformDirectionalLight light)
+float Shadow(vec3 normal, UniformDirectionalLight light, vec2 screenUv)
 {
-    vec4 s = texture(uShadowMap, gl_FragCoord.xy / vec2(uResolution));
+    vec4 s = texture(uShadowMap, screenUv);
     return s.r;
 }
 
+float SSAO(vec2 screenUv)
+{
+    vec4 s = texture(uSSAO, screenUv);
+    return s.r;
+}
 
 const vec3 F0 = vec3(0.04); 
 const vec3 AMBIENT = vec3(0.03); 
 
 void main()
 {
+	vec2 screenUv = gl_FragCoord.xy / vec2(uResolution);
 	vec3 L0 = vec3(0.0);
 
 	vec3 V = normalize(uCameraPos - vFragPos);  
 
     vec3 F0mix = mix(F0, uMaterial.Albedo, uMaterial.Metallic);
-
-	L0 +=  DirectionalLight(uDirectionalLight, V, F0mix);
+	float shadow = Shadow(normal, uDirectionalLight, screenUv);
+	L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix);
 
 	for (uint i = 0; i < MAX_LIGHTS; i++)
 	{

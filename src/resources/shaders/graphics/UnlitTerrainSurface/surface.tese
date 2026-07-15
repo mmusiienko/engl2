@@ -27,10 +27,11 @@ float sampleHeight(vec2 pos)
 
     heightSample = vec4(pow(heightSample.r, 10.0), heightSample.g * 2, 0.5 * heightSample.b, heightSample.a);
 
-    float h = min(dot(heightSample, uHeightWeights) - 500, 30.0);
+     float h = dot(heightSample, uHeightWeights);
 
     return h;
 }
+
 
 void main()
 {

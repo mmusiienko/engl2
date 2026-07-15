@@ -16,7 +16,6 @@ struct Material
 {
 	sampler2D ARM;
 	sampler2D Albedo;
-	sampler2D Normals;
 };
 
 struct UniformPointLight
@@ -41,6 +40,8 @@ uniform Material uMaterial;
 
 uniform vec3 uCameraPos;
 uniform uvec2 uResolution;
+
+uniform sampler2D uNormals;
 
 float DistributionGGX(float NDotH, float roughness)
 {
@@ -112,7 +113,7 @@ const float GAUSSIAN_3X3[9] = float[9](
     1, 2, 1
 );
 
-float Shadow(vec3 normal, UniformDirectionalLight light, vec2 screenUv)
+float Shadow(vec2 screenUv)
 {
     vec4 s = texture(uShadowMap, screenUv);
     return s.r;
@@ -126,6 +127,16 @@ float SSAO(vec2 screenUv)
 
 const vec3 F0 = vec3(0.04); 
 const vec3 AMBIENT = vec3(0.03); 
+
+vec3 Decode(vec2 f)
+{
+    f = f * 2.0 - 1.0;
+    // https://twitter.com/Stubbesaurus/status/937994790553227264
+    vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    float t = clamp(-n.z, 0.0, 1.0);
+    n.xy -= sign(n.xy) * t;
+    return normalize(n);
+}
 
 void main()
 {
@@ -141,16 +152,10 @@ void main()
 	float metallic = arm.b;
 	float ao = arm.r;
 
-	vec3 normal = normalize(vNormal);
-	vec3 tangent = normalize(vTangent);
-	tangent = normalize(tangent - dot(normal, tangent) * normal);
-    vec3 bitangent = cross(normal, tangent);
-	mat3 TBN = mat3(tangent, bitangent, normal);
-
-	vec3 normalMap = texture(uMaterial.Normals, vTexCoords).rgb * 2.0 - 1.0;
-	vec3 N = normalize(TBN * normalMap);
+	vec3 N = Decode(texture(uNormals, screenUv).rg);
+	
     vec3 F0mix = mix(F0, albedo, metallic);
-	float shadow = Shadow(normal, uDirectionalLight, screenUv);
+	float shadow = Shadow(screenUv);
 	L0 += shadow * DirectionalLight(uDirectionalLight, V, F0mix, N, metallic, roughness, albedo );
 
 	for (uint i = 0; i < MAX_LIGHTS; i++)
@@ -158,7 +163,7 @@ void main()
 		L0 += PointLight(uPointLights[i], V, F0mix,N, metallic, roughness, albedo);
 	}
 	
-	vec3 color = AMBIENT * albedo * ao * ssao + L0 * clamp(ssao + 0.1, 0, 1);
+	vec3 color = AMBIENT * albedo * ao * ssao + L0;
 
 	FragColor = vec4(color, 1.0);
 }
